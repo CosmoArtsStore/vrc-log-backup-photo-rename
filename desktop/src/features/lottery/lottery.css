@@ -1,0 +1,298 @@
+/* src/features/lottery/lottery.css */
+
+.lottery-page-header {
+    padding: 16px 0 16px 0;
+    flex-shrink: 0;
+}
+
+.lottery-form-card {
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    flex: 1 0 auto;
+    padding: 20px;
+}
+
+.lottery-template-area {
+    padding: 12px;
+    background-color: var(--discord-background-secondary);
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.lottery-template-area-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.lottery-template-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.lottery-template-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.lottery-btn-small {
+    padding: 0 10px;
+    height: 40px;
+    font-size: 13px;
+}
+
+.lottery-btn-danger {
+    padding: 0 10px;
+    height: 40px;
+    background-color: var(--discord-status-danger);
+}
+
+.lottery-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.lottery-grid-2col--margin-bottom {
+    margin-bottom: 16px;
+}
+
+.lottery-form-group--no-margin {
+    margin: 0;
+}
+
+.lottery-label--margin-bottom {
+    margin-bottom: 6px;
+}
+
+.lottery-note--margin-top {
+    margin-top: 4px;
+}
+
+.lottery-note--compact {
+    margin-top: 4px;
+    line-height: 1.3;
+}
+
+.lottery-note--warning {
+    margin-top: 4px;
+    line-height: 1.3;
+    color: var(--discord-accent-yellow, #f0b232);
+}
+
+.lottery-form-group--matching-type {
+    max-width: 400px;
+    margin-bottom: 16px;
+}
+
+.lottery-guaranteed-select-btn-wrap {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    gap: 8px;
+}
+
+.lottery-guaranteed-select-btn {
+    padding: 0 12px;
+    height: 100%;
+    font-size: 13px;
+}
+
+.lottery-guaranteed-count {
+    margin: 0;
+    font-size: 12px;
+}
+
+.lottery-count-input-wrap {
+    height: 40px;
+}
+
+.lottery-count-input {
+    height: 100%;
+}
+
+.lottery-m003-section {
+    padding: 12px 16px;
+    background-color: var(--discord-background-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--discord-border);
+    margin-bottom: 16px;
+}
+
+.lottery-m003-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--discord-text-normal);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lottery-checkbox-group {
+    margin-top: 12px;
+    margin-bottom: 0;
+}
+
+.lottery-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    margin: 0;
+    font-size: 13px;
+}
+
+/* right column specific styles */
+.lottery-validation-panel {
+    flex: 1;
+    background-color: var(--discord-background-secondary);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--discord-background-modifier-accent);
+}
+
+.lottery-validation-panel--danger {
+    border-color: var(--discord-status-danger);
+    box-shadow: 0 0 0 1px var(--discord-status-danger);
+}
+
+.lottery-validation-panel--warning {
+    border-color: var(--discord-accent-yellow, #fee75c);
+}
+
+.lottery-validation-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--discord-background-modifier-accent);
+    background-color: var(--discord-background-tertiary);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--discord-text-normal);
+}
+
+.lottery-validation-content {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.lottery-validation-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--discord-text-muted);
+    gap: 8px;
+}
+
+.lottery-validation-icon-bg {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--discord-status-positive);
+    opacity: 0.1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Add relative/absolute to ensure the inner dot renders correctly since opacity inherited */
+    position: relative;
+}
+
+.lottery-validation-icon-fg {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: var(--discord-status-positive);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.lottery-validation-empty-text {
+    margin: 0;
+    font-size: 13px;
+}
+
+.lottery-validation-empty-subtext {
+    margin: 0;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.lottery-validation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.lottery-validation-item {
+    padding: 12px;
+    border-radius: 4px;
+    color: var(--discord-text-normal);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.lottery-validation-item--error {
+    background-color: rgba(237, 66, 69, 0.1);
+    border-left: 4px solid var(--discord-status-danger);
+}
+
+.lottery-validation-item--warning {
+    background-color: rgba(254, 231, 92, 0.1);
+    border-left: 4px solid var(--discord-accent-yellow, #fee75c);
+}
+
+.lottery-validation-item-label {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.lottery-validation-item-label--error {
+    color: var(--discord-status-danger);
+}
+
+.lottery-validation-item-label--warning {
+    color: var(--discord-accent-yellow, #fee75c);
+}
+
+.lottery-action-bar {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+    flex-direction: column;
+}
+
+.lottery-action-btn-import {
+    height: 44px;
+}
+
+.lottery-action-btn-start-wrap {
+    position: relative;
+}
+
+.lottery-action-btn-start {
+    height: 52px;
+    font-size: 15px;
+}
+
+.lottery-action-btn-start-disabled-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    cursor: not-allowed;
+}
+
+.lottery-hidden-input {
+    display: none;
+}

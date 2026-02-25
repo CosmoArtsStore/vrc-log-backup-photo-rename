@@ -1,0 +1,14 @@
+{
+  "name": "stargazer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run tauri:dev",
+    "build": "npm run tauri:build",
+    "tauri": "npm run tauri --prefix app",
+    "tauri:dev": "npm run tauri dev --prefix app",
+    "tauri:build": "npm run tauri build --prefix app",
+    "build:gui": "npm run tauri build --prefix app",
+    "build:resident": "npm run tauri build --prefix app -- --features resident"
+  }
+}
