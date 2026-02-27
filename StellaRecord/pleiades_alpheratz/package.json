@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri"
   },
@@ -16,7 +17,8 @@
     "@tauri-apps/plugin-shell": "^2.3.5",
     "lucide-react": "^0.575.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-window": "^2.2.7"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",

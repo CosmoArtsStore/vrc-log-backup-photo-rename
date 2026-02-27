@@ -42,7 +42,10 @@
         "installerHooks": "windows/hooks.nsi",
         "languages": [
           "Japanese"
-        ]
+        ],
+        "customLanguageFiles": {
+          "Japanese": "windows/Japanese.nsh"
+        }
       }
     }
   }

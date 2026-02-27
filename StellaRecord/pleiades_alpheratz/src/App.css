@@ -1,320 +1,118 @@
 :root {
-  font-family: 'Inter', 'Noto Sans JP', 'Segoe UI', sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-/* 
- * ========== チェックテーマ (Skyblue) ========== 
- * ストライプ模様＋視認性を考慮した明るい背景
- */
-.app-layout[data-theme="skyblue"] {
-  --discord-bg-dark: rgba(255, 255, 255, 0.96);
-  --discord-bg-main: transparent;
-  --discord-bg-secondary: rgba(255, 255, 255, 0.92);
-  --discord-bg-hover: rgba(70, 140, 210, 0.08);
-  --discord-bg-sidebar: rgba(255, 255, 255, 0.94);
-  --discord-text-normal: #1e3a5f;
-  --discord-text-muted: rgba(30, 58, 95, 0.65);
-  --discord-text-header: #152942;
-  --discord-border: rgba(70, 140, 210, 0.25);
-  --discord-button-primary: #4a8ec8;
-  --discord-button-primary-hover: #3a7eb8;
-  --discord-button-secondary: rgba(70, 140, 210, 0.12);
-  --discord-button-secondary-hover: rgba(70, 140, 210, 0.2);
-
-  --success-color: #2e9d6e;
-  --warning-color: #d97706;
-
-  background-color: #f8fcff;
-  background-image:
-    repeating-linear-gradient(60deg,
-      rgba(135, 206, 250, 0.6) 0px 1px,
-      rgba(248, 252, 255, 0.85) 1px 21px,
-      rgba(173, 216, 230, 0.35) 21px 61px,
-      rgba(248, 252, 255, 0.85) 61px 81px),
-    repeating-linear-gradient(-60deg,
-      rgba(135, 206, 250, 0.6) 0px 1px,
-      rgba(248, 252, 255, 0.85) 1px 21px,
-      rgba(173, 216, 230, 0.35) 21px 61px,
-      rgba(248, 252, 255, 0.85) 61px 81px);
-  color: var(--discord-text-normal);
+  --bg: #121212;
+  --panel: #1e1e1e;
+  --accent: #bb86fc;
+  --accent-hover: #9965f4;
+  --text: #e0e0e0;
+  --text-dim: #9e9e9e;
+  --border: #333333;
 }
 
 body {
   margin: 0;
-  display: flex;
-  min-height: 100vh;
+  padding: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, sans-serif;
   overflow: hidden;
+  user-select: none;
 }
 
-.app-layout {
+.alpheratz-container {
   display: flex;
-  width: 100vw;
+  flex-direction: column;
   height: 100vh;
+  width: 100vw;
 }
 
-/* Main Content Styles */
-.main-content {
-  flex: 1;
+/* Header */
+.header {
+  height: 60px;
+  background-color: var(--panel);
+  border-bottom: 1px solid var(--border);
   display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  position: relative;
   align-items: center;
-  /* 全体を中央寄せ */
+  padding: 0 1.5rem;
+  justify-content: space-between;
+  flex-shrink: 0;
 }
 
-/* 中央配置のためのヘッダー */
-.content-header {
-  padding: 4rem 2rem 2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  max-width: 600px;
-  width: 100%;
-}
-
-.header-icon {
-  width: 56px;
-  height: 56px;
-  background: var(--discord-bg-hover);
-  color: var(--discord-button-primary);
-  border-radius: 16px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.content-header h2 {
-  font-size: 1.75rem;
-  font-weight: 800;
-  margin: 0 0 0.5rem;
-  color: var(--discord-text-header);
-}
-
-.content-header p {
-  color: var(--discord-text-muted);
+.header h1 {
+  font-size: 1.25rem;
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 500;
-}
-
-.content-body {
-  padding: 0 2rem 4rem;
-  max-width: 640px;
-  /* 少し幅を絞って見やすく */
-  width: 100%;
-}
-
-/* 白くて透過した丸みのあるカード */
-.card {
-  background-color: rgba(255, 255, 255, 0.94);
-  border: 1px solid var(--discord-border);
-  border-radius: 12px;
-  padding: 2.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  box-shadow: 0 8px 32px rgba(30, 58, 95, 0.08);
-  /* 柔らかい影 */
-}
-
-/* Forms & Inputs */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.form-group label {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--discord-text-header);
-}
-
-.input-row {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.input-row input {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--discord-border);
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--discord-text-normal);
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 600;
-  outline: none;
-  transition: all 0.2s;
-}
-
-.input-row input:focus {
-  border-color: var(--discord-button-primary);
-  box-shadow: 0 0 0 3px rgba(74, 142, 200, 0.2);
-}
-
-/* Success Message */
-.success-msg {
-  color: var(--success-color);
-  margin-bottom: 0.5rem;
-  font-weight: 700;
-  text-align: center;
-  padding: 0.75rem;
-  background: rgba(46, 157, 110, 0.1);
-  border-radius: 8px;
-  border: 1px solid rgba(46, 157, 110, 0.2);
-}
-
-/* Base Button Styles */
-button {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: inherit;
-  cursor: pointer;
-  outline: none;
-  transition: all 0.2s;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-/* アイコン付きの小さなボタン */
-.btn-icon {
-  padding: 0 1rem;
-  border-radius: 8px;
-  background: var(--discord-button-secondary);
-  border: 1px solid var(--discord-border);
-  color: var(--discord-text-normal);
-  font-weight: 600;
-}
-
-.btn-icon:hover:not(:disabled) {
-  background: var(--discord-button-secondary-hover);
-}
-
-/* Action Buttons Grid */
-.action-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 1.5rem;
-  margin-top: 1.5rem;
-  border-top: 1px solid var(--discord-border);
-  padding-top: 2.5rem;
-}
-
-.action-buttons button {
-  flex: 1;
-  max-width: 280px;
-  padding: 1rem 1.5rem;
-  font-size: 1rem;
   font-weight: 800;
-  border-radius: 10px;
-  border: none;
+  letter-spacing: 1px;
 }
 
-.btn-primary {
-  background: var(--discord-button-primary);
-  color: white;
+.stats {
+  font-size: 0.875rem;
+  color: var(--text-dim);
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: var(--discord-button-primary-hover);
+/* Main Area */
+.viewer-main {
+  flex: 1;
+  position: relative;
+  background-color: #000;
 }
 
-.btn-secondary {
-  background: var(--discord-button-secondary);
-  border: 1px solid var(--discord-border);
-  color: var(--discord-text-normal);
+.photo-item {
+  padding: 4px;
+  box-sizing: border-box;
 }
 
-.btn-secondary:hover:not(:disabled) {
-  background: var(--discord-button-secondary-hover);
+.photo-card {
+  width: 100%;
+  height: 100%;
+  background-color: var(--panel);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s;
+  border: 1px solid transparent;
 }
 
-.btn-warning {
-  background: var(--warning-color);
-  color: white;
+.photo-card:hover {
+  transform: scale(0.98);
+  border-color: var(--accent);
 }
 
-.btn-warning:hover:not(:disabled) {
-  background: #b56202;
+.photo-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
-.btn-success {
-  background: var(--success-color);
-  color: white;
+.photo-info-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  pointer-events: none;
 }
 
-.btn-success:hover:not(:disabled) {
-  background: #238059;
-}
-
-.extra-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 0.5rem;
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--discord-text-muted);
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  border-radius: 6px;
-  border: none;
-}
-
-.btn-ghost:hover:not(:disabled) {
-  background: var(--discord-button-secondary);
-  color: var(--discord-text-normal);
-}
-
-.error-box {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #b91c1c;
-  padding: 1rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
+.world-name-tag {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 600;
 }
 
-/* Modal Windows */
+/* Detail Modal */
 .modal-overlay {
   position: fixed;
-  inset: 0;
-  background-color: rgba(30, 58, 95, 0.4);
-  /* Skyblue overlay */
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.9);
   display: flex;
-  justify-content: center;
-  align-items: center;
   z-index: 1000;
-  padding: 2rem;
   animation: fadeIn 0.2s ease;
 }
 
@@ -328,185 +126,133 @@ button:disabled {
   }
 }
 
-.modal {
-  background-color: var(--discord-bg-dark);
-  /* 白背景 */
-  border: 1px solid var(--discord-border);
-  border-radius: 16px;
-  width: 100%;
-  max-width: 900px;
-  max-height: 90vh;
+.modal-content {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+}
+
+.full-image-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  position: relative;
+}
+
+.full-image-container img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar-detail {
+  width: 350px;
+  background-color: var(--panel);
+  border-left: 1px solid var(--border);
+  padding: 2rem;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(30, 58, 95, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.5);
-  animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
+  gap: 1.5rem;
+  overflow-y: auto;
 }
 
-@keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.sidebar-detail h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
 }
 
-.modal-header {
+.detail-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 2rem;
-  background: var(--discord-bg-sidebar);
-  border-bottom: 1px solid var(--discord-border);
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.modal-header h2 {
-  margin: 0;
-  font-size: 1.25rem;
+.detail-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-dim);
   font-weight: 700;
-  color: var(--discord-text-header);
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  word-break: break-all;
+}
+
+.memo-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.memo-area textarea {
+  flex: 1;
+  background-color: #121212;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem;
+  color: var(--text);
+  font-family: inherit;
+  resize: none;
+  outline: none;
+}
+
+.memo-area textarea:focus {
+  border-color: var(--accent);
+}
+
+/* Settings Overlay */
+.settings-panel {
+  position: absolute;
+  top: 60px;
+  right: 20px;
+  width: 400px;
+  background-color: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  z-index: 500;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
 
 .close-btn {
-  background: transparent;
-  border-radius: 8px;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  color: var(--discord-text-muted);
-  border: none;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-dim);
 }
 
 .close-btn:hover {
-  background: var(--discord-button-secondary-hover);
-  color: var(--discord-text-header);
+  color: var(--text);
 }
 
-.modal-body {
-  padding: 2rem;
-  overflow-y: hidden;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.modal-description {
-  margin: 0 0 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--discord-text-normal);
-}
-
-/* === 新しいカード型プレビューレイアウト === */
-.preview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
-  overflow-y: auto;
-  padding: 0.5rem;
-  /* スクロールバー装飾 */
-  scrollbar-width: thin;
-  scrollbar-color: var(--discord-border) transparent;
-}
-
-.preview-grid::-webkit-scrollbar {
-  width: 8px;
-}
-
-.preview-grid::-webkit-scrollbar-thumb {
-  background: var(--discord-border);
+button {
+  background-color: var(--accent);
+  color: #000;
+  border: none;
+  padding: 0.5rem 1rem;
   border-radius: 4px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
-.preview-card {
-  background: rgba(255, 255, 255, 0.98);
-  border: 1px solid var(--discord-border);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
-  display: flex;
-  flex-direction: column;
+button:hover {
+  background-color: var(--accent-hover);
 }
 
-.preview-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(30, 58, 95, 0.12);
-}
-
-/* 画像ラッパー (16:9 Twitterサムネイル比率) */
-.preview-img-wrapper {
+input[type="text"] {
+  background-color: #121212;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.5rem;
+  border-radius: 4px;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  min-height: 157px;
-  /* Fallback for 280px width */
-  background-color: #f1f5f9;
-  border-bottom: 1px solid var(--discord-border);
-  position: relative;
-  overflow: hidden;
-}
-
-.photo-preview {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  /* 縦長写真でも中央基準でクロップして16:9に揃える */
-}
-
-/* 情報エリア（変更前->変更後） */
-.preview-info {
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  align-items: center;
-  text-align: center;
-  background: rgba(248, 252, 255, 0.5);
-}
-
-.file-name {
-  font-family: 'JetBrains Mono', Consolas, monospace;
-  font-size: 0.8rem;
-  word-break: break-all;
-  line-height: 1.4;
-  width: 100%;
-  padding: 0.75rem;
-  border-radius: 8px;
-}
-
-.old-name {
-  color: var(--discord-text-muted);
-  text-decoration: line-through;
-  background: rgba(30, 58, 95, 0.04);
-}
-
-.new-name {
-  color: var(--discord-button-primary);
-  font-weight: 800;
-  background: var(--discord-button-secondary);
-}
-
-.rename-arrow {
-  display: flex;
-  justify-content: center;
-  color: var(--discord-button-primary);
-  opacity: 0.5;
-  margin: -0.25rem 0;
-}
-
-/* === フッター === */
-.modal-footer {
-  padding: 1.5rem 2rem;
-  background: var(--discord-bg-sidebar);
-  border-top: 1px solid var(--discord-border);
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
+  box-sizing: border-box;
 }

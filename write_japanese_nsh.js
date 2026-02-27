@@ -3,14 +3,14 @@ const lines = [
     'LangString addOrReinstall ${LANG_JAPANESE} "コンポーネントの追加/再インストール"',
     'LangString alreadyInstalled ${LANG_JAPANESE} "インストール済み"',
     'LangString alreadyInstalledLong ${LANG_JAPANESE} "${PRODUCTNAME} ${VERSION} はすでにインストールされています。実行する操作を選択し次へをクリックしてください。"',
-    'LangString appRunning ${LANG_JAPANESE} "{{product_name}} が起動中です！まず閉じてからもう一度試してください。"',
-    'LangString appRunningOkKill ${LANG_JAPANESE} "{{product_name}} が起動中です！$\\nOKをクリックして終了しますか？"',
+    'LangString appRunning ${LANG_JAPANESE} "${PRODUCTNAME} が起動中です！まず閉じてからもう一度試してください。"',
+    'LangString appRunningOkKill ${LANG_JAPANESE} "${PRODUCTNAME} が起動中です！$\\nOKをクリックして終了しますか？"',
     'LangString chooseMaintenanceOption ${LANG_JAPANESE} "実行するメンテナンス操作を選択してください。"',
     'LangString choowHowToInstall ${LANG_JAPANESE} "${PRODUCTNAME} のインストール方法を選択してください。"',
     'LangString createDesktop ${LANG_JAPANESE} "デスクトップにショートカットを作成する"',
     'LangString dontUninstall ${LANG_JAPANESE} "アンインストールしない"',
     'LangString dontUninstallDowngrade ${LANG_JAPANESE} "アンインストールしない（ダウングレード時のアンインストールが無効です）"',
-    'LangString failedToKillApp ${LANG_JAPANESE} "{{product_name}} を終了できませんでした。まず閉じてからもう一度試してください。"',
+    'LangString failedToKillApp ${LANG_JAPANESE} "${PRODUCTNAME} を終了できませんでした。まず閉じてからもう一度試してください。"',
     'LangString installingWebview2 ${LANG_JAPANESE} "WebView2 をインストール中..."',
     'LangString newerVersionInstalled ${LANG_JAPANESE} "${PRODUCTNAME} の新しいバージョンがすでにインストールされています。実行する操作を選択し次へをクリックしてください。"',
     'LangString older ${LANG_JAPANESE} "古い"',
@@ -29,10 +29,18 @@ const lines = [
     'LangString deleteAppData ${LANG_JAPANESE} "アプリケーションデータを削除する"',
 ];
 const content = lines.join('\r\n') + '\r\n';
-// NSIS Unicode true requires UTF-16 LE with BOM
 const buf = Buffer.concat([
     Buffer.from([0xFF, 0xFE]), // BOM
     Buffer.from(content, 'utf16le')
 ]);
-fs.writeFileSync('F:/DEVELOPFOLDER/RE-NAME-SYS/LogBackupTool/cas_lbtsetting/src-tauri/windows/Japanese.nsh', buf);
-console.log('Done: Japanese.nsh written as UTF-16 LE with BOM (' + buf.length + ' bytes)');
+
+const targets = [
+    'F:/DEVELOPFOLDER/RE-NAME-SYS/StellaRecord/stella_record_ui/src-tauri/windows/Japanese.nsh',
+    'F:/DEVELOPFOLDER/RE-NAME-SYS/StellaRecord/pleiades_alpheratz/src-tauri/windows/Japanese.nsh'
+];
+
+targets.forEach(target => {
+    fs.mkdirSync(require('path').dirname(target), { recursive: true });
+    fs.writeFileSync(target, buf);
+    console.log('Done: Japanese.nsh written to ' + target);
+});

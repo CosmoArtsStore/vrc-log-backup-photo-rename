@@ -1,299 +1,252 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Folder, Search, Check, X, ChevronsDown } from "lucide-react";
+import { Grid } from "react-window";
 import "./App.css";
 
-interface RenamePreview {
-  old_name: string;
-  new_name: string;
-  old_path: string;
-  new_path: string;
-  world_name: string;
+interface PhotoRecord {
+  photo_filename: string;
+  photo_path: string;
+  world_id: string | null;
+  world_name: string | null;
+  timestamp: string;
+  memo: string;
 }
 
-interface Preferences {
-  target_dir: string;
-  max_log_capacity_gb: number;
+interface AlpheratzSetting {
+  photoFolderPath: string;
 }
 
-interface LbtConfig {
-  backupDestinationPath: string;
-  capacityThresholdBytes: number;
-  enableStartup: boolean;
-}
-
-interface MockLogEntry {
-  filename: string;
-  date: string;
-}
+// --- Components ---
 
 function App() {
-  const [targetDir, setTargetDir] = useState("");
+  const [photos, setPhotos] = useState<PhotoRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [setting, setSetting] = useState<AlpheratzSetting>({ photoFolderPath: "" });
+  const [showSettings, setShowSettings] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<PhotoRecord | null>(null);
+  const [memoText, setMemoText] = useState("");
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterWorld, setFilterWorld] = useState("");
+  const [uniqueWorlds, setUniqueWorlds] = useState<string[]>([]);
 
-  const [previews, setPreviews] = useState<RenamePreview[]>([]);
-  const [isScanning, setIsScanning] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [isRollbackMode, setIsRollbackMode] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
-
-  const [lbtConfig, setLbtConfig] = useState<LbtConfig | null>(null);
-  const [mockLogs, setMockLogs] = useState<MockLogEntry[]>([]);
+  const COLUMNS = 4;
+  const ITEM_HEIGHT = 200;
 
   useEffect(() => {
-    loadPreferences();
+    init();
   }, []);
 
-  async function loadPreferences() {
+  async function init() {
     try {
-      const prefs: Preferences = await invoke("get_preferences_cmd");
-      setTargetDir(prefs.target_dir || "");
-    } catch (err: any) {
-      console.error(err);
+      const s: AlpheratzSetting = await invoke("get_setting_cmd");
+      setSetting(s);
+      await refreshPhotos();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   }
 
-  // 自動保存用関数
-  async function saveDirPreference(path: string) {
+  async function refreshPhotos() {
+    setLoading(true);
     try {
-      await invoke("save_preferences_cmd", {
-        prefs: {
-          target_dir: path,
-          max_log_capacity_gb: 2.0, // Rust側が保持する設定を維持
-        },
-      });
-      setSuccessMsg("✔️ 対象ディレクトリを保存しました。");
-      setTimeout(() => setSuccessMsg(""), 3000);
-    } catch (err: any) {
-      setErrorMsg("設定の保存に失敗しました: " + err.toString());
+      const list: PhotoRecord[] = await invoke("scan_photos");
+      setPhotos(list);
+
+      const worlds = Array.from(new Set(list.map(p => p.world_name || "ワールド不明"))).sort();
+      setUniqueWorlds(worlds);
+    } catch (e) {
+      alert("エラー: " + e);
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function handleSelectTargetFolder() {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-    });
+  const filteredPhotos = photos.filter(p => {
+    const matchesSearch = p.world_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.photo_filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.memo.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesWorld = filterWorld === "" || (p.world_name || "ワールド不明") === filterWorld;
+    return matchesSearch && matchesWorld;
+  });
+
+  const handleSelectPhoto = (photo: PhotoRecord) => {
+    setSelectedPhoto(photo);
+    setMemoText(photo.memo || "");
+  };
+
+  const handleSaveMemo = async () => {
+    if (!selectedPhoto) return;
+    try {
+      await invoke("save_photo_memo", { filename: selectedPhoto.photo_filename, memo: memoText });
+      const updated = photos.map(p => p.photo_filename === selectedPhoto.photo_filename ? { ...p, memo: memoText } : p);
+      setPhotos(updated);
+      setSelectedPhoto({ ...selectedPhoto, memo: memoText });
+      alert("メモを保存しました");
+    } catch (e) {
+      alert("保存失敗: " + e);
+    }
+  };
+
+  const handleBrowseFolder = async () => {
+    const selected = await open({ directory: true, multiple: false });
     if (selected && typeof selected === "string") {
-      setTargetDir(selected);
-      saveDirPreference(selected);
+      const newSetting = { photoFolderPath: selected };
+      setSetting(newSetting);
+      await invoke("save_setting_cmd", { setting: newSetting });
+      await refreshPhotos();
     }
-  }
+  };
 
-  async function scanFiles() {
-    setIsRollbackMode(false);
-    if (!targetDir) {
-      setErrorMsg("Please select a target directory.");
-      return;
-    }
-    setErrorMsg("");
-    setSuccessMsg("");
-    setIsScanning(true);
-    try {
-      const results: RenamePreview[] = await invoke("preview_renames", {
-        photoDir: targetDir,
-      });
-      setPreviews(results);
-      if (results.length > 0) {
-        setShowModal(true);
-      } else {
-        setErrorMsg("リネーム可能なファイルが見つかりません。");
+  // --- Grid Cell Renderer ---
+  const Cell = useCallback(({ columnIndex, rowIndex, style, photos }: { columnIndex: number, rowIndex: number, style: React.CSSProperties, photos: PhotoRecord[] }) => {
+    const index = rowIndex * COLUMNS + columnIndex;
+    if (!photos || index >= photos.length) return null;
+    const photo = photos[index];
+
+    // Lazy load thumbnail
+    useEffect(() => {
+      const pId = photo.photo_filename;
+      if (!thumbnails[pId]) {
+        invoke("create_thumbnail", { path: photo.photo_path }).then((thumbPath: unknown) => {
+          setThumbnails(prev => ({ ...prev, [pId]: String(thumbPath) }));
+        });
       }
-    } catch (err: any) {
-      setErrorMsg(err.toString());
-    } finally {
-      setIsScanning(false);
-    }
-  }
+    }, [photo.photo_filename, photo.photo_path, thumbnails]);
 
-  async function scanRollbacks() {
-    setIsRollbackMode(true);
-    if (!targetDir) {
-      setErrorMsg("Please select a target directory.");
-      return;
-    }
-    setErrorMsg("");
-    setSuccessMsg("");
-    setIsScanning(true);
-    try {
-      const results: RenamePreview[] = await invoke("preview_rollbacks", {
-        photoDir: targetDir,
-      });
-      setPreviews(results);
-      if (results.length > 0) {
-        setShowModal(true);
-      } else {
-        setErrorMsg("元に戻せるファイルが見つかりません。");
-      }
-    } catch (err: any) {
-      setErrorMsg(err.toString());
-    } finally {
-      setIsScanning(false);
-    }
-  }
+    const imgSrc = thumbnails[photo.photo_filename]
+      ? convertFileSrc(thumbnails[photo.photo_filename])
+      : ""; // Placeholder
 
-  async function executeRename() {
-    try {
-      const count: number = await invoke("execute_renames", {
-        items: previews,
-      });
-      alert(`✅ ${count} 個のファイルのリネームが完了しました！`);
-      setShowModal(false);
-      setPreviews([]);
-    } catch (err: any) {
-      alert("Error: " + err.toString());
-    }
-  }
+    return (
+      <div style={style} className="photo-item">
+        <div className="photo-card" onClick={() => handleSelectPhoto(photo)}>
+          {imgSrc ? (
+            <img src={imgSrc} alt={photo.photo_filename} loading="lazy" />
+          ) : (
+            <div style={{ background: '#111', width: '100%', height: '100%' }} />
+          )}
+          <div className="photo-info-overlay">
+            <div className="world-name-tag">{photo.world_name || "ワールド不明"}</div>
+            <div style={{ opacity: 0.8, fontSize: '0.7rem' }}>{photo.timestamp}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }, [handleSelectPhoto, thumbnails, COLUMNS]);
 
-  async function loadLbtConfig() {
-    try {
-      const config: LbtConfig = await invoke("get_lbt_config");
-      setLbtConfig(config);
-      setSuccessMsg("LBT設定を読み込みました");
-    } catch (err: any) {
-      setErrorMsg("LBT設定の読み込みに失敗しました: " + err.toString());
-    }
-  }
-
-  async function loadMockLogs() {
-    try {
-      const logs: MockLogEntry[] = await invoke("sync_and_read_logs");
-      setMockLogs(logs);
-      setSuccessMsg("ログを同期しました");
-    } catch (err: any) {
-      setErrorMsg("ログの同期に失敗しました: " + err.toString());
-    }
-  }
+  const gridCellProps = useMemo(() => ({ photos: filteredPhotos }), [filteredPhotos]);
 
   return (
-    <div className="app-layout" data-theme="skyblue">
-      {/* Main Content Area (1カラム) */}
-      <main className="main-content">
-        <header className="content-header">
-          <div className="header-icon">
-            <Search size={32} />
+    <div className="alpheratz-container">
+      <header className="header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <h1>Alpheratz</h1>
+          <div className="search-box">
+            <input type="text" placeholder="ワールド・メモで検索..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
-          <h2>VRChat 写真リネーマー</h2>
-          <p>指定フォルダ内のVRChat写真にワールド名を自動追加します</p>
-        </header>
+          <div className="filter-box">
+            <select value={filterWorld} onChange={e => setFilterWorld(e.target.value)}>
+              <option value="">全てのワールド</option>
+              {uniqueWorlds.map(w => <option key={w} value={w}>{w}</option>)}
+            </select>
+          </div>
+          <div className="stats">{filteredPhotos.length} Photos</div>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button onClick={() => refreshPhotos()}>更新</button>
+          <button onClick={() => setShowSettings(!showSettings)}>⚙</button>
+        </div>
+      </header>
 
-        <div className="content-body">
-          <div className="card">
-            {errorMsg && <div className="error-box">{errorMsg}</div>}
-            {successMsg && <div className="success-msg">{successMsg}</div>}
-
-            <div className="form-group">
-              <label>対象ディレクトリ (リネームおよびログ保存先)</label>
-              <div className="input-row">
-                <input
-                  type="text"
-                  value={targetDir}
-                  readOnly
-                  placeholder="対象フォルダを変更する..."
-                />
-                <button onClick={handleSelectTargetFolder} className="btn-icon">
-                  <Folder size={18} />
-                  <span>Browse</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="action-buttons">
-              <button
-                className="btn-primary scan-btn main-action"
-                onClick={scanFiles}
-                disabled={isScanning || !targetDir}
-              >
-                <Search size={20} />
-                <span>{isScanning ? "Scanning..." : "Scan & Preview"}</span>
-              </button>
-
-              <button
-                className="btn-warning scan-btn undo-action"
-                onClick={scanRollbacks}
-                disabled={isScanning || !targetDir}
-              >
-                <span>Undo (元に戻す)</span>
-              </button>
-            </div>
-
-            <div className="demo-section" style={{ marginTop: '20px', padding: '15px', border: '1px solid #ccc', borderRadius: '8px' }}>
-              <h3>デモ機能: LBT連携</h3>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                <button className="btn-secondary" onClick={loadLbtConfig}>LBT設定を読み込む</button>
-                <button className="btn-secondary" onClick={loadMockLogs}>ログを同期・読み込む</button>
-              </div>
-
-              {lbtConfig && (
-                <div style={{ marginTop: '10px', fontSize: '0.9em', backgroundColor: 'rgba(0,0,0,0.05)', padding: '10px', borderRadius: '4px' }}>
-                  <h4>LBT Config:</h4>
-                  <p>Backup Path: {lbtConfig.backupDestinationPath || "(Default)"}</p>
-                  <p>Capacity: {(lbtConfig.capacityThresholdBytes / 1024 / 1024 / 1024).toFixed(2)} GB</p>
-                  <p>Startup Enabled: {lbtConfig.enableStartup ? "Yes" : "No"}</p>
-                </div>
-              )}
-
-              {mockLogs.length > 0 && (
-                <div style={{ marginTop: '10px', fontSize: '0.9em', backgroundColor: 'rgba(0,0,0,0.05)', padding: '10px', borderRadius: '4px' }}>
-                  <h4>同期されたログ (モック):</h4>
-                  <ul>
-                    {mockLogs.map((log, i) => (
-                      <li key={i}>{log.date} - {log.filename}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+      {showSettings && (
+        <div className="settings-panel">
+          <div className="close-btn" onClick={() => setShowSettings(false)}>×</div>
+          <h3>設定</h3>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ fontSize: '0.8rem', color: '#999' }}>写真フォルダパス</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input type="text" value={setting.photoFolderPath} readOnly />
+              <button onClick={handleBrowseFolder}>参照</button>
             </div>
           </div>
         </div>
+      )}
+
+      <main className="viewer-main">
+        {loading ? (
+          <div style={{ padding: '2rem' }}>スキャン中...</div>
+        ) : (
+          <Grid<{ photos: PhotoRecord[] }>
+            columnCount={COLUMNS}
+            columnWidth={document.body.clientWidth / COLUMNS}
+            defaultHeight={800}
+            defaultWidth={1200}
+            rowCount={Math.ceil(filteredPhotos.length / COLUMNS)}
+            rowHeight={ITEM_HEIGHT}
+            cellProps={gridCellProps}
+            cellComponent={Cell}
+          />
+        )}
       </main>
 
-      {/* Confirmation Modal */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>{isRollbackMode ? "ロールバック(元に戻す)の確認" : "リネームの確認"}</h2>
-              <button className="close-btn" onClick={() => setShowModal(false)}>
-                <X size={20} />
-              </button>
+      {selectedPhoto && (
+        <div className="modal-overlay" onClick={() => setSelectedPhoto(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="full-image-container">
+              <img src={convertFileSrc(selectedPhoto.photo_path)} alt={selectedPhoto.photo_filename} />
             </div>
+            <aside className="sidebar-detail">
+              <div className="close-btn" onClick={() => setSelectedPhoto(null)}>×</div>
+              <h2>Photo Detail</h2>
 
-            <div className="modal-body">
-              <p className="modal-description">以下のファイルが{isRollbackMode ? "元に戻すことが可能" : "リネーム可能"}です。変更しますか？ (対象: {previews.length} 件)</p>
-
-              <div className="preview-grid">
-                {previews.map((p, idx) => (
-                  <div className="preview-card" key={idx}>
-                    <div className="preview-img-wrapper">
-                      <img
-                        src={convertFileSrc(p.old_path)}
-                        alt="preview"
-                        className="photo-preview"
-                      />
-                    </div>
-                    <div className="preview-info">
-                      <div className="file-name old-name" title={p.old_name}>{p.old_name}</div>
-                      <div className="rename-arrow">
-                        <ChevronsDown size={14} />
-                      </div>
-                      <div className="file-name new-name" title={p.new_name}>{p.new_name}</div>
-                    </div>
-                  </div>
-                ))}
+              <div className="detail-row">
+                <span className="detail-label">File Name</span>
+                <span className="detail-value">{selectedPhoto.photo_filename}</span>
               </div>
-            </div>
+              <div className="detail-row">
+                <span className="detail-label">Timestamp</span>
+                <span className="detail-value">{selectedPhoto.timestamp}</span>
+              </div>
 
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowModal(false)}>
-                Cancel
-              </button>
-              <button className="btn-success" onClick={executeRename}>
-                <Check size={18} />
-                <span>OK (Rename All)</span>
-              </button>
-            </div>
+              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1rem 0' }} />
+
+              <div className="detail-row">
+                <span className="detail-label">World</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <span className="detail-value" style={{ fontWeight: 700, color: 'var(--accent)' }}>
+                    {selectedPhoto.world_name || "ワールド不明"}
+                  </span>
+                  {selectedPhoto.world_id && (
+                    <a
+                      href={`https://vrchat.com/home/world/${selectedPhoto.world_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="vrc-link"
+                    >
+                      VRChatで開く ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">World ID</span>
+                <span className="detail-value" style={{ fontSize: '0.75rem', opacity: 0.6 }}>{selectedPhoto.world_id || "Unknown"}</span>
+              </div>
+
+              <div className="memo-area">
+                <span className="detail-label">Memo</span>
+                <textarea
+                  value={memoText}
+                  onChange={e => setMemoText(e.target.value)}
+                  placeholder="メモを入力..."
+                />
+                <button onClick={handleSaveMemo}>保存</button>
+              </div>
+            </aside>
           </div>
         </div>
       )}

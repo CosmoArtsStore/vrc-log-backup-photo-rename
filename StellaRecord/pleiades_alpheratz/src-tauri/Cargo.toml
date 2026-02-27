@@ -13,12 +13,14 @@ tauri-build = { workspace = true }
 
 [dependencies]
 tauri = { workspace = true, features = ["protocol-asset"] }
-serde = { workspace = true }
-serde_json = { workspace = true }
-regex = { workspace = true }
-chrono = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+regex.workspace = true
+chrono.workspace = true
 sysinfo = { workspace = true }
-rusqlite = { workspace = true }
+rusqlite.workspace = true
 tauri-plugin-dialog = { workspace = true }
 tauri-plugin-fs = { workspace = true }
 tauri-plugin-shell = { workspace = true }
+image = "0.25.9"
+tokio = "1.49.0"

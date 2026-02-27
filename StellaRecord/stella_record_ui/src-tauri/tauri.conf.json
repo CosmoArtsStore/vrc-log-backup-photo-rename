@@ -16,11 +16,18 @@
         "width": 640,
         "height": 480
       }
-    ]
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: https: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://localhost:* ipc:;"
+    }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": [
+      "../../target/release/Polaris.exe",
+      "../../target/release/Planetarium.exe"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -30,7 +37,13 @@
     ],
     "windows": {
       "nsis": {
-        "installerHooks": "windows/hooks.nsi"
+        "installerHooks": "windows/hooks.nsi",
+        "languages": [
+          "Japanese"
+        ],
+        "customLanguageFiles": {
+          "Japanese": "windows/Japanese.nsh"
+        }
       }
     }
   }

@@ -20,12 +20,26 @@ pub fn truncate_log() {
     }
 }
 
-/// [YYYY-MM-DD HH:MM:SS] <メッセージ> 形式でログを追記する
+/// [YYYY-MM-DD HH:MM:SS] [module] message 形式でログを追記する
 pub fn log_info(module: &str, message: &str) {
     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
     let line = format!("[{}] [{}] {}\n", now, module, message);
     if let Ok(path) = get_log_path() {
-        let _ = OpenOptions::new().append(true).create(true).open(path)
-            .and_then(|mut f| f.write_all(line.as_bytes()));
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            use winapi::um::winnt::{FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_SHARE_DELETE};
+            let _ = OpenOptions::new()
+                .append(true)
+                .create(true)
+                .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+                .open(path)
+                .and_then(|mut f| f.write_all(line.as_bytes()));
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = OpenOptions::new().append(true).create(true).open(path)
+                .and_then(|mut f| f.write_all(line.as_bytes()));
+        }
     }
 }

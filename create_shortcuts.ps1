@@ -1,5 +1,5 @@
-$targetLbt = "F:\DEVELOPFOLDER\RE-NAME-SYS\LogBackupTool\target\release\bundle\nsis"
-$targetPra = "F:\DEVELOPFOLDER\RE-NAME-SYS\PhotoRenameApp\src-tauri\target\release\bundle\nsis"
+$targetLbt = "F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\stella_record_ui\src-tauri\target\release\bundle\nsis"
+$targetPra = "F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\pleiades_alpheratz\src-tauri\target\release\bundle\nsis"
 $shortcutDir = "C:\Users\kaimu\OneDrive\デスクトップ\ビルドショートカット"
 
 if (!(Test-Path -Path $shortcutDir)) {

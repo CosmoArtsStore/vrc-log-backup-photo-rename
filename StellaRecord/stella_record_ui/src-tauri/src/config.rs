@@ -102,6 +102,28 @@ pub fn save_planetarium_setting(s: &PlanetariumSetting) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AppCard {
+    pub name: String,
+    pub description: String,
+    pub path: String,
+    pub icon_path: Option<String>,
+}
+
+pub fn load_launcher_json(filename: &str) -> Vec<AppCard> {
+    if let Ok(base) = get_setting_base() {
+        let path = base.join(filename);
+        if path.exists() {
+            if let Ok(content) = fs::read_to_string(&path) {
+                if let Ok(apps) = serde_json::from_str::<Vec<AppCard>>(&content) {
+                    return apps;
+                }
+            }
+        }
+    }
+    Vec::new()
+}
+
 impl PolarisSetting {
     pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
         if !self.archivePath.is_empty() {

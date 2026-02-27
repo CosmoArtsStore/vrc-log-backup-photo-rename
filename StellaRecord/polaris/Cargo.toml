@@ -11,3 +11,5 @@ sysinfo = { workspace = true }
 winapi = { workspace = true }
 tray-icon = { workspace = true }
 tao = { workspace = true }
+zip = "8.1.0"
+walkdir = "2.5.0"
