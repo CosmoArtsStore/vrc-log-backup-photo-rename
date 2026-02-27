@@ -1,0 +1,19 @@
+{
+    "name": "stella-record",
+    "version": "1.0.0",
+    "private": true,
+    "workspaces": [
+        "Polaris/polaris_ui",
+        "Atlas",
+        "PLEIADES"
+    ],
+    "scripts": {
+        "build:polaris": "cd Polaris/polaris_ui && npx tauri build",
+        "build:atlas": "cd Atlas && npx tauri build",
+        "build:pleiades-full": "cd PLEIADES && npx tauri build",
+        "build:pleiades-tool": "cd PLEIADES && npx tauri build --config tauri.tool.conf.json",
+        "dev:polaris": "cd Polaris/polaris_ui && npx tauri dev",
+        "dev:atlas": "cd Atlas && npx tauri dev",
+        "dev:pleiades": "cd PLEIADES && npx tauri dev"
+    }
+}

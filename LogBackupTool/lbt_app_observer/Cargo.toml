@@ -1,7 +1,0 @@
-[package]
-name = "lbt_app_observer"
-version = "1.0.0"
-edition = "2021"
-
-[dependencies]
-lbt_core = { path = "../lbt_core" }

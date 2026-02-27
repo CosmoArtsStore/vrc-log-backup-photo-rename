@@ -1,14 +1,13 @@
 {
-  "name": "stargazer",
+  "name": "vrc-log-backup-photo-rename",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npm run tauri:dev",
-    "build": "npm run tauri:build",
-    "tauri": "npm run tauri --prefix app",
-    "tauri:dev": "npm run tauri dev --prefix app",
-    "tauri:build": "npm run tauri build --prefix app",
-    "build:gui": "npm run tauri build --prefix app",
-    "build:resident": "npm run tauri build --prefix app -- --features resident"
+    "lbt": "npm --prefix LogBackupTool/cas_lbtsetting run",
+    "pra": "npm --prefix PhotoRenameApp run",
+    "lbt:build": "npm --prefix LogBackupTool/cas_lbtsetting run build",
+    "pra:build": "npm --prefix PhotoRenameApp run build",
+    "lbt:build:nsis": "cd LogBackupTool && cargo build --release -p lbt_app_observer -p onsite_log_backup_tool && cd cas_lbtsetting && npx tauri build",
+    "pra:build:nsis": "cd PhotoRenameApp && npx tauri build"
   }
 }
