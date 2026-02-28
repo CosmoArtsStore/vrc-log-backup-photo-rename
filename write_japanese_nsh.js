@@ -29,10 +29,7 @@ const lines = [
     'LangString deleteAppData ${LANG_JAPANESE} "アプリケーションデータを削除する"',
 ];
 const content = lines.join('\r\n') + '\r\n';
-const buf = Buffer.concat([
-    Buffer.from([0xFF, 0xFE]), // BOM
-    Buffer.from(content, 'utf16le')
-]);
+const buf = Buffer.from(content, 'utf8');
 
 const targets = [
     'F:/DEVELOPFOLDER/RE-NAME-SYS/StellaRecord/stella_record_ui/src-tauri/windows/Japanese.nsh',

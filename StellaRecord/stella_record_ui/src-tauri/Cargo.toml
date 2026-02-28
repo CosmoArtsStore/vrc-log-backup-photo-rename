@@ -17,3 +17,4 @@ tauri-plugin-shell = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 winapi = { workspace = true }
+rusqlite = { workspace = true }

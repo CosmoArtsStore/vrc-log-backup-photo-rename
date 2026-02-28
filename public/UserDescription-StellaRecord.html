@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StellaRecord 使い方ガイド</title>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    /* ===================================
+       Design Tokens (Stargazer準拠)
+       =================================== */
+    :root {
+      --color-bg-base:       #0d0b1e;
+      --color-bg-panel:      rgba(0, 0, 0, 0.25);
+      --color-bg-surface:    rgba(255, 255, 255, 0.05);
+      --color-bg-hover:      rgba(255, 255, 255, 0.08);
+      --color-bg-active:     rgba(255, 255, 255, 0.10);
+
+      --color-text-primary:  #dbdee1;
+      --color-text-secondary:rgba(255, 255, 255, 0.40);
+      --color-text-heading:  #f2f3f5;
+      --color-text-link:     #00a8fc;
+
+      --color-accent:        #00a8fc; /* StellaRecordはメインのブルー系 */
+      --color-success:       #23a559;
+      --color-warning:       #f0b232;
+      --color-danger:        #ed4245;
+
+      --color-border:        rgba(255, 255, 255, 0.10);
+
+      --font-base: "Whitney", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    /* ===================================
+       Reset & Base
+       =================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      font-family: var(--font-base);
+      background: radial-gradient(circle at 0% 0%, rgba(20,30,60,1) 0%, transparent 50%),
+                  radial-gradient(circle at 100% 100%, rgba(5,15,30,1) 0%, transparent 50%),
+                  var(--color-bg-base);
+      color: var(--color-text-primary);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+
+    .header-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 60px;
+      text-align: center;
+    }
+
+    .header-logo-icon { color: var(--color-accent); }
+    .header-logo-title {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--color-text-heading);
+      letter-spacing: -0.01em;
+    }
+    .header-logo-subtitle {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-top: -4px;
+    }
+
+    .guide-section { width: 100%; margin-top: 80px; }
+    .guide-section:first-of-type { margin-top: 0; }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--color-text-heading);
+      margin-bottom: 32px;
+    }
+
+    .flow-box {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 32px;
+    }
+
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 20px;
+    }
+
+    .flow-item {
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .flow-item-icon { color: var(--color-accent); margin-bottom: 14px; }
+    .flow-item-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .flow-item-desc { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+
+    .detail-card {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 32px;
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 40px;
+    }
+
+    .detail-card-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--color-text-heading);
+      margin-bottom: 16px;
+    }
+
+    .detail-card-body { font-size: 15px; line-height: 1.8; margin-bottom: 20px; }
+    .detail-card-label { font-size: 12px; font-weight: 700; color: var(--color-text-secondary); margin-bottom: 12px; text-transform: uppercase; }
+    .detail-card-list { padding-left: 20px; font-size: 14px; line-height: 2.0; }
+
+    .preview-panel {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      align-self: start;
+    }
+
+    .preview-panel-header {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--color-text-heading);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .preview-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .status-badge {
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .status-badge--running { background: rgba(35, 165, 89, 0.15); color: var(--color-success); }
+    .status-badge--idle { background: rgba(255, 255, 255, 0.05); color: var(--color-text-secondary); }
+
+    .footer { margin-top: 80px; padding-bottom: 40px; text-align: center; font-size: 12px; color: var(--color-text-secondary); opacity: 0.5; }
+
+    .notice-box {
+      background: rgba(0, 168, 252, 0.08);
+      border: 1px solid rgba(0, 168, 252, 0.30);
+      border-radius: var(--radius-md);
+      padding: 18px 24px;
+      font-size: 14px;
+      line-height: 1.7;
+      margin-top: 24px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .notice-box-icon { color: var(--color-accent); flex-shrink: 0; margin-top: 3px; }
+
+    @media (max-width: 860px) {
+      .detail-card { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header class="header-logo">
+    <i data-lucide="layout" class="header-logo-icon" width="48" height="48"></i>
+    <h1 class="header-logo-title">StellaRecord 使い方ガイド</h1>
+    <p class="header-logo-subtitle">StellaRecord Central Hub v1.0.0</p>
+  </header>
+
+  <!-- === 0. 概要 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="component" class="section-heading-icon" width="24" height="24"></i>
+      すべてのアプリへの出発点
+    </h2>
+    <div class="flow-box">
+      <div class="flow-grid">
+        <div class="flow-item">
+          <i data-lucide="rocket" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">1. ランチャー</div>
+          <div class="flow-item-desc">自社アプリや外部アドオンを<br>一箇所から即座に起動</div>
+        </div>
+        <div class="flow-item">
+          <i data-lucide="bar-chart-2" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">2. ログ確認</div>
+          <div class="flow-item-desc">収集されたログから<br>思い出をカレンダー・検索</div>
+        </div>
+        <div class="flow-item">
+          <i data-lucide="settings-2" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">3. 統合設定</div>
+          <div class="flow-item-desc">Polaris や Planetarium の<br>動作を直感的にカスタマイズ</div>
+        </div>
+        <div class="flow-item">
+          <i data-lucide="refresh-cw" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">4. データ復旧</div>
+          <div class="flow-item-desc">DBが破損しても<br>アーカイブから一括再構築</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 1. ランチャー機能 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="rocket" class="section-heading-icon" width="24" height="24"></i>
+      1. アプリランチャー (Pleiades & JewelBox)
+    </h2>
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="grid" width="22" height="22"></i>
+          VRCライフを彩るツール群の集積地
+        </h3>
+        <p class="detail-card-body">
+          StellaRecord は、自社製の「Pleiades」と、有志が作成した「JewelBox」の2つのカテゴリでアプリを管理します。JSONを書き換えるだけで、プログラミングなしで新しいツールを登録可能です。
+        </p>
+        <p class="detail-card-label">機能の特徴</p>
+        <ul class="detail-card-list">
+          <li><strong>カード型UI</strong>: アイコンと説明文で直感的にアプリを選択</li>
+          <li><strong>一意な起動管理</strong>: 同名アプリを自動的にマージして表示</li>
+          <li><strong>外部連携</strong>: アドオン側の連携ボタン一つで StellaRecord に登録完了</li>
+        </ul>
+      </div>
+      <div class="preview-panel">
+        <div class="preview-panel-header">起動可能なアプリ例</div>
+        <div class="preview-row">
+          <span>Alpheratz (写真分析)</span>
+          <span class="status-badge status-badge--running">LAUNCH</span>
+        </div>
+        <div class="preview-row">
+          <span>External Plugin A</span>
+          <span class="status-badge status-badge--idle">WAIT</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 2. ログ確認機能 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="search" class="section-heading-icon" width="24" height="24"></i>
+      2. ログビューアー (Planetarium 同梱)
+    </h2>
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="calendar" width="22" height="22"></i>
+          「いつ、どこにいたか」を漏らさず記録
+        </h3>
+        <p class="detail-card-body">
+          Planetarium エンジンにより DB 化されたデータを閲覧します。起動時に自動で最新のバックアップログをスキャンし、完了すると通知でお知らせします。
+        </p>
+        <p class="detail-card-label">ビューアーの能力</p>
+        <ul class="detail-card-list">
+          <li><strong>カレンダー表示</strong>: 特定の日の活動を瞬時に特定</li>
+          <li><strong>ワールド検索</strong>: 部分一致で過去の訪問履歴をリストアップ</li>
+          <li><strong>リンク機能</strong>: VRChat 公式 Web のワールド詳細ページへ一蹴でアクセス</li>
+        </ul>
+      </div>
+      <div class="preview-panel">
+        <div class="preview-panel-header">同期ステータス</div>
+        <div class="preview-row">
+          <span>DB 最新化</span>
+          <span class="status-badge status-badge--success">DONE</span>
+        </div>
+        <div class="notice-box" style="margin-top: 16px; padding: 12px; font-size: 11px;">
+          <span>バックアップから 150 件の新規訪問をインポートしました。</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 3. 設定管理 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="settings-2" class="section-heading-icon" width="24" height="24"></i>
+      3. 統合設定・監視
+    </h2>
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="monitor" width="22" height="22"></i>
+          裏方の動きも、ここで見える
+        </h3>
+        <p class="detail-card-body">
+          本来バックグラウンドで動く Polaris の状態も、StellaRecord 上のログ監視エリアから確認できます。設定を変更すれば、即座に設定ファイルへ反映されます。
+        </p>
+        <p class="detail-card-label">管理可能な設定</p>
+        <ul class="detail-card-list">
+          <li><strong>バックアップ先パス</strong>: archive フォルダの場所を自由に変更</li>
+          <li><strong>容量警告閾値</strong>: ディスクを圧迫する前に警告を表示する基準値</li>
+          <li><strong>スタートアップ管理</strong>: Polaris の自動起動を ON/OFF 切り替え</li>
+        </ul>
+      </div>
+      <div class="preview-panel">
+        <div class="preview-panel-header">Polaris ライブログ</div>
+        <div style="font-family: monospace; font-size: 11px; color: var(--color-text-secondary); line-height: 1.4;">
+          [22:20:01] VRChat Close detected.<br>
+          [22:20:04] Backup sync started.<br>
+          [22:20:05] Synced: 2 files.<br>
+          [22:20:05] Capacity: 4.2GB / 10GB
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    StellaRecord Project &copy; 2026 &nbsp;|&nbsp; Designed for VRChat Life
+  </footer>
+</div>
+
+<script>
+  lucide.createIcons();
+</script>
+</body>
+</html>

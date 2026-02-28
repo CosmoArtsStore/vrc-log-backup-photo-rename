@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STELLA RECORD - User Manual</title>
+    <style>
+        :root {
+            --accent: #5d5cde;
+            --accent-gradient: linear-gradient(135deg, #5d5cde 0%, #a259ff 100%);
+            --bg-main: #f0f2f5;
+            --text-main: #1d1d1f;
+            --text-dim: #86868b;
+            --card-bg: rgba(255, 255, 255, 0.7);
+            --border: rgba(255, 255, 255, 0.5);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-main);
+            background-image:
+                radial-gradient(at 0% 0%, rgba(93, 92, 222, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(162, 89, 255, 0.05) 0px, transparent 50%);
+            color: var(--text-main);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        h2::before {
+            content: "";
+            width: 4px;
+            height: 24px;
+            background: var(--accent-gradient);
+            border-radius: 2px;
+        }
+
+        ul {
+            padding-left: 1.25rem;
+        }
+
+        li {
+            margin-bottom: 0.75rem;
+        }
+
+        code {
+            background: rgba(93, 92, 222, 0.1);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 6px;
+            font-family: "SF Mono", Menlo, Consolas, monospace;
+            font-size: 0.9em;
+        }
+
+        .badge {
+            display: inline-block;
+            background: var(--accent-gradient);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        footer {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.875rem;
+            margin-top: 4rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="badge">Version 1.0.0</div>
+            <h1>STELLA RECORD</h1>
+            <p class="subtitle">VRChat ライフをより豊かに、より確実に。</p>
+        </header>
+
+        <section class="card">
+            <h2>Polaris</h2>
+            <p><strong>常駐型自動バックアップエンジン</strong></p>
+            <ul>
+                <li>VRChat のセッション終了を検知し、<code>output_log.txt</code> を自動的にアーカイブへ同期します。</li>
+                <li>差分同期アルゴリズムにより、ネットワークやストレージへの負荷を最小限に抑えます。</li>
+                <li>バックアップ先: <code>%LOCALAPPDATA%\CosmoArtsStore\STELLARECORD\app\Polaris\archive</code></li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>Planetarium</h2>
+            <p><strong>ログ解析・データベース同期 Engine</strong></p>
+            <ul>
+                <li>Polaris が収集した生ログを解析し、ワールド訪問履歴をデータベース化します。</li>
+                <li><strong>Danger Zone</strong>: データの不整合やリセットが必要な場合、DB初期化や強制再同期が可能です。</li>
+                <li><strong>DB照会</strong>: SQLite データベースの全テーブルを直接ブラウズできる詳細ビューを搭載しています。</li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>Pleiades Alpheratz</h2>
+            <p><strong>VR写真・メタデータマネージャー</strong></p>
+            <ul>
+                <li><strong>StellaRecord 連携</strong>: アプリ上の「StellaRecord に接続」ボタンを押すだけで、自動的にランチャーへ登録されます。</li>
+                <li>VRChat で撮影した写真と、その瞬間のワールド情報を自動的に紐付けます。</li>
+                <li>メモ機能を使用して、思い出をテキストとして残すことが可能です。</li>
+            </ul>
+        </section>
+
+        <section class="card">
+            <h2>⚠️ セキュリティ・重要事項</h2>
+            <div
+                style="padding: 1rem; border-left: 4px solid #ef4444; background: rgba(239, 68, 68, 0.05); border-radius: 0 12px 12px 0;">
+                <p style="margin: 0; font-size: 0.9em;"><strong>管理者権限について</strong>:
+                    ログファイルの読み取りやアプリの自動起動設定のため、初回実行時や設定変更時に管理者権限が必要になる場合があります。</p>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>システム概要</h2>
+            <p>STELLA RECORD
+                は、独立した複数のモジュールが連携して動作するマイクロサービス・アーキテクチャを採用しています。すべてのアプリは同一のデザインシステムで統一されており、シームレスな操作感を提供します。</p>
+        </section>
+
+        <footer>
+            &copy; 2026 CosmoArtsStore - Advanced Agentic Coding Project
+        </footer>
+    </div>
+</body>
+
+</html>

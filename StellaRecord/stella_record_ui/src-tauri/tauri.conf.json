@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run build && powershell -Command \"mkdir -Force ./app/Polaris, ./app/Planetarium, ./app/Alpheratz; copy ../../target/release/Polaris.exe ./app/Polaris/; copy ../../target/release/planetarium.exe ./app/Planetarium/; copy ../../target/release/alpheratz.exe ./app/Alpheratz/\"",
     "frontendDist": "../dist"
   },
   "app": {
@@ -25,8 +25,7 @@
     "active": true,
     "targets": "all",
     "resources": [
-      "../../target/release/Polaris.exe",
-      "../../target/release/Planetarium.exe"
+      "app/**/*"
     ],
     "icon": [
       "icons/32x32.png",

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planetarium 詳細設計・動作解説</title>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    /* ===================================
+       Design Tokens (Stargazer準拠)
+       =================================== */
+    :root {
+      --color-bg-base:       #0d0b1e;
+      --color-bg-panel:      rgba(0, 0, 0, 0.25);
+      --color-bg-surface:    rgba(255, 255, 255, 0.05);
+      --color-bg-hover:      rgba(255, 255, 255, 0.08);
+      --color-bg-active:     rgba(255, 255, 255, 0.10);
+
+      --color-text-primary:  #dbdee1;
+      --color-text-secondary:rgba(255, 255, 255, 0.40);
+      --color-text-heading:  #f2f3f5;
+      --color-text-link:     #00a8fc;
+
+      --color-accent:        #9c6994; /* Planetariumは紫系のアクセント */
+      --color-success:       #23a559;
+      --color-warning:       #f0b232;
+      --color-danger:        #ed4245;
+
+      --color-border:        rgba(255, 255, 255, 0.10);
+
+      --font-base: "Whitney", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    /* ===================================
+       Reset & Base
+       =================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      font-family: var(--font-base);
+      background: radial-gradient(circle at 0% 0%, rgba(30,15,40,1) 0%, transparent 50%),
+                  radial-gradient(circle at 100% 100%, rgba(10,20,35,1) 0%, transparent 50%),
+                  var(--color-bg-base);
+      color: var(--color-text-primary);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+
+    .header-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 60px;
+      text-align: center;
+    }
+
+    .header-logo-icon { color: var(--color-accent); }
+    .header-logo-title {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--color-text-heading);
+      letter-spacing: -0.01em;
+    }
+    .header-logo-subtitle {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-top: -4px;
+    }
+
+    .guide-section { width: 100%; margin-top: 80px; }
+    .guide-section:first-of-type { margin-top: 0; }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--color-text-heading);
+      margin-bottom: 32px;
+    }
+
+    .flow-box {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 32px;
+    }
+
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 20px;
+    }
+
+    .flow-item {
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .flow-item-icon { color: var(--color-accent); margin-bottom: 14px; }
+    .flow-item-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .flow-item-desc { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+
+    .detail-card {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 32px;
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 40px;
+    }
+
+    .detail-card-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--color-text-heading);
+      margin-bottom: 16px;
+    }
+
+    .detail-card-body { font-size: 15px; line-height: 1.8; margin-bottom: 20px; }
+    .detail-card-label { font-size: 12px; font-weight: 700; color: var(--color-text-secondary); margin-bottom: 12px; text-transform: uppercase; }
+    .detail-card-list { padding-left: 20px; font-size: 14px; line-height: 2.0; }
+
+    .preview-panel {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      align-self: start;
+    }
+
+    .preview-panel-header {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--color-text-heading);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .code-block {
+      background: #000;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      font-family: monospace;
+      font-size: 12px;
+      color: #a9b7c6;
+      overflow-x: auto;
+    }
+
+    .status-badge {
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .status-badge--success { background: rgba(35, 165, 89, 0.15); color: var(--color-success); }
+
+    .footer { margin-top: 80px; padding-bottom: 40px; text-align: center; font-size: 12px; color: var(--color-text-secondary); opacity: 0.5; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--color-border); }
+    th { color: var(--color-text-secondary); font-weight: 600; }
+
+    @media (max-width: 860px) {
+      .detail-card { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header class="header-logo">
+    <i data-lucide="database" class="header-logo-icon" width="48" height="48"></i>
+    <h1 class="header-logo-title">Planetarium 技術仕様・動作解説</h1>
+    <p class="header-logo-subtitle">StellaRecord Log Intelligence Engine v1.0.0</p>
+  </header>
+
+  <!-- === 0. 概要 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="info" class="section-heading-icon" width="24" height="24"></i>
+      システム概要
+    </h2>
+    <div class="flow-box">
+      <div class="flow-grid">
+        <div class="flow-item">
+          <i data-lucide="file-search" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">1. 差分検知</div>
+          <div class="flow-item-desc">未処理の生ログを<br>自動的にピックアップ</div>
+        </div>
+        <div class="flow-item">
+          <i data-lucide="regex" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">2. 高速パース</div>
+          <div class="flow-item-desc">正規表現により<br>ログから意味を抽出</div>
+        </div>
+        <div class="flow-item">
+          <i data-lucide="table" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">3. DB登録</div>
+          <div class="flow-item-desc">構造化データとして<br>SQLiteへ保存</div>
+        </div>
+        <div class="flow-item">
+          <i data-lucide="archive" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">4. 長期保存化</div>
+          <div class="flow-item-desc">処理済みログを<br>zstd圧縮してアーカイブ</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 1. パースロジック === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="cpu" class="section-heading-icon" width="24" height="24"></i>
+      1. パースエンジンの詳細
+    </h2>
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="terminal" width="22" height="22"></i>
+          文字列から「体験」を復元する
+        </h3>
+        <p class="detail-card-body">
+          Planetarium は VRChat のカオスなログから特定のパターンを抽出します。特に Unity Rich Text タグが含まれる特殊なログ（USharpVideo等）も考慮した堅牢な正規表現を使用しています。
+        </p>
+        <p class="detail-card-label">主要な抽出トリガー</p>
+        <ul class="detail-card-list">
+          <li><strong>Entering Room</strong>: ワールド訪問の開始（インスタンス情報含む）</li>
+          <li><strong>OnPlayerJoined</strong>: 他者との接触。usr_ID の追跡（モード依存）</li>
+          <li><strong>Switching Avatar</strong>: 誰がいつ何に着替えたかの記録</li>
+          <li><strong>Video Playback</strong>: どの動画URLがリクエストされたか</li>
+        </ul>
+      </div>
+      <div class="preview-panel">
+        <div class="preview-panel-header">抽出パターン例 (Regex)</div>
+        <div class="code-block">
+          // 動画再生イベントの抽出<br>
+          \[USharpVideo\] Started video load <br>
+          for URL: (.*?), requested by (.*)
+        </div>
+        <p style="font-size: 11px; margin-top: 10px; color: var(--color-text-secondary);">
+          ※ タグ除去処理を含む 2-stage パースを実施
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 2. データベース構造 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="layers" class="section-heading-icon" width="24" height="24"></i>
+      2. データベース構造 (planetarium.db)
+    </h2>
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="share-2" width="22" height="22"></i>
+          リレーショナルな思い出管理
+        </h3>
+        <p class="detail-card-body">
+          単なるテキストの保存ではなく、セクション（起動単位）、ビジット（ワールド単位）、プレイヤーの多対多関係を正確にモデル化しています。
+        </p>
+        <table>
+          <thead>
+            <tr><th>テーブル</th><th>記録単位</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>app_sessions</td><td>VRChat1回の起動～終了</td></tr>
+            <tr><td>world_visits</td><td>1つのワールドへの滞在</td></tr>
+            <tr><td>players</td><td>プレイヤーマスタ（表示名/ID）</td></tr>
+            <tr><td>player_visits</td><td>誰がどのワールドに居たか</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="preview-panel">
+        <div class="preview-panel-header">整合性チェック</div>
+        <div class="preview-row">
+          <span>重複インポート防止</span>
+          <span class="status-badge status-badge--success">有効</span>
+        </div>
+        <div class="preview-row">
+          <span>外部キー制約</span>
+          <span class="status-badge status-badge--success">有効</span>
+        </div>
+        <div class="preview-row">
+          <span>WALモード</span>
+          <span class="status-badge status-badge--success">有効</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 3. Privacy モード設計 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="shield" class="section-heading-icon" width="24" height="24"></i>
+      3. プライバシー保護設計
+    </h2>
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="lock" width="22" height="22"></i>
+          「他者を監視しない」という構造的証明
+        </h3>
+        <p class="detail-card-body">
+          <code>enableUserTracking</code> 設定により、DBに保存するデータの粒度を制御します。デフォルトの Privacy モードでは、他者の `usr_ID` を一切保存しません。
+        </p>
+        <p class="detail-card-label">Privacy モード時の制限</p>
+        <ul class="detail-card-list">
+          <li><code>players.user_id</code> は常に <strong>NULL</strong></li>
+          <li>表示名のみを記録し、特定個人の追跡を物理的に不可能化</li>
+          <li>インスタンスオーナー情報の保存をスキップ</li>
+        </ul>
+      </div>
+      <div class="preview-panel" style="border-color: var(--color-accent);">
+        <div class="preview-panel-header">Safety Status</div>
+        <div class="preview-row">
+          <span>API Access</span>
+          <span style="color: var(--color-danger); font-size: 11px; font-weight: 700;">DISABLE (No API)</span>
+        </div>
+        <div class="preview-row">
+          <span>Tracking Capability</span>
+          <span style="color: var(--color-warning); font-size: 11px; font-weight: 700;">OPT-IN ONLY</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 4. アーカイブ処理 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="box" class="section-heading-icon" width="24" height="24"></i>
+      4. アーカイブ処理 (zstd)
+    </h2>
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="zip-fastener" width="22" height="22"></i>
+          100年後も読み返せるポータビリティ
+        </h3>
+        <p class="detail-card-body">
+          DBへのインポートが完了した生ログは、そのまま放置せず <code>tar.zst</code> 形式で圧縮保存されます。これにより、ストレージ容量を節約しつつ「生データ」も保全します。
+        </p>
+        <p class="detail-card-label">圧縮仕様</p>
+        <ul class="detail-card-list">
+          <li>アルゴリズム: <strong>Zstandard (zstd)</strong></li>
+          <li>コンテナ: <strong>tar</strong></li>
+          <li>命名規則: <code>YYYYMMDD_HHMMSS.tar.zst</code></li>
+        </ul>
+      </div>
+      <div class="preview-panel">
+        <div class="preview-panel-header">ストレージ効率</div>
+        <div class="preview-row" style="margin-bottom: 8px;">
+          <span>生ログ (100MB)</span>
+          <span style="font-size: 12px; opacity: 0.6;">100%</span>
+        </div>
+        <div style="height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-bottom: 16px;">
+          <div style="height: 100%; width: 100%; background: var(--color-text-secondary); border-radius: 2px;"></div>
+        </div>
+        <div class="preview-row" style="margin-bottom: 8px;">
+          <span>zstd 圧縮後</span>
+          <span style="color: var(--color-success); font-size: 12px; font-weight: 700;">約 5% - 8%</span>
+        </div>
+        <div style="height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px;">
+          <div style="height: 100%; width: 7%; background: var(--color-success); border-radius: 2px;"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    Planetarium Intelligence Engine v1.0.0 &nbsp;|&nbsp; StellaRecord Project &copy; 2026
+  </footer>
+</div>
+
+<script>
+  lucide.createIcons();
+</script>
+</body>
+</html>

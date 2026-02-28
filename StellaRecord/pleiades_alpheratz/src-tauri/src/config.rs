@@ -5,14 +5,14 @@ use std::path::{Path, PathBuf};
 /// 仕様書 §8.4 AlpheratzSetting.json
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AlpheratzSetting {
-    #[serde(default)]
-    pub photoFolderPath: String,
+    #[serde(default, rename = "photoFolderPath")]
+    pub photo_folder_path: String,
 }
 
 impl Default for AlpheratzSetting {
     fn default() -> Self {
         AlpheratzSetting {
-            photoFolderPath: String::new(),
+            photo_folder_path: String::new(),
         }
     }
 }

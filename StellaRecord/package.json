@@ -8,12 +8,11 @@
         "PLEIADES"
     ],
     "scripts": {
-        "build:polaris": "cd Polaris/polaris_ui && npx tauri build",
-        "build:atlas": "cd Atlas && npx tauri build",
-        "build:pleiades-full": "cd PLEIADES && npx tauri build",
-        "build:pleiades-tool": "cd PLEIADES && npx tauri build --config tauri.tool.conf.json",
-        "dev:polaris": "cd Polaris/polaris_ui && npx tauri dev",
-        "dev:atlas": "cd Atlas && npx tauri dev",
-        "dev:pleiades": "cd PLEIADES && npx tauri dev"
+        "build:Polaris-pkg": "npm run build:Polaris-bin && cd Polaris && npx tauri build",
+        "build:Polaris-bin": "cd Polaris && set CARGO_TARGET_DIR=target&& cargo build --release -q",
+        "build:Planetarium-bin": "cargo build --release -p planetarium -q",
+        "build:StellaRecord-pkg": "npm run build:Planetarium-bin && cd stella_record_ui && npx tauri build",
+        "dev:StellaRecord": "cd stella_record_ui && npx tauri dev",
+        "build:Alpheratz-pkg": "cd pleiades_alpheratz && npx tauri build"
     }
 }

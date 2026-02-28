@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polaris 使い方ガイド</title>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    /* ===================================
+       Design Tokens (Stargazer準拠)
+       =================================== */
+    :root {
+      --color-bg-base:       #0d0b1e;
+      --color-bg-panel:      rgba(0, 0, 0, 0.25);
+      --color-bg-surface:    rgba(255, 255, 255, 0.05);
+      --color-bg-hover:      rgba(255, 255, 255, 0.08);
+      --color-bg-active:     rgba(255, 255, 255, 0.10);
+
+      --color-text-primary:  #dbdee1;
+      --color-text-secondary:rgba(255, 255, 255, 0.40);
+      --color-text-heading:  #f2f3f5;
+      --color-text-link:     #00a8fc;
+
+      --color-accent:        #5865f2;
+      --color-success:       #23a559;
+      --color-warning:       #f0b232;
+      --color-danger:        #ed4245;
+
+      --color-border:        rgba(255, 255, 255, 0.10);
+
+      --font-base: "Whitney", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+    }
+
+    /* ===================================
+       Reset & Base
+       =================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      font-family: var(--font-base);
+      background: radial-gradient(circle at 0% 0%, rgba(26,10,26,1) 0%, transparent 50%),
+                  radial-gradient(circle at 100% 100%, rgba(5,18,27,1) 0%, transparent 50%),
+                  var(--color-bg-base);
+      color: var(--color-text-primary);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    /* ===================================
+       Layout (Centered)
+       =================================== */
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+
+    .header-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 60px;
+      text-align: center;
+    }
+
+    .header-logo-icon { color: var(--color-accent); }
+    .header-logo-title {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--color-text-heading);
+      letter-spacing: -0.02em;
+    }
+    .header-logo-subtitle {
+      font-size: 14px;
+      color: var(--color-text-secondary);
+      margin-top: -4px;
+    }
+
+    /* ===================================
+       Section
+       =================================== */
+    .guide-section {
+      width: 100%;
+    }
+
+    .guide-section + .guide-section {
+      margin-top: 80px;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--color-text-heading);
+      margin-bottom: 32px;
+    }
+
+    .section-heading-icon { color: var(--color-text-primary); opacity: 0.8; }
+
+    /* ===================================
+       Flow Cards Grid
+       =================================== */
+    .flow-box {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 32px;
+    }
+
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .flow-item {
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      transition: transform 0.17s ease, border-color 0.17s ease;
+    }
+
+    .flow-item:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,0.20);
+    }
+
+    .flow-item-icon {
+      color: var(--color-accent);
+      margin-bottom: 14px;
+    }
+
+    .flow-item-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: 8px;
+    }
+
+    .flow-item-desc {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+      line-height: 1.55;
+    }
+
+    /* ===================================
+       Detail Cards
+       =================================== */
+    .detail-card {
+      background: var(--color-bg-panel);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 32px;
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 40px;
+    }
+
+    .detail-card-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--color-text-heading);
+      margin-bottom: 16px;
+    }
+
+    .detail-card-body {
+      font-size: 15px;
+      color: var(--color-text-primary);
+      line-height: 1.8;
+      margin-bottom: 20px;
+    }
+
+    .detail-card-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .detail-card-list {
+      padding-left: 20px;
+      font-size: 14px;
+      color: var(--color-text-primary);
+      line-height: 2.2;
+    }
+
+    /* ===================================
+       UI Preview Panel
+       =================================== */
+    .preview-panel {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      align-self: start;
+    }
+
+    .preview-panel-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--color-text-heading);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .preview-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .preview-row:last-child { margin-bottom: 0; }
+    .preview-row-label { color: var(--color-text-secondary); font-size: 12px; }
+
+    .status-badge {
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .status-badge--running { background: rgba(35, 165, 89, 0.15); color: var(--color-success); }
+    .status-badge--idle { background: rgba(240, 178, 50, 0.12); color: var(--color-warning); }
+    .status-badge--paused { background: rgba(88, 101, 242, 0.15); color: var(--color-accent); }
+
+    /* ===================================
+       Path Display
+       =================================== */
+    .path-block {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 12px;
+      font-family: "Consolas", "Courier New", monospace;
+      color: var(--color-text-link);
+      margin-top: 8px;
+      word-break: break-all;
+    }
+
+    .path-block-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      margin-bottom: 6px;
+    }
+
+    /* ===================================
+       Notice Box
+       =================================== */
+    .notice-box {
+      background: rgba(88, 101, 242, 0.08);
+      border: 1px solid rgba(88, 101, 242, 0.30);
+      border-radius: var(--radius-md);
+      padding: 18px 24px;
+      font-size: 14px;
+      color: var(--color-text-primary);
+      line-height: 1.7;
+      margin-top: 24px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .notice-box-icon { color: var(--color-accent); flex-shrink: 0; margin-top: 3px; }
+
+    /* ===================================
+       Footer
+       =================================== */
+    .footer {
+      margin-top: 100px;
+      padding-bottom: 60px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      opacity: 0.6;
+    }
+
+    /* ===================================
+       Responsive
+       =================================== */
+    @media (max-width: 860px) {
+      .detail-card { grid-template-columns: 1fr; gap: 32px; }
+      .preview-panel { width: 100%; }
+      .section-heading { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- ======= Header ======= -->
+  <header class="header-logo">
+    <i data-lucide="compass" class="header-logo-icon" width="48" height="48"></i>
+    <h1 class="header-logo-title">Polaris 使い方ガイド</h1>
+    <p class="header-logo-subtitle">StellaRecord Resident Daemon v1.0.0</p>
+  </header>
+
+  <!-- === 0. 基本的な流れ === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="bar-chart-3" class="section-heading-icon" width="24" height="24"></i>
+      基本的な流れ
+    </h2>
+
+    <div class="notice-box" style="margin-bottom: 32px; border-color: var(--color-warning);">
+      <i data-lucide="alert-circle" class="notice-box-icon" style="color: var(--color-warning);"></i>
+      <div>
+        <div style="font-size: 15px; font-weight: 600; color: var(--color-text-heading); margin-bottom: 6px;">本アプリの動作について</div>
+        <p>
+          Polaris は、ログ保全のために <strong>バックグラウンドで常駐して動作することを前提としたツール</strong> です。<br>
+          PC起動時に自動で開始されますが、CPUやメモリの使用量はほぼ「ゼロ」であり、PCの動作やゲームのパフォーマンスを阻害することはありません。
+        </p>
+      </div>
+    </div>
+
+    <div class="flow-box">
+      <div class="flow-grid">
+        <div class="flow-item">
+          <i data-lucide="power" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">1. 自動起動</div>
+          <div class="flow-item-desc">PC起動と同時に<br>常駐開始</div>
+        </div>
+        <div class="flow-item">
+          <i data-lucide="eye" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">2. VRC監視</div>
+          <div class="flow-item-desc">3秒ごとにVRChatの<br>動作状態を静かに確認</div>
+        </div>
+        <div class="flow-item">
+          <i data-lucide="save" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">3. ログ収集</div>
+          <div class="flow-item-desc">終了を検知したら<br>更新分を即座にバックアップ</div>
+        </div>
+        <div class="flow-item">
+          <i data-lucide="life-buoy" class="flow-item-icon" width="28" height="28"></i>
+          <div class="flow-item-title">4. 自動復帰</div>
+          <div class="flow-item-desc">不測の事態でも<br>Windowsが自動で再起動</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 1. 自動起動 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="power" class="section-heading-icon" width="24" height="24"></i>
+      1. 自動起動
+    </h2>
+
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="settings" width="22" height="22"></i>
+          PCを起動したら、すでに動いています
+        </h3>
+        <p class="detail-card-body">
+          Polaris はデスクトップ上に何も表示しません。PC にログインした瞬間からバックグラウンドで常駐し、VRChat の起動を待ち続けます。
+        </p>
+        <p class="detail-card-label">起動直後のアクション</p>
+        <ul class="detail-card-list">
+          <li>Windows に「再起動してほしい」とお願いを登録する</li>
+          <li>VRChat がすでに起動していないかを確認する</li>
+          <li>VRChat が閉じていれば → 前回のログを<strong>すぐに同期</strong></li>
+          <li>VRChat が開いていれば → 終了するまで静かに待機する</li>
+        </ul>
+      </div>
+
+      <div class="preview-panel">
+        <div class="preview-panel-header">起動直後の動作イメージ</div>
+        <div class="preview-row">
+          <span>Polaris 常駐</span>
+          <span class="status-badge status-badge--running">稼働中</span>
+        </div>
+        <div class="preview-row">
+          <span>VRChat 確認</span>
+          <span class="status-badge status-badge--idle">未起動を確認</span>
+        </div>
+        <div class="preview-row">
+          <span>初回同期</span>
+          <span class="status-badge status-badge--running">完了</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 2. VRC監視 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="eye" class="section-heading-icon" width="24" height="24"></i>
+      2. VRChat 監視
+    </h2>
+
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="activity" width="22" height="22"></i>
+          3秒ごとに、静かに見守る
+        </h3>
+        <p class="detail-card-body">
+          Polaris は3秒おきにパソコンで動いているアプリの一覧を確認し、VRChat がいるかどうかだけをチェックします。それ以外のことは一切しません。
+        </p>
+        <p class="detail-card-label">監視中の状態変化</p>
+        <ul class="detail-card-list">
+          <li><strong>VRChat を起動した</strong> → 「監視中」フラグを <em>ON</em> に変更</li>
+          <li><strong>VRChat を終了した</strong> → フラグが <em>OFF</em> になったことを検知</li>
+          <li>終了を検知したら → 3秒待機後、ログの同期を開始</li>
+        </ul>
+      </div>
+
+      <div class="preview-panel">
+        <div class="preview-panel-header">監視サイクル（3秒ごと）</div>
+        <div class="preview-row">
+          <span>VRChat 未起動</span>
+          <span class="status-badge status-badge--idle">待機中</span>
+        </div>
+        <div class="preview-row">
+          <span>VRChat 起動検知</span>
+          <span class="status-badge status-badge--paused">監視：ON</span>
+        </div>
+        <div class="preview-row">
+          <span>VRChat 終了検知</span>
+          <span class="status-badge status-badge--running">同期開始</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 3. ログバックアップ === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="save" class="section-heading-icon" width="24" height="24"></i>
+      3. ログ同期
+    </h2>
+
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="folder-open" width="22" height="22"></i>
+          VRC終了の瞬間に、更新分をコピー
+        </h3>
+        <p class="detail-card-body">
+          VRChat が完全に終了したことを確認してから、ログファイルをチェックし、<strong>新規作成されたファイルや更新されたファイルのみ</strong>をバックアップ先へ同期します。
+        </p>
+        <p class="detail-card-label">同期対象ファイル</p>
+        <ul class="detail-card-list">
+          <li>output_log_<em>日付</em>.txt （新規・更新分）</li>
+        </ul>
+
+        <div style="margin-top: 24px;">
+          <p class="path-block-label">コピー元（VRChat ログ）</p>
+          <div class="path-block">%APPDATA%\..\LocalLow\VRChat\VRChat\</div>
+          <p class="path-block-label" style="margin-top: 14px;">保管先（Polaris バックアップ）</p>
+          <div class="path-block">%LOCALAPPDATA%\CosmoArtsStore\STELLARECORD\app\Polaris\backup\</div>
+        </div>
+      </div>
+
+      <div class="preview-panel">
+        <div class="preview-panel-header">最新同期ログ</div>
+        <div class="preview-row">
+          <span>同期状態</span>
+          <span class="status-badge status-badge--running">最新</span>
+        </div>
+        <div style="margin-top: 16px;">
+          <div class="preview-row">
+            <span class="preview-row-label">output_log_2026-02-28.txt</span>
+            <span style="font-size: 11px; color: var(--color-text-secondary);">✓ 同期済</span>
+          </div>
+          <div class="preview-row">
+            <span class="preview-row-label">output_log_2026-02-27.txt</span>
+            <span style="font-size: 11px; color: var(--color-text-secondary);">✓ 同期済</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- === 4. 自動復帰 === -->
+  <section class="guide-section">
+    <h2 class="section-heading">
+      <i data-lucide="life-buoy" class="section-heading-icon" width="24" height="24"></i>
+      4. 自動復帰
+    </h2>
+
+    <div class="detail-card">
+      <div>
+        <h3 class="detail-card-heading">
+          <i data-lucide="shield-check" width="22" height="22"></i>
+          何もしなくても、ずっと動き続けます
+        </h3>
+        <p class="detail-card-body">
+          Windows Update などで PC が再起動されても、Polaris は自動で復帰します。設定ファイルやログ書き出しを行わないため、不具合が起きにくい設計です。
+        </p>
+        <p class="detail-card-label">メンテナンスフリーの理由</p>
+        <ul class="detail-card-list">
+          <li><strong>Restart Manager 活用</strong>：Windows がアプリの再起動を管理</li>
+          <li><strong>Zero Configuration</strong>：設定の不整合によるエラーを排除</li>
+          <li><strong>Zero Log-Output</strong>：ディスク消費を抑え、クリーンに保持</li>
+        </ul>
+      </div>
+
+      <div class="preview-panel">
+        <div class="preview-panel-header">システム安定性</div>
+        <div class="preview-row">
+          <span>Restart Manager</span>
+          <span class="status-badge status-badge--running">登録済</span>
+        </div>
+        <div class="preview-row">
+          <span>CPU / メモリ</span>
+          <span class="status-badge status-badge--running">ほぼゼロ</span>
+        </div>
+        <div class="notice-box" style="margin-top: 20px; padding: 12px; font-size: 11px;">
+          <span>ゲームのパフォーマンスには一切影響しません。</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    Polaris Resident Daemon v1.0.0 &nbsp;|&nbsp; StellaRecord Project &copy; 2026
+  </footer>
+</div>
+
+<script>
+  // Lucide icons initialize
+  lucide.createIcons();
+</script>
+</body>
+</html>
