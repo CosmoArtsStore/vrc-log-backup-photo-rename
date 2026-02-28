@@ -71,13 +71,13 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "sysinfo",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
  "tauri-plugin-shell",
  "tokio",
+ "winapi",
 ]
 
 [[package]]
@@ -3213,6 +3213,7 @@ name = "polaris"
 version = "1.0.0"
 dependencies = [
  "chrono",
+ "image",
  "serde",
  "serde_json",
  "sysinfo",

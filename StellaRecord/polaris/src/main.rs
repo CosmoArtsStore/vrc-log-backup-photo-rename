@@ -206,10 +206,9 @@ fn main() {
     // VRChat 監視スレッド
     thread::spawn(move || {
         let mut vrchat_was_running = false;
+        let mut sys = System::new();
         loop {
             thread::sleep(Duration::from_secs(5));
-
-            let mut sys = System::new();
             sys.refresh_processes(ProcessesToUpdate::All, true);
 
             let vrchat_now = sys.processes().values().any(|p| {
