@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm run build && powershell -Command \"mkdir -Force ./app/Planetarium; copy ../../target/release/planetarium.exe ./app/Planetarium/\"",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -25,9 +25,6 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": [
-      "app/**/*"
-    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

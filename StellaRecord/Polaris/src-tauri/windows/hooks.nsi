@@ -1,6 +1,6 @@
 !macro tauri_init
     ; インストール先を統合ディレクトリ配下の Polaris フォルダに固定
-    StrCpy $INSTDIR "$LOCALAPPDATA\CosmoArtsStore\STELLARECORD\app\Polaris"
+    StrCpy $INSTDIR "$LOCALAPPDATA\CosmoArtsStore\STELLARECORD\Polaris"
 !macroend
 
 !macro tauri_pre_install

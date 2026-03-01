@@ -1,11 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod planetarium;
+
 use std::process::Command;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use sysinfo::{System, ProcessesToUpdate};
 use stella_record_ui::config::{
-    load_polaris_setting, PolarisSetting, PlanetariumSetting,
+    load_polaris_setting, load_planetarium_setting,
 };
 use std::fs;
 use std::io::{BufRead, BufReader};
@@ -151,46 +153,49 @@ fn get_polaris_logs() -> Result<Vec<String>, String> {
     }
 }
 
+#[derive(Clone, serde::Serialize)]
+struct PlanetariumPayload {
+    status: String,
+    progress: String,
+    is_running: bool,
+}
+
 #[tauri::command]
-fn launch_planetarium(handle: tauri::AppHandle, force_sync: bool) -> Result<String, String> {
-    let exe_dir = std::env::current_exe()
-        .map_err(|e| format!("Failed to get exe path: {}", e))?;
-    let base_dir = exe_dir.parent().ok_or("Failed to get exe dir")?;
-    let planetarium_exe = base_dir.join("app\\Planetarium\\Planetarium.exe");
-
-    if !planetarium_exe.exists() {
-        return Err("Planetarium.exe が見つかりません。".to_string());
-    }
-
-    let mut cmd = Command::new(planetarium_exe);
-    if force_sync {
-        cmd.arg("--force-sync");
-    }
-    cmd.stdout(std::process::Stdio::piped());
-    #[cfg(windows)]
-    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-    match cmd.spawn() {
-        Ok(mut child) => {
-            let stdout = child.stdout.take().unwrap();
-            std::thread::spawn(move || {
-                let reader = BufReader::new(stdout);
-                for line in reader.lines().flatten() {
-                    // [PROGRESS] 15% のような形式をパースして emit
-                    if line.contains("[PROGRESS]") {
-                        let _ = handle.emit("planetarium-progress", line.clone());
-                    }
-                    if line.contains("[STATUS]") {
-                        let _ = handle.emit("planetarium-status", line.clone());
-                    }
-                }
-                let _ = child.wait();
-                let _ = handle.emit("planetarium-finished", ());
+fn launch_planetarium(handle: tauri::AppHandle, _mode: String) -> Result<String, String> {
+    let setting = load_planetarium_setting();
+    let tracking = setting.enableUserTracking;
+    let db_path = setting.get_effective_db_path()?;
+    let archive_dir = setting.get_effective_archive_dir()?;
+    
+    std::thread::spawn(move || {
+        let result = planetarium::run_diff_import(db_path, archive_dir, tracking, |status, progress| {
+            let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                status: status.clone(),
+                progress: progress.clone(),
+                is_running: true,
             });
-            Ok("Planetarium.exe を開始しました。".to_string())
-        },
-        Err(e) => Err(format!("Planetarium.exe の起動に失敗しました: {}", e))
-    }
+        });
+        
+        match result {
+            Ok(_) => {
+                let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                    status: "完了".to_string(),
+                    progress: "100%".to_string(),
+                    is_running: false,
+                });
+            }
+            Err(e) => {
+                let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                    status: format!("エラー: {}", e),
+                    progress: "0%".to_string(),
+                    is_running: false,
+                });
+            }
+        }
+        let _ = handle.emit("planetarium-finished", ());
+    });
+    
+    Ok("Planetarium を開始しました。".to_string())
 }
 
 #[tauri::command]
@@ -236,16 +241,8 @@ pub struct TableData {
 
 #[tauri::command]
 fn get_db_tables() -> Result<Vec<String>, String> {
-    let setting = PlanetariumSetting::default();
-    let db_path = if !setting.dbPath.is_empty() {
-        std::path::PathBuf::from(&setting.dbPath)
-    } else {
-        let local = match std::env::var("LOCALAPPDATA") {
-            Ok(v) => v,
-            Err(_) => return Err("LOCALAPPDATA not found".to_string()),
-        };
-        std::path::Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Planetarium\\planetarium.db")
-    };
+    let setting = load_planetarium_setting();
+    let db_path = setting.get_effective_db_path()?;
 
     if !db_path.exists() { return Ok(vec![]); }
 
@@ -265,16 +262,8 @@ fn get_db_tables() -> Result<Vec<String>, String> {
 
 #[tauri::command]
 fn get_db_table_data(table_name: &str) -> Result<TableData, String> {
-    let setting = PlanetariumSetting::default();
-    let db_path = if !setting.dbPath.is_empty() {
-        std::path::PathBuf::from(&setting.dbPath)
-    } else {
-        let local = match std::env::var("LOCALAPPDATA") {
-            Ok(v) => v,
-            Err(_) => return Err("LOCALAPPDATA not found".to_string()),
-        };
-        std::path::Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Planetarium\\planetarium.db")
-    };
+    let setting = load_planetarium_setting();
+    let db_path = setting.get_effective_db_path()?;
 
     if !db_path.exists() { return Err("Database file not found".to_string()); }
 
@@ -317,16 +306,8 @@ fn get_db_table_data(table_name: &str) -> Result<TableData, String> {
 
 #[tauri::command]
 fn delete_today_data() -> Result<String, String> {
-    let setting = PlanetariumSetting::default();
-    let db_path = if !setting.dbPath.is_empty() {
-        std::path::PathBuf::from(&setting.dbPath)
-    } else {
-        let local = match std::env::var("LOCALAPPDATA") {
-            Ok(v) => v,
-            Err(_) => return Err("LOCALAPPDATA not found".to_string()),
-        };
-        std::path::Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Planetarium\\planetarium.db")
-    };
+    let setting = load_planetarium_setting();
+    let db_path = setting.get_effective_db_path()?;
 
     if !db_path.exists() { return Err("Database file not found".to_string()); }
 
@@ -343,28 +324,21 @@ fn delete_today_data() -> Result<String, String> {
 
 #[tauri::command]
 fn wipe_database() -> Result<String, String> {
-    let setting = PlanetariumSetting::default();
-    let db_path = if !setting.dbPath.is_empty() {
-        std::path::PathBuf::from(&setting.dbPath)
-    } else {
-        let local = match std::env::var("LOCALAPPDATA") {
-            Ok(v) => v,
-            Err(_) => return Err("LOCALAPPDATA not found".to_string()),
-        };
-        std::path::Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Planetarium\\planetarium.db")
-    };
+    let setting = load_planetarium_setting();
+    let db_path = setting.get_effective_db_path()?;
 
-    if !db_path.exists() { return Err("Database file not found".to_string()); }
+    if !db_path.exists() { return Err("データベースファイルが見つかりません。".to_string()); }
 
-    let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
-    
-    // 全テーブルのデータを削除
+    let conn = rusqlite::Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    // 外部キー順に従い、子テーブルから削除（player_visits を忘れると削除が不完全になる）
+    conn.execute("DELETE FROM player_visits", []).map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM avatar_changes", []).map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM video_playbacks", []).map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM world_visits", []).map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM players", []).map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM app_sessions", []).map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM avatar_changes", []).map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM video_playbacks", []).map_err(|e| e.to_string())?;
-    
+
     // SQLiteのバキュームを実行してファイルサイズを削減
     let _ = conn.execute("VACUUM", []);
 
@@ -427,19 +401,6 @@ fn main() {
             open_folder,
         ])
         .setup(|app| {
-            // §5.2 起動シーケンス: 非同期で Planetarium.exe を起動する
-            if let Ok(exe_dir) = std::env::current_exe() {
-                if let Some(base_dir) = exe_dir.parent() {
-                    let planetarium_exe = base_dir.join("app\\Planetarium\\Planetarium.exe");
-                    if planetarium_exe.exists() {
-                        let mut cmd = Command::new(planetarium_exe);
-                        #[cfg(windows)]
-                        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-                        let _ = cmd.spawn();
-                    }
-                }
-            }
-
             // Polaris 常駐監視スレッド (3秒おきに emit)
             let handle = app.handle().clone();
             std::thread::spawn(move || {

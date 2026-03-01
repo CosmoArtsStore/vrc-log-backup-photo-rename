@@ -40,6 +40,9 @@ pub struct PlanetariumSetting {
     pub archivePath: String,
     #[serde(default)]
     pub dbPath: String,
+    /// §6.6 Privacy/Tracking モード。false = Privacy（デフォルト）
+    #[serde(default)]
+    pub enableUserTracking: bool,
 }
 
 impl Default for PlanetariumSetting {
@@ -47,6 +50,7 @@ impl Default for PlanetariumSetting {
         PlanetariumSetting {
             archivePath: String::new(),
             dbPath: String::new(),
+            enableUserTracking: false,
         }
     }
 }
@@ -61,8 +65,31 @@ fn get_setting_base() -> Result<PathBuf, String> {
 }
 
 pub fn load_polaris_setting() -> PolarisSetting {
-    // 固定パス仕様のため、設定ファイルが存在しなくてもデフォルト値を返す
+    if let Ok(base) = get_setting_base() {
+        let path = base.join("PolarisSetting.json");
+        if path.exists() {
+            if let Ok(content) = fs::read_to_string(&path) {
+                if let Ok(s) = serde_json::from_str::<PolarisSetting>(&content) {
+                    return s;
+                }
+            }
+        }
+    }
     PolarisSetting::default()
+}
+
+pub fn load_planetarium_setting() -> PlanetariumSetting {
+    if let Ok(base) = get_setting_base() {
+        let path = base.join("PlanetariumSetting.json");
+        if path.exists() {
+            if let Ok(content) = fs::read_to_string(&path) {
+                if let Ok(s) = serde_json::from_str::<PlanetariumSetting>(&content) {
+                    return s;
+                }
+            }
+        }
+    }
+    PlanetariumSetting::default()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -88,8 +115,57 @@ pub fn load_launcher_json(filename: &str) -> Vec<AppCard> {
 }
 
 impl PolarisSetting {
+    /// アーカイブ先ディレクトリ。正規パスは ...\Polaris\log_archive。
+    /// 設定が ...\backup になっている場合は log_archive に正規化する。
     pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
         let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-        Ok(Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Polaris\\archive"))
+        let default = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\log_archive");
+
+        if self.archivePath.is_empty() {
+            return Ok(default);
+        }
+        let mut path = PathBuf::from(&self.archivePath);
+        // 誤って ...\backup や ...\archive が指定されていた場合は log_archive に正規化
+        if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+            if dir_name == "backup" || dir_name == "archive" {
+                path.pop();
+                path.push("log_archive");
+            }
+        }
+        Ok(path)
+    }
+}
+
+impl PlanetariumSetting {
+    /// アーカイブ先ディレクトリ。正規パスは ...\Polaris\log_archive。
+    /// 設定が ...\backup になっている場合は log_archive に正規化する。
+    pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
+        let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
+        let default = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\log_archive");
+
+        if self.archivePath.is_empty() {
+            return Ok(default);
+        }
+        let mut path = PathBuf::from(&self.archivePath);
+        // 誤って ...\backup や ...\archive が指定されていた場合は log_archive に正規化
+        if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+            if dir_name == "backup" || dir_name == "archive" {
+                path.pop();
+                path.push("log_archive");
+            }
+        }
+        Ok(path)
+    }
+
+    pub fn get_effective_db_path(&self) -> Result<PathBuf, String> {
+        if !self.dbPath.is_empty() {
+            return Ok(PathBuf::from(&self.dbPath));
+        }
+        let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
+        let db_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Planetarium");
+        if !db_dir.exists() {
+            fs::create_dir_all(&db_dir).map_err(|e| format!("Failed to create db dir: {}", e))?;
+        }
+        Ok(db_dir.join("planetarium.db"))
     }
 }

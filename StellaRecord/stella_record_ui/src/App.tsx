@@ -126,12 +126,21 @@ function App() {
         pollStorage();
       }
     });
+
+    const unlistenFinished = listen("planetarium-finished", () => {
+      setPlanetariumRunning(false);
+      setPlanetariumStatus("待機中");
+      setPlanetariumProgress("");
+      pollStorage();
+    });
+
     const unlistenPolaris = listen<boolean>("polaris-status", (event) => {
       setPolarisRunning(event.payload);
     });
 
     return () => {
       unlistenPlanetarium.then(f => f());
+      unlistenFinished.then(f => f());
       unlistenPolaris.then(f => f());
     };
   }, [pollStorage]);
@@ -154,10 +163,10 @@ function App() {
     }
   };
 
-  const handleSync = async (force: boolean) => {
+  const handleSync = async () => {
     try {
       setPlanetariumRunning(true);
-      await invoke("launch_planetarium", { forceSync: force });
+      await invoke("launch_planetarium", { mode: "import" });
     } catch (e) {
       setPlanetariumRunning(false);
       addToast(`解析エラー: ${e}`);
@@ -360,13 +369,13 @@ function App() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
           <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px solid var(--border)' }}>
             <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>データベース更新 (Planetarium)</h4>
             <p style={{ margin: '0 0 1rem', color: 'var(--text-dim)', fontSize: '0.8rem', lineHeight: '1.4' }}>
               Polarisが収集した新しいログのみを解析し、行動履歴データベースを効率的に更新します。
             </p>
-            <button className="btn-action primary" style={{ width: '100%' }} onClick={() => handleSync(false)} disabled={planetariumRunning}>
+            <button className="btn-action primary" style={{ width: '100%' }} onClick={() => handleSync()} disabled={planetariumRunning}>
               {planetariumRunning ? '処理中...' : 'インポート開始'}
             </button>
           </div>
@@ -422,9 +431,6 @@ function App() {
           通常の使用では実行する必要はありません。
         </p>
         <div className="warning-actions">
-          <button className="btn-action danger" onClick={() => handleSync(true)} disabled={planetariumRunning}>
-            強制再同期 (Force Sync)
-          </button>
           <button className="btn-action danger" onClick={handleDeleteTodayData}>
             今日分の記録を削除
           </button>
@@ -435,9 +441,14 @@ function App() {
       </div>
     </div>
   );
+  // App.tsx の renderDatabase() を以下に差し替えてください。
+  // インラインの height: 600px を削除し、新しいCSSクラスを使用します。
+
+  // App.tsx の renderDatabase() を以下に差し替えてください。
+  // インラインの height: 600px を削除し、新しいCSSクラスを使用します。
 
   const renderDatabase = () => (
-    <div className="view-container" style={{ maxWidth: '100%', padding: '0 2rem' }}>
+    <div className="view-container" style={{ maxWidth: '100%', padding: '0' }}>
       <div className="back-link" onClick={() => setActiveSection("planetarium")}>
         <Icons.ArrowBack /> Planetariumに戻る
       </div>
@@ -446,24 +457,17 @@ function App() {
         <p>SQLite データベースの全テーブルを照会します (Read-Only)</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '2rem', height: '600px' }}>
-        <div className="card" style={{ padding: '1rem', overflowY: 'auto' }}>
-          <h4 style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '1rem', textTransform: 'uppercase' }}>Tables</h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      {/* height は CSS .db-layout で calc() により自動計算 */}
+      <div className="db-layout">
+        {/* サイドバー: テーブル一覧 */}
+        <div className="db-sidebar">
+          <div className="db-sidebar-label">Tables</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
             {dbTables.map(t => (
               <div
                 key={t}
                 onClick={() => loadTableData(t)}
-                style={{
-                  padding: '0.75rem 1rem',
-                  borderRadius: '12px',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  background: currentTable === t ? 'var(--accent-gradient)' : 'transparent',
-                  color: currentTable === t ? 'white' : 'var(--text-main)',
-                  transition: 'all 0.2s'
-                }}
+                className={`db-table-item ${currentTable === t ? 'active' : ''}`}
               >
                 {t}
               </div>
@@ -471,32 +475,33 @@ function App() {
           </div>
         </div>
 
-        <div className="card" style={{ padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* メインコンテンツ: テーブルデータ */}
+        <div className="db-content">
+          <div className="db-content-header">
             <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Table: {currentTable}</span>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>Showing last 100 rows</span>
           </div>
-          <div style={{ flex: 1, overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                <tr style={{ background: 'white', borderBottom: '2px solid var(--border)' }}>
+          <div className="db-table-wrap">
+            <table className="db-table">
+              <thead>
+                <tr>
                   {tableData.columns.map((col, i) => (
-                    <th key={i} style={{ padding: '1rem 1.25rem', color: 'var(--text-dim)', borderRight: '1px solid #f1f5f9' }}>{col}</th>
+                    <th key={i}>{col}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {tableData.rows.length === 0 && (
                   <tr>
-                    <td colSpan={tableData.columns.length} style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-dim)' }}>
+                    <td colSpan={tableData.columns.length} className="db-empty">
                       No data found in this table.
                     </td>
                   </tr>
                 )}
                 {tableData.rows.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr key={i}>
                     {row.map((cell, j) => (
-                      <td key={j} style={{ padding: '1rem 1.25rem', color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{cell}</td>
+                      <td key={j}>{cell}</td>
                     ))}
                   </tr>
                 ))}
