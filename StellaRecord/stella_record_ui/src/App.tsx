@@ -147,7 +147,7 @@ function App() {
 
   const handleLaunch = async (app: AppCard) => {
     try {
-      await invoke("launch_app", { path: app.path });
+      await invoke("launch_external_app", { appPath: app.path });
       addToast(`${app.name} を起動しました`);
     } catch (e) {
       addToast(`エラー: ${e}`);
