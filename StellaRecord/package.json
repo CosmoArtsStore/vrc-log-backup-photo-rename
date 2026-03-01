@@ -8,11 +8,14 @@
         "PLEIADES"
     ],
     "scripts": {
-        "build:Polaris-pkg": "npm run build:Polaris-bin && cd Polaris && npx tauri build",
-        "build:Polaris-bin": "cd Polaris && set CARGO_TARGET_DIR=target&& cargo build --release -q",
+        "build:Polaris-pkg": "npm run build:Polaris-bin && cd Polaris && set TAURI_BUNDLE_TARGET_DIR=F:\\DEVELOPFOLDER\\RE-NAME-SYS\\StellaRecord\\target&& npx tauri build",
+        "build:Polaris-bin": "cargo build --release -p polaris -q",
         "build:Planetarium-bin": "cargo build --release -p planetarium -q",
-        "build:StellaRecord-pkg": "npm run build:Planetarium-bin && cd stella_record_ui && npx tauri build",
+        "build:StellaRecord-pkg": "npm run build:Planetarium-bin && cd stella_record_ui && set TAURI_BUNDLE_TARGET_DIR=F:\\DEVELOPFOLDER\\RE-NAME-SYS\\StellaRecord\\target&& npx tauri build",
         "dev:StellaRecord": "cd stella_record_ui && npx tauri dev",
-        "build:Alpheratz-pkg": "cd pleiades_alpheratz && npx tauri build"
+        "build:Alpheratz-pkg": "cd pleiades_alpheratz && set TAURI_BUNDLE_TARGET_DIR=F:\\DEVELOPFOLDER\\RE-NAME-SYS\\StellaRecord\\target&& npx tauri build"
+    },
+    "devDependencies": {
+        "@tauri-apps/cli": "^2.10.0"
     }
 }

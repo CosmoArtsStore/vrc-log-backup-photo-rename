@@ -17,26 +17,26 @@
 
 !macro tauri_init
     ; §945: インストールパスの設定
-    StrCpy $INSTDIR "$LOCALAPPDATA\CosmoArtsStore\STELLARECORD"
+    StrCpy $INSTDIR "$LOCALAPPDATA\CosmoArtsStore\STELLARECORD\app\STELLA_RECORD"
 !macroend
 
 !macro tauri_post_install
     ; §874 / §11: Polaris.exe をスタートアップに登録
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Polaris" "$\"$INSTDIR\app\Polaris\Polaris.exe$\""
+    ; 注: Polaris は独立したインストーラーで管理されるが、
+    ; 星系レコード側の設定画面からレジストリを叩く可能性があるため、パスを正確に設定しておく
+    ; (実際には Polaris 側のインストーラーで登録されるのが望ましい)
 !macroend
 
 !macro tauri_pre_uninstall
-    ; 起動中のアプリを終了
+    ; 起動中のアプリを終了 (StellaRecord とその子プロセスの Planetarium のみ)
     ExecWait "taskkill /F /IM STELLA_RECORD.exe"
-    ExecWait "taskkill /F /IM Polaris.exe"
     ExecWait "taskkill /F /IM Planetarium.exe"
-    ExecWait "taskkill /F /IM Alpheratz.exe"
     
-    ; スタートアップ登録の削除
-    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Polaris"
-
-    ; プログラム本体のみを削除し、DBやバックアップは残す設計
-    ; (ユーザーが誤ってアンインストールしてもログが消えないようにする)
-    RMDir /r "$INSTDIR\app"
+    ; プログラム本体のみを削除し、共通データは残す設計
+    Delete "$INSTDIR\app\Planetarium\Planetarium.exe"
+    ; フォルダが空であれば削除
+    RMDir "$INSTDIR\app\Planetarium"
+    RMDir "$INSTDIR\app"
     Delete "$INSTDIR\STELLA_RECORD.exe"
+    RMDir "$INSTDIR"
 !macroend

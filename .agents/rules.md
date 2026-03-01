@@ -14,3 +14,7 @@
 
 ## 3. 確認プロセス
 - **ユーザー環境での検証**: 最終確認は必ず NSIS インストーラーをビルドし、インストール後の状態で挙動を検証すること。
+
+
+Output must be in Japanese. 常に日本語で出力・返答すること。
+F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\Polarisは完全凍結 今後一切触らないこと。

@@ -1,0 +1,22 @@
+[package]
+name = "polaris"
+version = "1.0.0"
+description = "Polaris Background Monitor"
+authors = ["CosmoArtsStore"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+tauri = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+sysinfo = { workspace = true }
+winapi = { workspace = true }
+tray-icon = { workspace = true }
+tao = { workspace = true }
+image = { workspace = true }
+zip = "8.1.0"
+walkdir = "2.5.0"

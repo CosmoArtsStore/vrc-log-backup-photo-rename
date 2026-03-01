@@ -61,45 +61,8 @@ fn get_setting_base() -> Result<PathBuf, String> {
 }
 
 pub fn load_polaris_setting() -> PolarisSetting {
-    if let Ok(base) = get_setting_base() {
-        let path = base.join("PolarisSetting.json");
-        if path.exists() {
-            if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(s) = serde_json::from_str::<PolarisSetting>(&content) {
-                    return s;
-                }
-            }
-        }
-    }
+    // 固定パス仕様のため、設定ファイルが存在しなくてもデフォルト値を返す
     PolarisSetting::default()
-}
-
-pub fn save_polaris_setting(s: &PolarisSetting) -> Result<(), String> {
-    let path = get_setting_base()?.join("PolarisSetting.json");
-    let content = serde_json::to_string_pretty(s).map_err(|e| format!("Serialize error: {}", e))?;
-    fs::write(path, content).map_err(|e| format!("Write error: {}", e))?;
-    Ok(())
-}
-
-pub fn load_planetarium_setting() -> PlanetariumSetting {
-    if let Ok(base) = get_setting_base() {
-        let path = base.join("PlanetariumSetting.json");
-        if path.exists() {
-            if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(s) = serde_json::from_str::<PlanetariumSetting>(&content) {
-                    return s;
-                }
-            }
-        }
-    }
-    PlanetariumSetting::default()
-}
-
-pub fn save_planetarium_setting(s: &PlanetariumSetting) -> Result<(), String> {
-    let path = get_setting_base()?.join("PlanetariumSetting.json");
-    let content = serde_json::to_string_pretty(s).map_err(|e| format!("Serialize error: {}", e))?;
-    fs::write(path, content).map_err(|e| format!("Write error: {}", e))?;
-    Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -126,9 +89,6 @@ pub fn load_launcher_json(filename: &str) -> Vec<AppCard> {
 
 impl PolarisSetting {
     pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
-        if !self.archivePath.is_empty() {
-            return Ok(PathBuf::from(&self.archivePath));
-        }
         let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
         Ok(Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Polaris\\archive"))
     }

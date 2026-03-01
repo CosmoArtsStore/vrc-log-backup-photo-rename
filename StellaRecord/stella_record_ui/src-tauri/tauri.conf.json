@@ -6,15 +6,16 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm run build && powershell -Command \"mkdir -Force ./app/Polaris, ./app/Planetarium, ./app/Alpheratz; copy ../../target/release/Polaris.exe ./app/Polaris/; copy ../../target/release/planetarium.exe ./app/Planetarium/; copy ../../target/release/alpheratz.exe ./app/Alpheratz/\"",
+    "beforeBuildCommand": "npm run build && powershell -Command \"mkdir -Force ./app/Planetarium; copy ../../target/release/planetarium.exe ./app/Planetarium/\"",
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
         "title": "STELLA_RECORD",
-        "width": 640,
-        "height": 480
+        "width": 1280,
+        "height": 800,
+        "maximized": true
       }
     ],
     "security": {

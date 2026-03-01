@@ -5,8 +5,7 @@ use std::process::Command;
 use std::os::windows::process::CommandExt;
 use sysinfo::{System, ProcessesToUpdate};
 use stella_record_ui::config::{
-    load_polaris_setting, save_polaris_setting, PolarisSetting,
-    load_planetarium_setting, save_planetarium_setting, PlanetariumSetting,
+    load_polaris_setting, PolarisSetting, PlanetariumSetting,
 };
 use std::fs;
 use std::io::{BufRead, BufReader};
@@ -14,50 +13,6 @@ use tauri::Emitter;
 
 // §5: STELLA_RECORD.exe — Polaris設定・Planetarium設定・手動バックアップ
 
-#[tauri::command]
-fn get_polaris_config() -> PolarisSetting {
-    load_polaris_setting()
-}
-
-#[tauri::command]
-fn save_polaris_config(setting: PolarisSetting) -> Result<(), String> {
-    save_polaris_setting(&setting)?;
-
-    // §11 レジストリ仕様: HKCU\...\Run に Polaris のみ登録
-    let exe_dir = std::env::current_exe()
-        .map_err(|e| format!("Failed to get exe path: {}", e))?;
-    let base_dir = exe_dir.parent().ok_or("Failed to get exe dir")?;
-    // インストール後パス: STELLARECORD/ の直下に Polaris.exe がある想定
-    let polaris_exe = base_dir.join("app\\Polaris\\Polaris.exe");
-
-    let reg_cmd = if setting.enableStartup {
-        format!(
-            "Reg Add 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' /v 'Polaris' /t REG_SZ /d '\"{}\"' /f",
-            polaris_exe.to_string_lossy()
-        )
-    } else {
-        "Reg Delete 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' /v 'Polaris' /f".to_string()
-    };
-
-    let mut cmd = Command::new("powershell");
-    cmd.args(&["-Command", &reg_cmd]);
-    #[cfg(windows)]
-    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-    let _ = cmd.output();
-
-    Ok(())
-}
-
-#[tauri::command]
-fn get_planetarium_config() -> PlanetariumSetting {
-    load_planetarium_setting()
-}
-
-#[tauri::command]
-fn save_planetarium_config(setting: PlanetariumSetting) -> Result<(), String> {
-    save_planetarium_setting(&setting)
-}
 
 /// §5.4 手動バックアップ: Polaris.exe 未起動 & VRChat 未起動の場合のみ実行可能
 #[tauri::command]
@@ -142,6 +97,22 @@ fn get_polaris_status() -> bool {
         let n = p.name().to_string_lossy().to_lowercase();
         n == "polaris.exe" || n == "polaris"
     })
+}
+
+#[tauri::command]
+fn open_folder(path: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        Command::new("explorer")
+            .arg(path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        Err("Unsupported platform".to_string())
+    }
 }
 
 #[tauri::command]
@@ -265,7 +236,7 @@ pub struct TableData {
 
 #[tauri::command]
 fn get_db_tables() -> Result<Vec<String>, String> {
-    let setting = load_planetarium_setting();
+    let setting = PlanetariumSetting::default();
     let db_path = if !setting.dbPath.is_empty() {
         std::path::PathBuf::from(&setting.dbPath)
     } else {
@@ -294,7 +265,7 @@ fn get_db_tables() -> Result<Vec<String>, String> {
 
 #[tauri::command]
 fn get_db_table_data(table_name: &str) -> Result<TableData, String> {
-    let setting = load_planetarium_setting();
+    let setting = PlanetariumSetting::default();
     let db_path = if !setting.dbPath.is_empty() {
         std::path::PathBuf::from(&setting.dbPath)
     } else {
@@ -346,7 +317,7 @@ fn get_db_table_data(table_name: &str) -> Result<TableData, String> {
 
 #[tauri::command]
 fn delete_today_data() -> Result<String, String> {
-    let setting = load_planetarium_setting();
+    let setting = PlanetariumSetting::default();
     let db_path = if !setting.dbPath.is_empty() {
         std::path::PathBuf::from(&setting.dbPath)
     } else {
@@ -372,7 +343,7 @@ fn delete_today_data() -> Result<String, String> {
 
 #[tauri::command]
 fn wipe_database() -> Result<String, String> {
-    let setting = load_planetarium_setting();
+    let setting = PlanetariumSetting::default();
     let db_path = if !setting.dbPath.is_empty() {
         std::path::PathBuf::from(&setting.dbPath)
     } else {
@@ -441,10 +412,6 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            get_polaris_config,
-            save_polaris_config,
-            get_planetarium_config,
-            save_planetarium_config,
             execute_manual_backup,
             launch_planetarium,
             cancel_planetarium,
@@ -457,6 +424,7 @@ fn main() {
             get_db_table_data,
             delete_today_data,
             wipe_database,
+            open_folder,
         ])
         .setup(|app| {
             // §5.2 起動シーケンス: 非同期で Planetarium.exe を起動する

@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "stella_record_ui/src-tauri",
-    "Polaris",
+    "Polaris/src-tauri",
     "planetarium",
     "pleiades_alpheratz/src-tauri"
 ]

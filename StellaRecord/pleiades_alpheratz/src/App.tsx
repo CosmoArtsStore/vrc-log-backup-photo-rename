@@ -96,7 +96,29 @@ function App() {
   const [localMemo, setLocalMemo] = useState("");
   const [isSavingMemo, setIsSavingMemo] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [toasts, setToasts] = useState<{ id: number, msg: string }[]>([]);
+
+  const addToast = useCallback((msg: string, duration = 3000) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, msg }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, duration);
+  }, []);
   const [photoFolderPath, setPhotoFolderPath] = useState("");
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const columnWidth = 260;
+  const columnCount = Math.max(1, Math.floor((windowSize.width - 40) / columnWidth));
+  const gridWidth = columnCount * columnWidth;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [worldFilter, setWorldFilter] = useState("all");
@@ -175,11 +197,12 @@ function App() {
   };
 
   const handleRegisterToStellaRecord = async () => {
+    addToast("StellaRecord への連携を同期中...");
     try {
       const res: string = await invoke("register_to_stellarecord");
-      alert(res);
+      addToast(res);
     } catch (err) {
-      alert("連携エラー: " + String(err));
+      addToast("連携エラー: " + String(err));
     }
   };
 
@@ -205,7 +228,7 @@ function App() {
       );
       setSelectedPhoto((prev) => (prev ? { ...prev, memo: localMemo } : null));
     } catch (err) {
-      alert("保存に失敗しました。");
+      addToast("保存に失敗しました。");
     } finally {
       setIsSavingMemo(false);
     }
@@ -217,14 +240,12 @@ function App() {
     }
   };
 
-  const columnCount = 4;
-
   return (
     <div className="container" id="alpheratz-app">
       <header className="header">
         <div className="logo-group">
           <h1>Pleiades Alpheratz</h1>
-          <span className="badge">Photo Metadata Manager</span>
+          <span className="badge">写真メタデータ管理</span>
         </div>
 
         <div className="search-bar">
@@ -244,15 +265,32 @@ function App() {
             ))}
           </select>
         </div>
-
-        <div className="actions">
-          <button className="icon-button" onClick={handleRegisterToStellaRecord} title="StellaRecord のメニューへ登録します"><Icons.Link /></button>
-          <button className="icon-button" onClick={startScan} title="再スキャン"><Icons.Refresh /></button>
-          <button className="icon-button" onClick={() => setShowSettings(true)} title="設定"><Icons.Settings /></button>
-        </div>
       </header>
 
       <main className="main-content">
+        <div className="action-cards-grid">
+          <div className="action-card" onClick={handleRegisterToStellaRecord}>
+            <div className="action-icon"><Icons.Link /></div>
+            <div className="action-info">
+              <h3>Connect</h3>
+              <p>StellaRecord 連携登録</p>
+            </div>
+          </div>
+          <div className="action-card" onClick={startScan}>
+            <div className="action-icon"><Icons.Refresh /></div>
+            <div className="action-info">
+              <h3>Refresh</h3>
+              <p>写真を再スキャン</p>
+            </div>
+          </div>
+          <div className="action-card" onClick={() => setShowSettings(true)}>
+            <div className="action-icon"><Icons.Settings /></div>
+            <div className="action-info">
+              <h3>Settings</h3>
+              <p>フォルダ設定</p>
+            </div>
+          </div>
+        </div>
         {scanStatus === "scanning" && (
           <div className="overlay-loader">
             <div className="loader-content">
@@ -282,23 +320,25 @@ function App() {
           </div>
         )}
 
-        <Grid
-          columnCount={columnCount}
-          columnWidth={260}
-          rowCount={Math.ceil(photos.length / columnCount)}
-          rowHeight={240}
-          cellComponent={PhotoCard}
-          cellProps={useMemo(() => ({
-            data: photos,
-            onSelect: handleSelectPhoto,
-            columnCount
-          }), [photos, handleSelectPhoto])}
-          style={{
-            height: window.innerHeight - 80,
-            width: columnCount * 260 + 20
-          }}
-          className="photo-grid"
-        />
+        <div className="grid-center-container" style={{ display: 'flex', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <Grid
+            columnCount={columnCount}
+            columnWidth={columnWidth}
+            rowCount={Math.ceil(photos.length / columnCount)}
+            rowHeight={240}
+            cellComponent={PhotoCard}
+            cellProps={useMemo(() => ({
+              data: photos,
+              onSelect: handleSelectPhoto,
+              columnCount
+            }), [photos, handleSelectPhoto, columnCount])}
+            style={{
+              height: windowSize.height - 120,
+              width: gridWidth
+            }}
+            className="photo-grid"
+          />
+        </div>
       </main>
 
       {selectedPhoto && (
@@ -338,18 +378,33 @@ function App() {
       {showSettings && (
         <div className="modal-overlay" onClick={() => setShowSettings(false)}>
           <div className="modal-content settings-panel" onClick={(e) => e.stopPropagation()}>
-            <h2>設定</h2>
-            <div className="setting-item">
-              <label>VRChat写真フォルダ</label>
-              <div className="input-with-button">
-                <input type="text" value={photoFolderPath} readOnly />
-                <button onClick={handleChooseFolder}>変更</button>
+            <button className="modal-close" onClick={() => setShowSettings(false)}>×</button>
+            <div className="modal-body" style={{ gridTemplateColumns: '1fr' }}>
+              <div className="modal-info">
+                <div className="info-header">
+                  <h2>設定</h2>
+                </div>
+                <div className="memo-section">
+                  <label>VRChat写真フォルダ</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input type="text" value={photoFolderPath} readOnly style={{ flex: 1, padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.03)' }} />
+                    <button className="save-button" onClick={handleChooseFolder} style={{ width: '100px' }}>変更</button>
+                  </div>
+                </div>
               </div>
             </div>
-            <button className="close-panel" onClick={() => setShowSettings(false)}>閉じる</button>
           </div>
         </div>
       )}
+
+      <div className="toast-container">
+        {toasts.map(t => (
+          <div key={t.id} className="toast">
+            <div className="toast-icon">✨</div>
+            <div className="toast-msg">{t.msg}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

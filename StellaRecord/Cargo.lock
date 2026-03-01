@@ -3,22 +3,6 @@
 version = 4
 
 [[package]]
-name = "Polaris"
-version = "1.0.0"
-dependencies = [
- "chrono",
- "image",
- "serde",
- "serde_json",
- "sysinfo",
- "tao 0.30.8",
- "tray-icon 0.19.3",
- "walkdir",
- "winapi",
- "zip",
-]
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3222,6 +3206,24 @@ dependencies = [
  "fdeflate",
  "flate2",
  "miniz_oxide",
+]
+
+[[package]]
+name = "polaris"
+version = "1.0.0"
+dependencies = [
+ "chrono",
+ "image",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tao 0.30.8",
+ "tauri",
+ "tauri-build",
+ "tray-icon 0.19.3",
+ "walkdir",
+ "winapi",
+ "zip",
 ]
 
 [[package]]

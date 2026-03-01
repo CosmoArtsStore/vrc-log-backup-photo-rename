@@ -39,6 +39,9 @@ const Icons = {
   ),
   ArrowBack: () => (
     <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px', fill: 'currentColor' }}><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg>
+  ),
+  Folder: () => (
+    <svg viewBox="0 0 24 24" className="icon-svg"><path d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" /></svg>
   )
 };
 
@@ -114,7 +117,7 @@ function App() {
   }, [loadAll, pollStorage, pollStatus]);
 
   useEffect(() => {
-    const unlisten = listen("planetarium-progress", (event) => {
+    const unlistenPlanetarium = listen("planetarium-progress", (event) => {
       const payload = event.payload as { status: string, progress: string, is_running: boolean };
       setPlanetariumStatus(payload.status);
       setPlanetariumProgress(payload.progress);
@@ -123,7 +126,14 @@ function App() {
         pollStorage();
       }
     });
-    return () => { unlisten.then(f => f()); };
+    const unlistenPolaris = listen<boolean>("polaris-status", (event) => {
+      setPolarisRunning(event.payload);
+    });
+
+    return () => {
+      unlistenPlanetarium.then(f => f());
+      unlistenPolaris.then(f => f());
+    };
   }, [pollStorage]);
 
   const handleLaunch = async (app: AppCard) => {
@@ -147,26 +157,28 @@ function App() {
   const handleSync = async (force: boolean) => {
     try {
       setPlanetariumRunning(true);
-      await invoke("run_planetarium", { force });
+      await invoke("launch_planetarium", { forceSync: force });
     } catch (e) {
       setPlanetariumRunning(false);
       addToast(`解析エラー: ${e}`);
     }
   };
 
-  const handleCancelSync = async () => {
+  const handleStartPolaris = async () => {
     try {
-      await invoke("cancel_planetarium");
-      addToast("解析を停止しました");
+      const res: string = await invoke("start_polaris");
+      addToast(res);
+      pollStatus();
     } catch (e) {
-      addToast(`停止エラー: ${e}`);
+      addToast(`起動失敗: ${e}`);
     }
   };
 
   const handleManualBackup = async () => {
+    addToast("アーカイブへの自動同期を開始します...");
     try {
-      await invoke("run_polaris_manual");
-      addToast("VRChatログをアーカイブへ同期しました");
+      const res: string = await invoke("execute_manual_backup");
+      addToast(res);
     } catch (e) {
       addToast(`同期エラー: ${e}`);
     } finally {
@@ -190,7 +202,7 @@ function App() {
   const loadTableData = async (tableName: string) => {
     setCurrentTable(tableName);
     try {
-      const data: TableData = await invoke("get_db_table_data", { table: tableName });
+      const data: TableData = await invoke("get_db_table_data", { tableName: tableName });
       setTableData(data);
     } catch (e) {
       addToast("データ読込エラー: " + String(e));
@@ -222,84 +234,88 @@ function App() {
   };
 
   // --- Renderers ---
-  const renderDashboard = () => {
-    const formatSize = (bytes: number) => {
-      const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-      if (bytes === 0) return '0 Bytes';
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    };
-
-    return (
-      <div className="view-container">
-        <header className="main-header">
-          <div className="branding">
-            <h1 className="logo">STELLA RECORD</h1>
-            <p className="version">Premium VRC Management Suite v1.0</p>
-          </div>
-          <div className="polaris-badge">
-            <div className={`status-dot ${polarisRunning ? 'active' : ''}`} />
-            <span>Polaris: {polarisRunning ? 'Backing up' : 'Standby'}</span>
-          </div>
-        </header>
-
-        <div className="storage-card">
-          <div className="storage-header">
-            <div className="storage-title">
-              <Icons.Sparkle /> Archive Storage
-              <button className="btn-refresh-storage" onClick={pollStorage} title="更新">
-                <Icons.Refresh />
-              </button>
-            </div>
-            <div className="storage-stats">
-              {formatSize(storageStatus.current)} / {formatSize(storageStatus.limit)} ({storageStatus.percent.toFixed(1)}%)
-            </div>
-          </div>
-          <div className="storage-track">
-            <div
-              className={`storage-fill ${storageStatus.percent > 90 ? 'warning' : ''}`}
-              style={{ width: `${storageStatus.percent}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="dashboard-grid">
-          {/* PLANETARIUM (TOP) */}
-          <div className="feature-card" style={{ gridColumn: '1 / -1' }} onClick={() => setActiveSection("planetarium")}>
-            <div className="feature-header">
-              <div className="feature-icon"><Icons.Planetarium /></div>
-              <div className="feature-title">Planetarium</div>
-            </div>
-            <p className="feature-desc">
-              VRChatのログを精密に構成・解析し、あなたの足跡をデータベース化します。
-            </p>
-          </div>
-
-          <div className="feature-card" onClick={() => setActiveSection("pleiades")}>
-            <div className="feature-header">
-              <div className="feature-icon"><Icons.Pleiades /></div>
-              <div className="feature-title">Pleiades</div>
-            </div>
-            <p className="feature-desc">
-              CosmoArtsStore製の専用拡張ツール。あなたの可能性を広げる機能群。
-            </p>
-          </div>
-
-          <div className="feature-card" onClick={() => setActiveSection("jewelbox")}>
-            <div className="feature-header">
-              <div className="feature-icon"><Icons.JewelBox /></div>
-              <div className="feature-title">JewelBox</div>
-            </div>
-            <p className="feature-desc">
-              外部のお気に入りツール。この場所からすべてをシームレスに起動。
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+  const formatSize = (bytes: number) => {
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    if (bytes === 0) return '0 Bytes';
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    // KB単位以下の値を気にするため、小数点2桁を維持しつつ、小さい単位でもしっかり見せる
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+
+
+  const handleCancelSync = async () => {
+    try {
+      await invoke("cancel_planetarium");
+      addToast("解析を停止しました");
+    } catch (e) {
+      addToast(`停止エラー: ${e}`);
+    }
+  };
+
+  const renderDashboard = () => (
+    <div className="view-container">
+      <header className="dashboard-header">
+        <h1 className="dashboard-title">Dashboard</h1>
+        <p className="dashboard-subtitle">STELLA RECORD の各コアモジュールへアクセスします</p>
+      </header>
+
+      <div className="storage-card">
+        <div className="storage-header">
+          <div className="storage-title">
+            <Icons.Sparkle /> Archive Storage
+            <button className="btn-refresh-storage" onClick={pollStorage} title="更新">
+              <Icons.Refresh />
+            </button>
+          </div>
+          <div className="storage-stats">
+            {formatSize(storageStatus.current)} /
+            {Math.round(storageStatus.limit / (1024 * 1024 * 1024))} GB ({storageStatus.percent.toFixed(1)}%)
+          </div>
+        </div>
+        <div className="storage-track">
+          <div
+            className={`storage-fill ${storageStatus.percent > 90 ? 'warning' : ''}`}
+            style={{ width: `${storageStatus.percent}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="dashboard-grid">
+        {/* PLANETARIUM (TOP WIDE) */}
+        <div className="feature-card wide" onClick={() => setActiveSection("planetarium")}>
+          <div className="feature-header">
+            <div className="feature-icon"><Icons.Planetarium /></div>
+            <div className="feature-title">Planetarium</div>
+          </div>
+          <p className="feature-desc">
+            VRChatのログを精密に構成・解析し、あなたの足跡をデータベース化します。
+          </p>
+        </div>
+
+        <div className="feature-card" onClick={() => setActiveSection("pleiades")}>
+          <div className="feature-header">
+            <div className="feature-icon"><Icons.Pleiades /></div>
+            <div className="feature-title">Pleiades</div>
+          </div>
+          <p className="feature-desc">
+            CosmoArtsStore製の専用拡張ツール。
+          </p>
+        </div>
+
+        <div className="feature-card" onClick={() => setActiveSection("jewelbox")}>
+          <div className="feature-header">
+            <div className="feature-icon"><Icons.JewelBox /></div>
+            <div className="feature-title">JewelBox</div>
+          </div>
+          <p className="feature-desc">
+            外部のお気に入りツール一括起動。
+          </p>
+        </div>
+      </div>
+    </div>
+  );
   const renderPlanetarium = () => (
     <div className="view-container">
       <div className="back-link" onClick={() => setActiveSection("dashboard")}>
@@ -314,15 +330,20 @@ function App() {
         <div className="status-card">
           <div className="status-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: planetariumRunning ? '#10b981' : '#86868b' }} />
-            Engine Status
+            エンジン ステータス
           </div>
-          <div className="status-value">{planetariumRunning ? 'System Online' : 'Standby'}</div>
+          <div className="status-value">{planetariumRunning ? 'システム稼働中' : '待機中'}</div>
         </div>
         <div className="status-card">
-          <div className="status-label">Advanced Browser</div>
-          <button className="btn-action primary" onClick={handleOpenDatabase} style={{ marginTop: '0.5rem', width: '100%' }}>
-            <Icons.Database /> DBブラウザを開く
-          </button>
+          <div className="status-label">管理</div>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <button className="btn-action primary" onClick={handleOpenDatabase} style={{ flex: 1 }}>
+              <Icons.Database /> DB開く
+            </button>
+            <button className="btn-action danger" onClick={handleDeleteTodayData} style={{ flex: 1, padding: '0.5rem' }}>
+              今日分削除
+            </button>
+          </div>
         </div>
       </div>
 
@@ -341,7 +362,7 @@ function App() {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
           <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px solid var(--border)' }}>
-            <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>Database Update (Planetarium)</h4>
+            <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>データベース更新 (Planetarium)</h4>
             <p style={{ margin: '0 0 1rem', color: 'var(--text-dim)', fontSize: '0.8rem', lineHeight: '1.4' }}>
               Polarisが収集した新しいログのみを解析し、行動履歴データベースを効率的に更新します。
             </p>
@@ -351,7 +372,7 @@ function App() {
           </div>
 
           <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px solid var(--border)' }}>
-            <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>Logs Archive Sync (Polaris)</h4>
+            <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>ログ同期 (Polaris)</h4>
             <p style={{ margin: '0 0 1rem', color: 'var(--text-dim)', fontSize: '0.8rem', lineHeight: '1.4' }}>
               VRChatのフォルダから最新のログを手動でアーカイブへコピーします。
             </p>
@@ -394,7 +415,7 @@ function App() {
       <div className="warning-zone">
         <div className="warning-header">
           <Icons.Alert />
-          <h4>Danger Zone</h4>
+          <h4>デンジャーゾーン</h4>
         </div>
         <p className="danger-text">
           これらの操作はデータベースの整合性に影響を与えたり、データを永久に削除する可能性があります。<br />
@@ -506,7 +527,7 @@ function App() {
                   </div>
                   <div className="launcher-info"><h3>{app.name}</h3><p>{app.description}</p></div>
                 </div>
-                <button className="btn-folder" onClick={() => handleOpenFolder(app)}><Icons.Refresh /></button>
+                <button className="btn-folder" onClick={() => handleOpenFolder(app)} title="フォルダを開く"><Icons.Folder /></button>
               </div>
             ))}
           </div>
@@ -525,7 +546,7 @@ function App() {
                   <div className="launcher-icon"><Icons.JewelBox /></div>
                   <div className="launcher-info"><h3>{app.name}</h3><p>{app.description}</p></div>
                 </div>
-                <button className="btn-folder" onClick={() => handleOpenFolder(app)}><Icons.Refresh /></button>
+                <button className="btn-folder" onClick={() => handleOpenFolder(app)} title="フォルダを開く"><Icons.Folder /></button>
               </div>
             ))}
           </div>
@@ -537,25 +558,27 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      <main className="main-content">
+    <div className="main-wrapper">
+      <nav className="top-navigation">
+        <div className="logo">
+          <Icons.Sparkle /> STELLA RECORD
+        </div>
+        <div className={`survival-group ${polarisRunning ? 'online' : 'offline'}`}>
+          <div className="status-lamp">
+            <div className="lamp-dot" />
+            <span>Polaris: {polarisRunning ? 'Active' : 'Standby'}</span>
+          </div>
+          {!polarisRunning && (
+            <button className="btn-revive" onClick={handleStartPolaris}>
+              Revive
+            </button>
+          )}
+        </div>
+      </nav>
+
+      <main className="content-area">
         {renderSection()}
       </main>
-
-      <nav className="bottom-nav">
-        <button className={activeSection === "dashboard" ? "active" : ""} onClick={() => setActiveSection("dashboard")}>
-          <Icons.Sparkle /><span>Dashboard</span>
-        </button>
-        <button className={activeSection === "planetarium" || activeSection === "database" ? "active" : ""} onClick={() => setActiveSection("planetarium")}>
-          <Icons.Planetarium /><span>Planetarium</span>
-        </button>
-        <button className={activeSection === "pleiades" ? "active" : ""} onClick={() => setActiveSection("pleiades")}>
-          <Icons.Pleiades /><span>Pleiades</span>
-        </button>
-        <button className={activeSection === "jewelbox" ? "active" : ""} onClick={() => setActiveSection("jewelbox")}>
-          <Icons.JewelBox /><span>JewelBox</span>
-        </button>
-      </nav>
 
       <div className="toast-container">
         {toasts.map(t => (
