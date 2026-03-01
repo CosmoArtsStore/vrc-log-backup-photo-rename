@@ -3,12 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "lbt": "npm --prefix LogBackupTool/cas_lbtsetting run",
-    "pra": "npm --prefix PhotoRenameApp run",
-    "lbt:build": "npm --prefix LogBackupTool/cas_lbtsetting run build",
-    "pra:build": "npm --prefix PhotoRenameApp run build",
-    "lbt:build:nsis": "cd LogBackupTool && cargo build --release -p lbt_app_observer -p onsite_log_backup_tool && cd cas_lbtsetting && npx tauri build",
-    "pra:build:nsis": "cd PhotoRenameApp && npx tauri build",
+    "dev:Polaris": "npm run dev --prefix StellaRecord/polaris",
+    "dev:Alpheratz": "npm run dev --prefix StellaRecord/pleiades_alpheratz",
     "build:Polaris-pkg": "npm --prefix StellaRecord run build:Polaris-pkg",
     "build:StellaRecord-pkg": "npm --prefix StellaRecord run build:StellaRecord-pkg",
     "build:Alpheratz-pkg": "npm --prefix StellaRecord run build:Alpheratz-pkg"

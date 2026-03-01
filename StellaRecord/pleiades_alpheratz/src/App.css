@@ -1,90 +1,101 @@
 /* ================================================================
-   Alpheratz – VR Photo Gallery
+   Alpheratz – App.css
+   Tailwind との干渉を避けるため:
+   - CSS変数は --a- プレフィックス付き
+   - ルートセレクタは .alpheratz-root で完全にスコープ化
    ================================================================ */
-
-/* ─── Variables ─────────────────────────────────────────────── */
-:root {
-  --accent: #6366f1;
-  --accent-light: #818cf8;
-  --accent-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
-  --bg: #fafbfc;
-  --surface: #ffffff;
-  --border: #e5e7eb;
-  --text: #1f2937;
-  --text-dim: #6b7280;
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", monospace;
-  --radius: 16px;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
-}
-
-/* ─── Reset ─────────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+/* 全体の余白リセット */
+html,
+body {
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  /* ブラウザ自体のスクロールを完全に禁止 */
+  width: 100%;
+  height: 100%;
 }
 
-body {
-  font-family: var(--font-sans);
-  background: var(--bg);
-  color: var(--text);
-  -webkit-font-smoothing: antialiased;
-}
+/* ─── Variables（Tailwind preflight と衝突しないよう .alpheratz-root にスコープ） */
+.alpheratz-root {
+  --a-accent: #6366f1;
+  --a-accent-light: #818cf8;
+  --a-accent-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
+  --a-bg: #fafbfc;
+  --a-surface: #ffffff;
+  --a-border: #e5e7eb;
+  --a-text: #1f2937;
+  --a-text-dim: #6b7280;
+  --a-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --a-font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --a-radius: 16px;
+  --a-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --a-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --a-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
 
-/* ─── Container ─────────────────────────────────────────────── */
-.container {
+  /* ─ Layout ─ */
   display: flex;
   flex-direction: column;
+  width: 100vw;
   height: 100vh;
   overflow: hidden;
+  font-family: var(--a-font-sans);
+  background: var(--a-bg);
+  color: var(--a-text);
+  -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+}
+
+/* すべての子孫に border-box を適用（Tailwind preflight が上書きしてしまう場合の保険） */
+.alpheratz-root *,
+.alpheratz-root *::before,
+.alpheratz-root *::after {
+  box-sizing: border-box;
 }
 
 /* ─── Header ────────────────────────────────────────────────── */
-.header {
+.alpheratz-root .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* 左右端まで完全に伸ばす */
+  width: 100%;
   padding: 0.75rem 1.5rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--a-surface);
+  border-bottom: 1px solid var(--a-border);
   flex-shrink: 0;
   gap: 1rem;
   z-index: 10;
 }
 
-.logo-group {
+.alpheratz-root .logo-group {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   flex-shrink: 0;
 }
 
-.logo-group h1 {
+.alpheratz-root .logo-group h1 {
   font-size: 1.1rem;
   font-weight: 800;
-  background: var(--accent-gradient);
+  background: var(--a-accent-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   white-space: nowrap;
+  margin: 0;
 }
 
-.badge {
+.alpheratz-root .badge {
   font-size: 0.65rem;
   font-weight: 700;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   background: rgba(99, 102, 241, 0.1);
-  color: var(--accent);
+  color: var(--a-accent);
   white-space: nowrap;
 }
 
-.search-bar {
+.alpheratz-root .search-bar {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -92,506 +103,75 @@ body {
   max-width: 560px;
 }
 
-.input-group {
+.alpheratz-root .input-group {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--a-bg);
+  border: 1px solid var(--a-border);
   border-radius: 12px;
   padding: 0 0.75rem;
   transition: border-color 0.2s;
 }
 
-.input-group:focus-within {
-  border-color: var(--accent-light);
+.alpheratz-root .input-group:focus-within {
+  border-color: var(--a-accent-light);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
 }
 
-.input-group input {
+.alpheratz-root .input-group input {
   border: none;
   background: none;
   outline: none;
   font-size: 0.85rem;
   padding: 0.6rem 0;
   width: 100%;
-  color: var(--text);
+  color: var(--a-text);
 }
 
-.search-bar select {
+.alpheratz-root .search-bar select {
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--a-border);
   border-radius: 12px;
-  background: var(--bg);
+  background: var(--a-bg);
   font-size: 0.82rem;
-  color: var(--text);
+  color: var(--a-text);
   outline: none;
   cursor: pointer;
   max-width: 180px;
 }
 
-.icon-svg {
+.alpheratz-root .icon-svg {
   width: 18px;
   height: 18px;
-  fill: var(--text-dim);
+  fill: var(--a-text-dim);
   flex-shrink: 0;
 }
 
 /* ─── Main Content ──────────────────────────────────────────── */
-.main-content {
+.alpheratz-root .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  /* 左右パディングを均等にし、月ナビ分の視覚的な重さを相殺 */
-  padding: 1rem 1.5rem 1rem 1rem;
-  overflow: hidden;
+  padding: 1rem 1.5rem;
+  overflow: visible;
   min-height: 0;
   gap: 1rem;
 }
 
-/* ─── Action Cards ──────────────────────────────────────────── */
-.action-cards-grid {
-  display: flex;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-
-.action-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all 0.2s;
-  flex: 1;
-  min-width: 0;
-}
-
-.action-card:hover {
-  border-color: var(--accent-light);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
-}
-
-.action-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: rgba(99, 102, 241, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.action-icon .icon-svg {
-  width: 18px;
-  height: 18px;
-  fill: var(--accent);
-}
-
-.action-info h3 {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.action-info p {
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  margin-top: 1px;
-}
-
-/* ─── Photo Grid ────────────────────────────────────────────── */
-.photo-grid {
-  scrollbar-width: none;
-}
-
-.photo-grid::-webkit-scrollbar {
-  display: none;
-}
-
-.photo-card-wrapper {
-  padding: 4px;
-}
-
-.photo-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.photo-card:hover {
-  border-color: var(--accent-light);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.photo-thumb-container {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: var(--bg);
-  flex-shrink: 0;
-}
-
-.photo-thumb {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s;
-}
-
-.photo-card:hover .photo-thumb {
-  transform: scale(1.05);
-}
-
-.photo-thumb-skeleton {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, var(--bg) 25%, #f3f4f6 50%, var(--bg) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-.photo-info {
-  padding: 0.6rem 0.75rem;
-  flex: 1;
-  min-height: 0;
-}
-
-.photo-world {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.photo-date {
-  font-size: 0.68rem;
-  color: var(--text-dim);
-  margin-top: 2px;
-}
-
-/* ─── Overlay / Scanner ─────────────────────────────────────── */
-.overlay-loader {
-  position: fixed;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.loader-content {
-  text-align: center;
-  max-width: 360px;
-}
-
-.loader-content h3 {
-  font-size: 1rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-}
-
-.spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.progress-container {
-  margin-top: 0.75rem;
-}
-
-.progress-bar {
-  height: 6px;
-  background: var(--bg);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--accent-gradient);
-  border-radius: 999px;
-  transition: width 0.3s;
-}
-
-.progress-text {
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  margin-top: 0.4rem;
-}
-
-.current-world {
-  opacity: 0.7;
-}
-
-/* ─── Empty State ───────────────────────────────────────────── */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  gap: 0.5rem;
-  color: var(--text-dim);
-}
-
-.empty-icon {
-  font-size: 2.5rem;
-}
-
-.empty-state h3 {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.empty-state p {
-  font-size: 0.85rem;
-}
-
-/* ─── Modal ─────────────────────────────────────────────────── */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-  padding: 2rem;
-}
-
-.modal-content {
-  background: var(--surface);
-  border-radius: 20px;
-  max-width: 960px;
-  width: 100%;
-  max-height: 85vh;
-  overflow: hidden;
-  position: relative;
-  box-shadow: var(--shadow-lg);
-}
-
-.modal-content.settings-panel {
-  max-width: 520px;
-}
-
-.modal-close {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: var(--bg);
-  font-size: 1.1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-  transition: background 0.2s;
-}
-
-.modal-close:hover {
-  background: var(--border);
-}
-
-.modal-body {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  max-height: 85vh;
-  overflow-y: auto;
-}
-
-.modal-image-container {
-  background: #000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  max-height: 85vh;
-}
-
-.modal-image-container img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.modal-info {
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  overflow-y: auto;
-}
-
-.info-header h2 {
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.info-meta {
-  margin-top: 0.25rem;
-}
-
-.timestamp {
-  font-size: 0.78rem;
-  color: var(--text-dim);
-}
-
-.memo-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.memo-section label {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--text-dim);
-}
-
-.memo-section textarea {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 0.75rem;
-  font-size: 0.85rem;
-  resize: vertical;
-  min-height: 80px;
-  outline: none;
-  font-family: var(--font-sans);
-  transition: border-color 0.2s;
-}
-
-.memo-section textarea:focus {
-  border-color: var(--accent-light);
-}
-
-.save-button {
-  padding: 0.6rem 1.2rem;
-  background: var(--accent-gradient);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: opacity 0.2s, transform 0.1s;
-  align-self: flex-start;
-}
-
-.save-button:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-.save-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* ─── Toasts ────────────────────────────────────────────────── */
-.toast-container {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  z-index: 300;
-}
-
-.toast {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-md);
-  font-size: 0.82rem;
-  animation: toast-in 0.3s ease-out;
-}
-
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.toast-icon {
-  font-size: 1rem;
-}
-
-.toast-msg {
-  color: var(--text);
-}
-
-/* ================================================================
-   Grid area (month-nav + grid + scrollbar)
-   ================================================================ */
-
-.grid-area {
+/* ─── Grid area ─────────────────────────────────────────────── */
+.alpheratz-root .grid-area {
   display: flex;
   flex-direction: row;
   flex: 1;
   min-height: 0;
-  gap: 0;
   position: relative;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 /* ─── Month navigation sidebar ──────────────────────────────── */
-.month-nav {
+.alpheratz-root .month-nav {
   width: 128px;
   flex-shrink: 0;
   overflow-y: auto;
@@ -604,7 +184,7 @@ body {
   position: relative;
 }
 
-.month-nav::before {
+.alpheratz-root .month-nav::before {
   content: "";
   position: absolute;
   top: 8px;
@@ -620,17 +200,17 @@ body {
   z-index: 0;
 }
 
-.month-nav-year {
+.alpheratz-root .month-nav-year {
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.12em;
-  color: var(--text-dim);
+  color: var(--a-text-dim);
   text-transform: uppercase;
   padding: 0.6rem 0.5rem 0.3rem 0.5rem;
   opacity: 0.7;
 }
 
-.month-nav-item {
+.alpheratz-root .month-nav-item {
   position: relative;
   display: flex;
   align-items: center;
@@ -642,15 +222,15 @@ body {
   z-index: 1;
 }
 
-.month-nav-item:hover {
+.alpheratz-root .month-nav-item:hover {
   background: rgba(99, 102, 241, 0.07);
 }
 
-.month-nav-item.active {
-  background: rgba(99, 102, 241, 0.1);
+.alpheratz-root .month-nav-item.active {
+  background: rgba(99, 102, 241, 0.10);
 }
 
-.month-nav-dot {
+.alpheratz-root .month-nav-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -661,60 +241,220 @@ body {
   border: 1.5px solid transparent;
 }
 
-.month-nav-item.active .month-nav-dot {
-  background: var(--accent-gradient);
+.alpheratz-root .month-nav-item.active .month-nav-dot {
+  background: var(--a-accent-gradient);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-  border-color: transparent;
   transform: scale(1.2);
 }
 
-.month-nav-item:hover .month-nav-dot {
+.alpheratz-root .month-nav-item:hover .month-nav-dot {
   background: rgba(99, 102, 241, 0.5);
 }
 
-.month-nav-label {
+.alpheratz-root .month-nav-label {
   display: flex;
   flex-direction: column;
   gap: 1px;
   overflow: hidden;
 }
 
-.month-nav-name {
+.alpheratz-root .month-nav-name {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--text-dim);
+  color: var(--a-text-dim);
   transition: color 0.2s;
   white-space: nowrap;
 }
 
-.month-nav-item.active .month-nav-name {
-  background: var(--accent-gradient);
+.alpheratz-root .month-nav-item.active .month-nav-name {
+  background: var(--a-accent-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: 800;
 }
 
-.month-nav-count {
+.alpheratz-root .month-nav-count {
   font-size: 0.65rem;
   font-weight: 600;
-  color: var(--text-dim);
+  color: var(--a-text-dim);
   opacity: 0.65;
 }
 
-/* ─── Grid + scrollbar wrapper ───────────────────────────────── */
-.grid-scroll-wrapper {
+/* ─── Right panel ────────────────────────────────────────────── */
+.alpheratz-root .right-panel {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  /* overflow:hidden は action-card の hover shadow を切るので使わない */
+  /* 代わりにカード行だけ少しパディングを持たせてシャドウ分を確保 */
+}
+
+
+
+/* ─── Action Cards ──────────────────────────────────────────── */
+.alpheratz-root .action-cards-grid {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  padding: 4px 0;
+  /* hover時のbox-shadowが切れないよう上下に余白 */
+}
+
+.alpheratz-root .action-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+  min-width: 0;
+}
+
+.alpheratz-root .action-card:hover {
+  border-color: var(--a-accent-light);
+  box-shadow: var(--a-shadow-sm);
+  transform: translateY(-1px);
+}
+
+.alpheratz-root .action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.alpheratz-root .action-icon .icon-svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--a-accent);
+}
+
+.alpheratz-root .action-info h3 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--a-text);
+  margin: 0;
+}
+
+.alpheratz-root .action-info p {
+  font-size: 0.7rem;
+  color: var(--a-text-dim);
+  margin-top: 1px;
+  margin-bottom: 0;
+}
+
+/* ─── Grid scroll wrapper ───────────────────────────────────── */
+.alpheratz-root .grid-scroll-wrapper {
   position: relative;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
+  /* height は JS側から inline style で明示的に渡す */
+}
+
+/* ─── Photo Grid ────────────────────────────────────────────── */
+.alpheratz-root .photo-grid {
+  scrollbar-width: none;
+}
+
+.alpheratz-root .photo-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.alpheratz-root .photo-card-wrapper {
+  padding: 4px;
+}
+
+.alpheratz-root .photo-card {
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 100%;
   display: flex;
-  /* react-window の固定幅 Grid を中央揃えにする */
-  justify-content: center;
+  flex-direction: column;
+}
+
+.alpheratz-root .photo-card:hover {
+  border-color: var(--a-accent-light);
+  box-shadow: var(--a-shadow-md);
+  transform: translateY(-2px);
+}
+
+.alpheratz-root .photo-thumb-container {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--a-bg);
+  flex-shrink: 0;
+}
+
+.alpheratz-root .photo-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.alpheratz-root .photo-card:hover .photo-thumb {
+  transform: scale(1.05);
+}
+
+.alpheratz-root .photo-thumb-skeleton {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--a-bg) 25%, #f3f4f6 50%, var(--a-bg) 75%);
+  background-size: 200% 100%;
+  animation: a-shimmer 1.5s infinite;
+}
+
+@keyframes a-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.alpheratz-root .photo-info {
+  padding: 0.6rem 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.alpheratz-root .photo-world {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--a-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alpheratz-root .photo-date {
+  font-size: 0.68rem;
+  color: var(--a-text-dim);
+  margin-top: 2px;
 }
 
 /* ─── Custom scrollbar ───────────────────────────────────────── */
-.custom-scrollbar {
+.alpheratz-root .custom-scrollbar {
   position: absolute;
   top: 4px;
   right: 4px;
@@ -726,13 +466,13 @@ body {
   transition: opacity 0.25s;
 }
 
-.grid-area:hover .custom-scrollbar,
-.custom-scrollbar.dragging {
+.alpheratz-root .grid-area:hover .custom-scrollbar,
+.alpheratz-root .custom-scrollbar.dragging {
   opacity: 1;
   pointer-events: auto;
 }
 
-.scrollbar-track {
+.alpheratz-root .scrollbar-track {
   position: absolute;
   inset: 0;
   border-radius: 3px;
@@ -740,26 +480,26 @@ body {
   cursor: pointer;
 }
 
-.scrollbar-thumb {
+.alpheratz-root .scrollbar-thumb {
   position: absolute;
   left: 0;
   right: 0;
   border-radius: 3px;
-  background: var(--accent-gradient);
+  background: var(--a-accent-gradient);
   cursor: grab;
   transition: transform 0.1s, box-shadow 0.2s;
   min-height: 28px;
 }
 
-.scrollbar-thumb:hover,
-.scrollbar-thumb.dragging {
+.alpheratz-root .scrollbar-thumb:hover,
+.alpheratz-root .scrollbar-thumb.dragging {
   transform: scaleX(1.4);
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
   cursor: grabbing;
 }
 
 /* ─── Scroll month indicator ─────────────────────────────────── */
-.scroll-month-indicator {
+.alpheratz-root .scroll-month-indicator {
   position: absolute;
   right: 16px;
   background: white;
@@ -768,7 +508,7 @@ body {
   padding: 3px 8px;
   font-size: 0.7rem;
   font-weight: 800;
-  color: var(--accent);
+  color: var(--a-accent);
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   pointer-events: none;
@@ -778,6 +518,290 @@ body {
   opacity: 0;
 }
 
-.grid-area:hover .scroll-month-indicator {
+.alpheratz-root .grid-area:hover .scroll-month-indicator {
   opacity: 1;
+}
+
+/* ─── Overlay / Scanner ─────────────────────────────────────── */
+.alpheratz-root .overlay-loader {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.alpheratz-root .loader-content {
+  text-align: center;
+  max-width: 360px;
+}
+
+.alpheratz-root .loader-content h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 1rem;
+}
+
+.alpheratz-root .spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--a-border);
+  border-top-color: var(--a-accent);
+  border-radius: 50%;
+  animation: a-spin 0.8s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes a-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.alpheratz-root .progress-container {
+  margin-top: 0.75rem;
+}
+
+.alpheratz-root .progress-bar {
+  height: 6px;
+  background: var(--a-bg);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.alpheratz-root .progress-fill {
+  height: 100%;
+  background: var(--a-accent-gradient);
+  border-radius: 999px;
+  transition: width 0.3s;
+}
+
+.alpheratz-root .progress-text {
+  font-size: 0.75rem;
+  color: var(--a-text-dim);
+  margin-top: 0.4rem;
+}
+
+.alpheratz-root .current-world {
+  opacity: 0.7;
+}
+
+/* ─── Empty State ───────────────────────────────────────────── */
+.alpheratz-root .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 0.5rem;
+  color: var(--a-text-dim);
+}
+
+.alpheratz-root .empty-icon {
+  font-size: 2.5rem;
+}
+
+.alpheratz-root .empty-state h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--a-text);
+  margin: 0;
+}
+
+.alpheratz-root .empty-state p {
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* ─── Modal ─────────────────────────────────────────────────── */
+.alpheratz-root .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 2rem;
+}
+
+.alpheratz-root .modal-content {
+  background: var(--a-surface);
+  border-radius: 20px;
+  max-width: 960px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: hidden;
+  position: relative;
+  box-shadow: var(--a-shadow-lg);
+}
+
+.alpheratz-root .modal-content.settings-panel {
+  max-width: 520px;
+}
+
+.alpheratz-root .modal-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--a-bg);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background 0.2s;
+}
+
+.alpheratz-root .modal-close:hover {
+  background: var(--a-border);
+}
+
+.alpheratz-root .modal-body {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.alpheratz-root .modal-image-container {
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 85vh;
+}
+
+.alpheratz-root .modal-image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.alpheratz-root .modal-info {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+}
+
+.alpheratz-root .info-header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.alpheratz-root .info-meta {
+  margin-top: 0.25rem;
+}
+
+.alpheratz-root .timestamp {
+  font-size: 0.78rem;
+  color: var(--a-text-dim);
+}
+
+.alpheratz-root .memo-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.alpheratz-root .memo-section label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--a-text-dim);
+}
+
+.alpheratz-root .memo-section textarea {
+  border: 1px solid var(--a-border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  font-family: var(--a-font-sans);
+  transition: border-color 0.2s;
+}
+
+.alpheratz-root .memo-section textarea:focus {
+  border-color: var(--a-accent-light);
+}
+
+.alpheratz-root .save-button {
+  padding: 0.6rem 1.2rem;
+  background: var(--a-accent-gradient);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  align-self: flex-start;
+}
+
+.alpheratz-root .save-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.alpheratz-root .save-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ─── Toasts ────────────────────────────────────────────────── */
+.alpheratz-root .toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 300;
+}
+
+.alpheratz-root .toast {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
+  border-radius: 12px;
+  box-shadow: var(--a-shadow-md);
+  font-size: 0.82rem;
+  animation: a-toast-in 0.3s ease-out;
+}
+
+@keyframes a-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alpheratz-root .toast-icon {
+  font-size: 1rem;
+}
+
+.alpheratz-root .toast-msg {
+  color: var(--a-text);
 }

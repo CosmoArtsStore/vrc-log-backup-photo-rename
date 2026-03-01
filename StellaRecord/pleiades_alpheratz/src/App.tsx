@@ -5,11 +5,9 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { Grid } from "react-window";
 import "./App.css";
 
-// ─── 定数（コンポーネント外） ────────────────────────────────────
 const CARD_WIDTH = 270;
 const ROW_HEIGHT = 246;
 
-// ─── Types ───────────────────────────────────────────────────────
 interface Photo {
   photo_filename: string;
   photo_path: string;
@@ -34,7 +32,6 @@ interface MonthGroup {
   count: number;
 }
 
-// ─── Icons ───────────────────────────────────────────────────────
 const Icons = {
   Refresh: () => (
     <svg viewBox="0 0 24 24" className="icon-svg"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" /></svg>
@@ -50,14 +47,8 @@ const Icons = {
   ),
 };
 
-// ─── PhotoCard ───────────────────────────────────────────────────
 const PhotoCard = ({
-  data,
-  columnIndex,
-  rowIndex,
-  style,
-  onSelect,
-  columnCount,
+  data, columnIndex, rowIndex, style, onSelect, columnCount,
 }: {
   data: Photo[];
   columnIndex?: number;
@@ -99,7 +90,6 @@ const PhotoCard = ({
   );
 };
 
-// ─── App ─────────────────────────────────────────────────────────
 function App() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [scanStatus, setScanStatus] = useState<"idle" | "scanning" | "completed" | "error">("idle");
@@ -112,57 +102,64 @@ function App() {
   const [photoFolderPath, setPhotoFolderPath] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [worldFilter, setWorldFilter] = useState("all");
-  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
-  // ─ scroll state ─
-  // Grid は ref/outerRef を型定義で受け付けないため
-  // onScroll の currentTarget からDOM要素を取得して保持する
+  // ─ ResizeObserver で right-panel と grid-scroll-wrapper の実サイズを計測 ─
+  const rightPanelRef = useRef<HTMLDivElement>(null);
+  const gridWrapperRef = useRef<HTMLDivElement>(null);
+  const [panelWidth, setPanelWidth] = useState(800);
+  const [gridWrapperHeight, setGridWrapperHeight] = useState(600);
+
+  useEffect(() => {
+    const rpObs = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setPanelWidth(entry.contentRect.width);
+      }
+    });
+    const gwObs = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setGridWrapperHeight(entry.contentRect.height);
+      }
+    });
+    if (rightPanelRef.current) rpObs.observe(rightPanelRef.current);
+    if (gridWrapperRef.current) gwObs.observe(gridWrapperRef.current);
+    return () => { rpObs.disconnect(); gwObs.disconnect(); };
+  }, []);
+
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ y: number; scrollTop: number } | null>(null);
 
-  // ─ window resize ─
-  useEffect(() => {
-    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // ─ toast ─
   const addToast = useCallback((msg: string, duration = 3000) => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, msg }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), duration);
   }, []);
 
-  // ─ grid dimensions ─
-  // month-nav(128px) + gap(1rem≈16px) + content-pad(1.5rem×2≈48px) + scrollbar(20px) = ~212px
-  const columnCount = Math.max(1, Math.floor((windowSize.width - 192) / CARD_WIDTH));
+  // ─ grid dimensions: 実測値ベース ─
+  const columnCount = Math.max(1, Math.floor(panelWidth / CARD_WIDTH));
   const gridWidth = columnCount * CARD_WIDTH;
-  // header(64) + action-cards(~108) + padding×3(~72) = 244
-  const gridHeight = Math.max(200, windowSize.height - 244);
   const totalRows = Math.ceil(photos.length / columnCount);
   const totalHeight = totalRows * ROW_HEIGHT;
+  // コンテンツ高さとラッパー高さの小さい方 → 下の余白をなくす
+  const gridHeight = Math.max(200, photos.length > 0
+    ? Math.min(gridWrapperHeight, totalHeight)
+    : gridWrapperHeight);
   const maxScrollTop = Math.max(0, totalHeight - gridHeight);
 
-  // ─ world list for filter ─
   const worldNameList = useMemo(() => {
     return Array.from(new Set(photos.map((p) => p.world_name))).sort();
   }, [photos]);
 
-  // ─ month groups ─
   const monthGroups = useMemo((): MonthGroup[] => {
     if (!photos.length) return [];
     const groups: MonthGroup[] = [];
     let currentKey = "";
-
     photos.forEach((photo, i) => {
       const date = new Date(photo.timestamp.replace(" ", "T"));
       const year = isNaN(date.getFullYear()) ? 0 : date.getFullYear();
       const month = isNaN(date.getMonth()) ? 1 : date.getMonth() + 1;
       const key = `${year}-${String(month).padStart(2, "0")}`;
-
       if (key !== currentKey) {
         currentKey = key;
         groups.push({ key, year, month, label: `${month}月`, rowIndex: Math.floor(i / columnCount), count: 1 });
@@ -193,38 +190,27 @@ function App() {
     return active;
   }, [monthGroups, scrollTop]);
 
-  // ─ scrollbar calculations ─
   const trackHeight = gridHeight - 8;
-  const thumbHeight = totalHeight > 0
-    ? Math.max(32, trackHeight * (gridHeight / totalHeight))
-    : trackHeight;
-  const thumbTop = maxScrollTop > 0
-    ? (scrollTop / maxScrollTop) * (trackHeight - thumbHeight)
-    : 0;
+  const thumbHeight = totalHeight > 0 ? Math.max(32, trackHeight * (gridHeight / totalHeight)) : trackHeight;
+  const thumbTop = maxScrollTop > 0 ? (scrollTop / maxScrollTop) * (trackHeight - thumbHeight) : 0;
 
-  // ─ scrollbar drag ─
   const handleScrollbarMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     dragStartRef.current = { y: e.clientY, scrollTop };
     setIsDragging(true);
-
     const onMouseMove = (ev: MouseEvent) => {
       if (!dragStartRef.current || !scrollContainerRef.current) return;
       const delta = ev.clientY - dragStartRef.current.y;
       const ratio = delta / Math.max(1, trackHeight - thumbHeight);
-      const newScrollTop = Math.max(0, Math.min(maxScrollTop,
-        dragStartRef.current.scrollTop + ratio * maxScrollTop
-      ));
+      const newScrollTop = Math.max(0, Math.min(maxScrollTop, dragStartRef.current.scrollTop + ratio * maxScrollTop));
       scrollContainerRef.current.scrollTop = newScrollTop;
     };
-
     const onMouseUp = () => {
       setIsDragging(false);
       dragStartRef.current = null;
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
-
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
   }, [scrollTop, trackHeight, thumbHeight, maxScrollTop]);
@@ -237,20 +223,17 @@ function App() {
     scrollContainerRef.current.scrollTop = Math.max(0, Math.min(maxScrollTop, ratio * maxScrollTop));
   }, [thumbHeight, trackHeight, maxScrollTop]);
 
-  // ─ month jump ─
   const handleJumpToMonth = useCallback((group: MonthGroup) => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = group.rowIndex * ROW_HEIGHT;
     }
   }, []);
 
-  // ─ grid scroll handler ─
   const handleGridScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     scrollContainerRef.current = e.currentTarget;
     setScrollTop(e.currentTarget.scrollTop);
   }, []);
 
-  // ─ data loading ─
   const loadPhotos = useCallback(async () => {
     try {
       const results = await invoke<Photo[]>("get_photos", {
@@ -281,11 +264,9 @@ function App() {
       startScan();
     };
     init();
-
     const unlistenProgress = listen<ScanProgress>("scan:progress", (e) => setScanProgress(e.payload));
     const unlistenCompleted = listen("scan:completed", () => setScanStatus("completed"));
     const unlistenError = listen("scan:error", () => setScanStatus("error"));
-
     return () => {
       unlistenProgress.then((f) => f());
       unlistenCompleted.then((f) => f());
@@ -342,16 +323,14 @@ function App() {
 
   const cellProps = useMemo(() => ({ data: photos, onSelect: handleSelectPhoto, columnCount }), [photos, handleSelectPhoto, columnCount]);
 
-  // ─ render ─
   return (
-    <div className="container" id="alpheratz-app">
+    <div className="alpheratz-root">
+
       {/* ── Header ── */}
       <header className="header">
         <div className="logo-group">
           <h1>Alpheratz</h1>
-          <span className="badge">写真メタデータ管理</span>
         </div>
-
         <div className="search-bar">
           <div className="input-group">
             <Icons.Search />
@@ -373,21 +352,6 @@ function App() {
 
       {/* ── Main ── */}
       <main className="main-content">
-        {/* Action cards */}
-        <div className="action-cards-grid">
-          <div className="action-card" onClick={handleRegisterToStellaRecord}>
-            <div className="action-icon"><Icons.Link /></div>
-            <div className="action-info"><h3>Connect</h3><p>StellaRecord 連携登録</p></div>
-          </div>
-          <div className="action-card" onClick={startScan}>
-            <div className="action-icon"><Icons.Refresh /></div>
-            <div className="action-info"><h3>Refresh</h3><p>写真を再スキャン</p></div>
-          </div>
-          <div className="action-card" onClick={() => setShowSettings(true)}>
-            <div className="action-icon"><Icons.Settings /></div>
-            <div className="action-info"><h3>Settings</h3><p>フォルダ設定</p></div>
-          </div>
-        </div>
 
         {/* Scan overlay */}
         {scanStatus === "scanning" && (
@@ -411,80 +375,98 @@ function App() {
           </div>
         )}
 
-        {/* Empty state */}
-        {scanStatus === "completed" && photos.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-icon">📂</div>
-            <h3>写真が見つかりません</h3>
-            <p>フォルダ設定を確認してください。</p>
-          </div>
-        )}
+        <div className="grid-area">
 
-        {/* ── Grid area: month-nav + grid + custom scrollbar ── */}
-        {photos.length > 0 && (
-          <div className="grid-area">
-            {/* 左: 月ナビゲーション */}
-            <nav className="month-nav">
-              {monthsByYear.map(([year, months]) => (
-                <div key={year}>
-                  <div className="month-nav-year">{year}</div>
-                  {months.map((g) => {
-                    const globalIndex = monthGroups.indexOf(g);
-                    return (
-                      <div
-                        key={g.key}
-                        className={`month-nav-item ${globalIndex === activeMonthIndex ? "active" : ""}`}
-                        onClick={() => handleJumpToMonth(g)}
-                      >
-                        <span className="month-nav-dot" />
-                        <div className="month-nav-label">
-                          <span className="month-nav-name">{g.label}</span>
-                          <span className="month-nav-count">{g.count}枚</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </nav>
-
-            {/* 中央: グリッド + カスタムスクロールバー */}
-            <div className="grid-scroll-wrapper">
-              <Grid
-                columnCount={columnCount}
-                columnWidth={CARD_WIDTH}
-                rowCount={totalRows}
-                rowHeight={ROW_HEIGHT}
-                cellComponent={PhotoCard}
-                cellProps={cellProps}
-                onScroll={handleGridScroll}
-                style={{ height: gridHeight, width: gridWidth }}
-                className="photo-grid"
-              />
-
-              {/* カスタムスクロールバー（コンテンツがグリッド高さを超える時のみ） */}
-              {totalHeight > gridHeight && (
-                <div className={`custom-scrollbar ${isDragging ? "dragging" : ""}`}>
-                  <div className="scrollbar-track" onClick={handleTrackClick}>
+          {/* 左: 月ナビゲーション */}
+          <nav className="month-nav">
+            {monthsByYear.map(([year, months]) => (
+              <div key={year}>
+                <div className="month-nav-year">{year}</div>
+                {months.map((g) => {
+                  const globalIndex = monthGroups.indexOf(g);
+                  return (
                     <div
-                      className={`scrollbar-thumb ${isDragging ? "dragging" : ""}`}
-                      style={{ top: thumbTop, height: thumbHeight }}
-                      onMouseDown={handleScrollbarMouseDown}
-                    />
-                  </div>
-                  <div
-                    className="scroll-month-indicator"
-                    style={{ top: Math.max(0, thumbTop - 10) }}
-                  >
-                    {monthGroups[activeMonthIndex]
-                      ? `${monthGroups[activeMonthIndex].year}年${monthGroups[activeMonthIndex].month}月`
-                      : ""}
-                  </div>
-                </div>
-              )}
+                      key={g.key}
+                      className={`month-nav-item ${globalIndex === activeMonthIndex ? "active" : ""}`}
+                      onClick={() => handleJumpToMonth(g)}
+                    >
+                      <span className="month-nav-dot" />
+                      <div className="month-nav-label">
+                        <span className="month-nav-name">{g.label}</span>
+                        <span className="month-nav-count">{g.count}枚</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+
+          {/* 右: right-panel — ResizeObserver でここの実幅を計測する */}
+          <div className="right-panel" ref={rightPanelRef}>
+
+            <div className="action-cards-grid">
+              <div className="action-card" onClick={handleRegisterToStellaRecord}>
+                <div className="action-icon"><Icons.Link /></div>
+                <div className="action-info"><h3>Connect</h3><p>StellaRecord 連携登録</p></div>
+              </div>
+              <div className="action-card" onClick={startScan}>
+                <div className="action-icon"><Icons.Refresh /></div>
+                <div className="action-info"><h3>Refresh</h3><p>写真を再スキャン</p></div>
+              </div>
+              <div className="action-card" onClick={() => setShowSettings(true)}>
+                <div className="action-icon"><Icons.Settings /></div>
+                <div className="action-info"><h3>Settings</h3><p>フォルダ設定</p></div>
+              </div>
             </div>
+
+            {scanStatus === "completed" && photos.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-icon">📂</div>
+                <h3>写真が見つかりません</h3>
+                <p>フォルダ設定を確認してください。</p>
+              </div>
+            )}
+
+            {/* grid-scroll-wrapper — こちらの実高さも計測、かつ明示的に高さを設定 */}
+            {photos.length > 0 && (
+              <div
+                className="grid-scroll-wrapper"
+                ref={gridWrapperRef}
+                style={{ height: gridWrapperHeight > 0 ? gridHeight : undefined }}
+              >
+                <Grid
+                  columnCount={columnCount}
+                  columnWidth={CARD_WIDTH}
+                  rowCount={totalRows}
+                  rowHeight={ROW_HEIGHT}
+                  cellComponent={PhotoCard}
+                  cellProps={cellProps}
+                  onScroll={handleGridScroll}
+                  style={{ height: gridHeight, width: gridWidth }}
+                  className="photo-grid"
+                />
+                {totalHeight > gridHeight && (
+                  <div className={`custom-scrollbar ${isDragging ? "dragging" : ""}`}>
+                    <div className="scrollbar-track" onClick={handleTrackClick}>
+                      <div
+                        className={`scrollbar-thumb ${isDragging ? "dragging" : ""}`}
+                        style={{ top: thumbTop, height: thumbHeight }}
+                        onMouseDown={handleScrollbarMouseDown}
+                      />
+                    </div>
+                    <div className="scroll-month-indicator" style={{ top: Math.max(0, thumbTop - 10) }}>
+                      {monthGroups[activeMonthIndex]
+                        ? `${monthGroups[activeMonthIndex].year}年${monthGroups[activeMonthIndex].month}月`
+                        : ""}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
-        )}
+        </div>
       </main>
 
       {/* ── Photo modal ── */}
@@ -498,10 +480,7 @@ function App() {
               </div>
               <div className="modal-info">
                 <div className="info-header">
-                  <h2
-                    onClick={handleOpenWorld}
-                    style={{ cursor: selectedPhoto.world_id ? "pointer" : "default" }}
-                  >
+                  <h2 onClick={handleOpenWorld} style={{ cursor: selectedPhoto.world_id ? "pointer" : "default" }}>
                     {selectedPhoto.world_name}{selectedPhoto.world_id && " ↗"}
                   </h2>
                   <div className="info-meta">
@@ -510,11 +489,7 @@ function App() {
                 </div>
                 <div className="memo-section">
                   <label>メモ</label>
-                  <textarea
-                    value={localMemo}
-                    onChange={(e) => setLocalMemo(e.target.value)}
-                    placeholder="メモを入力..."
-                  />
+                  <textarea value={localMemo} onChange={(e) => setLocalMemo(e.target.value)} placeholder="メモを入力..." />
                   <button className="save-button" onClick={handleSaveMemo} disabled={isSavingMemo}>
                     {isSavingMemo ? "保存中..." : "メモを保存"}
                   </button>
@@ -540,7 +515,7 @@ function App() {
                       type="text"
                       value={photoFolderPath}
                       readOnly
-                      style={{ flex: 1, padding: "0.8rem", borderRadius: "12px", border: "1px solid var(--border)", background: "rgba(0,0,0,0.03)", fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}
+                      style={{ flex: 1, padding: "0.8rem", borderRadius: "12px", border: "1px solid var(--a-border)", background: "rgba(0,0,0,0.03)", fontFamily: "var(--a-font-mono)", fontSize: "0.82rem" }}
                     />
                     <button className="save-button" onClick={handleChooseFolder} style={{ width: "100px" }}>変更</button>
                   </div>
@@ -551,11 +526,10 @@ function App() {
         </div>
       )}
 
-      {/* ── Toasts ── */}
       <div className="toast-container">
         {toasts.map((t) => (
           <div key={t.id} className="toast">
-            <div className="toast-icon">✨</div>
+            <div className="toast-icon">★</div>
             <div className="toast-msg">{t.msg}</div>
           </div>
         ))}
