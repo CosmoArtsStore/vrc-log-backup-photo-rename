@@ -55,3 +55,29 @@ npm run build:Polaris-pkg && npm run build:StellaRecord-pkg && npm run build:Alp
 ```
 
 すべての作業が完了しました！
+
+---
+
+## NSIS ビルドで「指定されたファイルが見つかりません。(os error 2)」が出る場合
+
+### なぜこけるか
+`tauri.conf.json` の `bundle.windows.nsis.customLanguageFiles` で **`windows/Japanese.nsh`** を指定しているのに、そのファイルがプロジェクトに存在しないため。バンドル時に NSIS 用の言語ファイルを読みに行って失敗している。
+
+### 手動で直す方法
+**方法A（推奨）**  
+`tauri.conf.json` から `customLanguageFiles` を削除する。  
+日本語は Tauri 標準のものが使われるので、この指定がなくても問題ない。
+
+- **Alpheratz**: `pleiades_alpheratz/src-tauri/tauri.conf.json`
+- **STELLA_RECORD**: `stella_record_ui/src-tauri/tauri.conf.json`
+
+削除するキー: `bundle.windows.nsis.customLanguageFiles` 全体（`"Japanese": "windows/Japanese.nsh"` を含むブロック）
+
+例（Node で削除する場合）:
+```powershell
+cd StellaRecord\pleiades_alpheratz\src-tauri
+node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('tauri.conf.json','utf8')); delete j.bundle.windows.nsis.customLanguageFiles; fs.writeFileSync('tauri.conf.json', JSON.stringify(j));"
+```
+
+**方法B**  
+カスタム文言を使いたい場合は、`src-tauri/windows/Japanese.nsh` を用意し、Tauri が期待する形式で文字列を定義する（[Tauri の言語ファイル](https://github.com/tauri-apps/tauri/tree/dev/crates/tauri-bundler/src/bundle/windows/nsis/languages) を参考に作成）。

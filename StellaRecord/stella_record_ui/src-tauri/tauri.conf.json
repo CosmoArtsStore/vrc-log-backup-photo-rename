@@ -34,13 +34,11 @@
     ],
     "windows": {
       "nsis": {
+        "template": "windows/installer.nsi",
         "installerHooks": "windows/hooks.nsi",
         "languages": [
           "Japanese"
-        ],
-        "customLanguageFiles": {
-          "Japanese": "windows/Japanese.nsh"
-        }
+        ]
       }
     }
   }
