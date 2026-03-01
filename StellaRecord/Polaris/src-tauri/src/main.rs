@@ -26,10 +26,10 @@ fn main() {
         };
 
         match handle {
-            Ok(h) if !h.is_invalid() => {
+Ok(h) if !h.is_invalid() => {
                 if unsafe { windows::Win32::Foundation::GetLastError() } == ERROR_ALREADY_EXISTS {
                     // 先行プロセスあり → 即終了
-                    unsafe { CloseHandle(h).ok() };
+                    unsafe { let _ = CloseHandle(h); };
                     return;
                 }
                 h // スコープを保持（main終了まで解放しない）
