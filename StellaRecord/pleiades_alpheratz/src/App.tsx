@@ -138,13 +138,10 @@ function App() {
 
   // ─ grid dimensions: 実測値ベース ─
   const columnCount = Math.max(1, Math.floor(panelWidth / CARD_WIDTH));
-  const gridWidth = columnCount * CARD_WIDTH;
   const totalRows = Math.ceil(photos.length / columnCount);
   const totalHeight = totalRows * ROW_HEIGHT;
-  // コンテンツ高さとラッパー高さの小さい方 → 下の余白をなくす
-  const gridHeight = Math.max(200, photos.length > 0
-    ? Math.min(gridWrapperHeight, totalHeight)
-    : gridWrapperHeight);
+  // ResizeObserver で測ったラッパーの「実サイズ」をグリッドに渡す
+  const gridHeight = Math.max(200, gridWrapperHeight);
   const maxScrollTop = Math.max(0, totalHeight - gridHeight);
 
   const worldNameList = useMemo(() => {
@@ -376,7 +373,6 @@ function App() {
         )}
 
         <div className="grid-area">
-
           {/* 左: 月ナビゲーション */}
           <nav className="month-nav">
             {monthsByYear.map(([year, months]) => (
@@ -402,9 +398,8 @@ function App() {
             ))}
           </nav>
 
-          {/* 右: right-panel — ResizeObserver でここの実幅を計測する */}
+          {/* 右: right-panel */}
           <div className="right-panel" ref={rightPanelRef}>
-
             <div className="action-cards-grid">
               <div className="action-card" onClick={handleRegisterToStellaRecord}>
                 <div className="action-icon"><Icons.Link /></div>
@@ -428,43 +423,40 @@ function App() {
               </div>
             )}
 
-            {/* grid-scroll-wrapper — こちらの実高さも計測、かつ明示的に高さを設定 */}
-            {photos.length > 0 && (
-              <div
-                className="grid-scroll-wrapper"
-                ref={gridWrapperRef}
-                style={{ height: gridWrapperHeight > 0 ? gridHeight : undefined }}
-              >
-                <Grid
-                  columnCount={columnCount}
-                  columnWidth={CARD_WIDTH}
-                  rowCount={totalRows}
-                  rowHeight={ROW_HEIGHT}
-                  cellComponent={PhotoCard}
-                  cellProps={cellProps}
-                  onScroll={handleGridScroll}
-                  style={{ height: gridHeight, width: gridWidth }}
-                  className="photo-grid"
-                />
-                {totalHeight > gridHeight && (
-                  <div className={`custom-scrollbar ${isDragging ? "dragging" : ""}`}>
-                    <div className="scrollbar-track" onClick={handleTrackClick}>
-                      <div
-                        className={`scrollbar-thumb ${isDragging ? "dragging" : ""}`}
-                        style={{ top: thumbTop, height: thumbHeight }}
-                        onMouseDown={handleScrollbarMouseDown}
-                      />
+            {/* grid-scroll-wrapper — 常に表示（指示の赤枠範囲を確保） */}
+            <div className="grid-scroll-wrapper" ref={gridWrapperRef}>
+              {photos.length > 0 && (
+                <>
+                  <Grid
+                    columnCount={columnCount}
+                    columnWidth={CARD_WIDTH}
+                    rowCount={totalRows}
+                    rowHeight={ROW_HEIGHT}
+                    cellComponent={PhotoCard}
+                    cellProps={cellProps}
+                    onScroll={handleGridScroll}
+                    style={{ height: gridHeight, width: panelWidth }}
+                    className="photo-grid"
+                  />
+                  {totalHeight > gridHeight && (
+                    <div className={`custom-scrollbar ${isDragging ? "dragging" : ""}`}>
+                      <div className="scrollbar-track" onClick={handleTrackClick}>
+                        <div
+                          className={`scrollbar-thumb ${isDragging ? "dragging" : ""}`}
+                          style={{ top: thumbTop, height: thumbHeight }}
+                          onMouseDown={handleScrollbarMouseDown}
+                        />
+                      </div>
+                      <div className="scroll-month-indicator" style={{ top: Math.max(0, thumbTop - 10) }}>
+                        {monthGroups[activeMonthIndex]
+                          ? `${monthGroups[activeMonthIndex].year}年${monthGroups[activeMonthIndex].month}月`
+                          : ""}
+                      </div>
                     </div>
-                    <div className="scroll-month-indicator" style={{ top: Math.max(0, thumbTop - 10) }}>
-                      {monthGroups[activeMonthIndex]
-                        ? `${monthGroups[activeMonthIndex].year}年${monthGroups[activeMonthIndex].month}月`
-                        : ""}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </main>
