@@ -19,7 +19,7 @@ pub fn register_self(name: &str, description: &str) -> Result<String, String> {
     // 2. StellaRecord の設定フォルダを取得
     let local = std::env::var("LOCALAPPDATA")
         .map_err(|_| "LOCALAPPDATA が見つかりません。")?;
-    let setting_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\setting");
+    let setting_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD");
     let target_file = setting_dir.join("PleiadesPath.json");
 
     if !setting_dir.exists() {

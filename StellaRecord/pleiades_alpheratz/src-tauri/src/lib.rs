@@ -32,7 +32,7 @@ pub struct ScanProgress {
 
 fn get_planetarium_db_path() -> PathBuf {
     let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
-    let setting_path = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\setting\\PlanetariumSetting.json");
+    let setting_path = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD\\PlanetariumSetting.json");
     if let Ok(content) = fs::read_to_string(setting_path) {
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(p) = val["dbPath"].as_str() {
@@ -40,12 +40,12 @@ fn get_planetarium_db_path() -> PathBuf {
             }
         }
     }
-    Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Planetarium\\planetarium.db")
+    Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD\\Planetarium\\planetarium.db")
 }
 
 fn get_alpheratz_db_path() -> PathBuf {
     let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
-    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Alpheratz");
+    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Alpheratz\\db");
     let _ = fs::create_dir_all(&dir);
     dir.join("Alpheratz.db")
 }
@@ -242,7 +242,7 @@ async fn get_photos(
 #[tauri::command]
 async fn create_thumbnail(path: String) -> Result<String, String> {
     let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
-    let cache_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Alpheratz\\thumbnail_cache");
+    let cache_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Alpheratz\\thumbnail_cache");
     let _ = fs::create_dir_all(&cache_dir);
 
     let path_p = Path::new(&path);

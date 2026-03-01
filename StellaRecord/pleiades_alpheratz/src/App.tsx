@@ -348,7 +348,7 @@ function App() {
       {/* ── Header ── */}
       <header className="header">
         <div className="logo-group">
-          <h1>Pleiades Alpheratz</h1>
+          <h1>Alpheratz</h1>
           <span className="badge">写真メタデータ管理</span>
         </div>
 

@@ -487,7 +487,7 @@ Function .onInit
         StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCTNAME}"
       ${EndIf}
     !else if "${INSTALLMODE}" == "currentUser"
-      StrCpy $INSTDIR "$LOCALAPPDATA\CosmoArtsStore\STELLA_RECORD"
+      StrCpy $INSTDIR "$LOCALAPPDATA\CosmoArtsStore\STELLARECORD\STELLA_RECORD"
     !endif
 
     Call RestorePreviousInstallLocation

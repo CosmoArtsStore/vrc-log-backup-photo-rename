@@ -120,7 +120,7 @@ fn open_folder(path: &str) -> Result<(), String> {
 #[tauri::command]
 fn get_polaris_logs() -> Result<Vec<String>, String> {
     let local = std::env::var("LOCALAPPDATA").map_err(|_| "LOCALAPPDATA not found")?;
-    let log_path = std::path::Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Polaris\\polaris_appinfo.log");
+    let log_path = std::path::Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\polaris_appinfo.log");
     
     if !log_path.exists() {
         return Ok(vec!["ログファイルが見つかりません。".to_string()]);
@@ -364,9 +364,10 @@ async fn start_polaris() -> Result<String, String> {
         return Ok("Polaris は既に起動しています。".to_string());
     }
 
-    let exe_dir = std::env::current_exe().map_err(|e| e.to_string())?;
-    let base_dir = exe_dir.parent().ok_or("Failed to get exe dir")?;
-    let polaris_exe = base_dir.join("app\\Polaris\\Polaris.exe");
+    let polaris_exe = {
+        let local = std::env::var("LOCALAPPDATA").map_err(|_| "LOCALAPPDATA not found".to_string())?;
+        std::path::Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\polaris.exe")
+    };
 
     if !polaris_exe.exists() {
         return Err("Polaris.exe が見つかりません。".to_string());

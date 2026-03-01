@@ -17,14 +17,13 @@ impl Default for AlpheratzSetting {
     }
 }
 
-/// %LOCALAPPDATA%\CosmoArtsStore\STELLARECORD\app\Alpheratz\AlpheratzSetting.json
 pub fn get_setting_path() -> Result<PathBuf, String> {
     let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\app\\Alpheratz");
+    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Alpheratz");
     if !dir.exists() {
         fs::create_dir_all(&dir).map_err(|e| format!("Failed to create dir: {}", e))?;
     }
-    Ok(dir.join("AlpheratzSetting.json"))
+    Ok(dir.join("Alpheratz.json"))
 }
 
 pub fn load_setting() -> AlpheratzSetting {

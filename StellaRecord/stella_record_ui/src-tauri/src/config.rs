@@ -57,7 +57,7 @@ impl Default for PlanetariumSetting {
 
 fn get_setting_base() -> Result<PathBuf, String> {
     let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\setting");
+    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD");
     if !dir.exists() {
         fs::create_dir_all(&dir).map_err(|e| format!("Failed to create dir: {}", e))?;
     }
@@ -146,7 +146,7 @@ impl PlanetariumSetting {
             return Ok(PathBuf::from(&self.dbPath));
         }
         let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-        let db_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Planetarium");
+        let db_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD\\Planetarium");
         if !db_dir.exists() {
             fs::create_dir_all(&db_dir).map_err(|e| format!("Failed to create db dir: {}", e))?;
         }
