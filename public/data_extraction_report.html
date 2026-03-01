@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VRChat ログ抽出：究極詳細技術仕様書</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #05060a;
+            --glass-bg: rgba(15, 17, 26, 0.95);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --primary: #5865F2;
+            --secondary: #00d1ff;
+            --std-mode: #00ffa3;
+            --dev-mode: #ff3e3e;
+            --text-main: #f1f5f9;
+            --text-dim: #64748b;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 4rem 2rem;
+            line-height: 1.6;
+            background-image: radial-gradient(circle at 10% 10%, rgba(88, 101, 242, 0.1) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 8rem;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(to right, #fff, var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .doc-section {
+            margin-bottom: 10rem;
+        }
+
+        .cat-header {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 1.5rem;
+        }
+
+        .cat-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 3rem;
+            font-weight: 900;
+            color: var(--primary);
+            opacity: 0.3;
+        }
+
+        .cat-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.5rem;
+            margin: 0;
+        }
+
+        .item-detailed-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 2rem;
+            padding: 3rem;
+            margin-bottom: 4rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .item-name {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--secondary);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .item-description-block {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+        }
+
+        .text-content p {
+            font-size: 1.05rem;
+            color: #f1f5f9;
+            margin: 0 0 1.5rem 0;
+            line-height: 1.8;
+        }
+
+        .usage-examples {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .usage-examples li {
+            position: relative;
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+            color: var(--text-dim);
+        }
+
+        .usage-examples li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+        }
+
+        .technical-pane {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .label-tech {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--primary);
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .raw-pattern {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            background: #000;
+            color: #00ff88;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            display: block;
+            margin-bottom: 1.5rem;
+            white-space: pre-wrap;
+            border-left: 4px solid var(--primary);
+        }
+
+        .field-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .field-item {
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .field-item span {
+            color: var(--text-dim);
+        }
+
+        .badge {
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .badge-std {
+            background: rgba(0, 255, 163, 0.1);
+            color: var(--std-mode);
+            border: 1px solid var(--std-mode);
+        }
+
+        .badge-dev {
+            background: rgba(255, 62, 62, 0.1);
+            color: var(--dev-mode);
+            border: 1px solid var(--dev-mode);
+        }
+
+        footer {
+            text-align: center;
+            padding: 5rem;
+            border-top: 1px solid var(--glass-border);
+            color: var(--text-dim);
+        }
+
+        @media (max-width: 1000px) {
+            .item-description-block {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <header>
+            <h1>VRChat Logger Deep-Dive Specification</h1>
+            <p class="subtitle">18カテゴリ・全取得項目の徹底解説リファレンス</p>
+        </header>
+
+        <h2
+            style="color: var(--std-mode); font-family: 'Outfit', sans-serif; font-size: 2.5rem; margin-bottom: 3rem; padding: 1rem; background: rgba(0, 255, 163, 0.05); border-radius: 1rem;">
+            STANDARD MODE</h2>
+
+        <!-- CAT 0 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">00</div>
+                <h2 class="cat-title">セッション基本メタデータ</h2>
+                <span class="badge badge-std">Standard</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">セッション継続時間 (Session Uptime)</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>この項目は、VRChatアプリケーションが起動してから「現在」または「異常終了する直前」までの経過時間を秒単位で記録するものです。単なる時刻の差分ではなく、バックグラウンドでの待機時間も含めた「VR空間に接続し続けていた総実時間」を定義します。
+                        </p>
+                        <p>ログには一定間隔で「現在の累積時間」が書き込まれるため、万が一ゲームがクラッシュして「終了ログ」が残らなかった場合でも、直前の記録からほぼ正確な滞在時間を復元することが可能です。</p>
+                        <ul class="usage-examples">
+                            <li>週次・月次の「総プレイ時間」のヒートマップ作成。</li>
+                            <li>「何時間連続でプレイするとFPSが低下し始めるか」というメモリリーク診断の基準軸。</li>
+                            <li>フレンドとの「遭遇時間」を算出し、親密度をスコア化するアルゴリズムへの利用。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">2026.03.01 20:08:49 Debug - [Behaviour] Odin Serializer... (Uptime:
+                            3600.42)</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> uptime_sec</div>
+                            <div class="field-item"><span>Type:</span> Float64</div>
+                            <div class="field-item"><span>Source:</span> Behaviour Tag</div>
+                            <div class="field-item"><span>Freq:</span> Event-driven</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 3 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">03</div>
+                <h2 class="cat-title">ユーザー設定スナップショット</h2>
+                <span class="badge badge-std">Standard</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">オーディオ・グラフィックス設定</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>起動時にVRChat側で保持されている、あらゆる「設定値」をスナップショットとして記録します。これには、マイクボリュームやマスターボリューム、BGMの音量バランスといったオーディオ設定が含まれます。例えば、「今日はなぜか声が小さいと言われた」際、ログを振り返れば「マイク設定が不意に20%に下がっていた」といった事実がすぐに判明します。
+                        </p>
+                        <p>また、OSC（Open Sound
+                            Control）が有効になっているか、どのポートを使用しているかも記録します。外部ツール（OyasumiVR等）との連携が上手くいかない際の切り分けに役立つほか、グラフィックスのAA（アンチエイリアス）設定やMirror解像度の設定値も網羅するため、負荷テスト時の「基準設定」を後から参照する際にも重宝します。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>「マイクの切り忘れ」や「設定ミス」を過去のログから確認・自己診断。</li>
+                            <li>OSCポートの重複や衝突のトラブルシューティング。</li>
+                            <li>「一番綺麗に見える設定」と「一番軽い設定」の数値的な差を分析。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">OSC: Enabled, Port: 9000
+                            Audio: Master: 100%, World: 50%</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> osc_port_input</div>
+                            <div class="field-item"><span>Field:</span> audio_volume_master</div>
+                            <div class="field-item"><span>Source:</span> Config Init</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 4 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">04</div>
+                <h2 class="cat-title">ソーシャル・インタラクション</h2>
+                <span class="badge badge-std">Standard</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">受取通知と自身のリアクション履歴</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>フレンドから届いた「Boop（つつき）」「Invite（招待）」「friendRequest（申請）」の履歴を、誰から届いたか、そしてその際に添えられていた「カスタムメッセージ」の内容も含めて保存します。VRChatの画面内では流れて消えてしまうこれらのメッセージを、テキストとして永続化することで、後から「あの時誰に誘われたか」を確実に振り返ることができます。
+                        </p>
+                        <p>それだけでなく、自身がその通知に対して行ったアクション（承諾したのか、無視したのか）も記録されます。また、自身のマイクのミュート切替や、ボリューム調整などの「自身のデバイス操作」も時系列で追えるため、プレイ中の自分の振る舞いをメタ的に把握し、ボイスチャットのトラブル防止やマナー向上にも繋げることが可能です。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>届いた Invite メッセージの検索（「今からイベントです」等のキーワード検索）。</li>
+                            <li>自分が誰からの Boop に反応したかの相関分析。</li>
+                            <li>マイクのミュート忘れによる「事故」がどのタイミングで起きたかの事後検証。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">"requestInvite": sender: "UserA", msg: "Hey!"
+                            [Behaviour] AcceptNotification clicked</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> notif_sender_name</div>
+                            <div class="field-item"><span>Field:</span> local_action_type</div>
+                            <div class="field-item"><span>Freq:</span> Realtime Event</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 05 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">05</div>
+                <h2 class="cat-title">ワールド探索・滞在ログ</h2>
+                <span class="badge badge-std">Standard</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">入退室履歴と恒久ユーザーID (usr_ID)</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>インスタンス内に存在する他のユーザーの「入室」と「退室」を、表示名（Display
+                            Name）だけでなく、バックエンドで管理されているユニークな「usr_ID」と共に記録します。表示名はユーザーが自由に変更可能ですが、usr_IDは不変であるため、名前を変えたフレンドの追跡や、過去に会った人物の特定が確実に行えます。
+                        </p>
+                        <p>このデータには「どのインスタンスIDで会ったか」が紐付くため、「特定のイベントワールドで出会った人リスト」を後から自動生成することが可能です。また、退室ログがあることで、その人がインスタンスに何分間滞在していたかも算出できます。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>「会ったことのあるユーザー名」の全文検索機能の実装。</li>
+                            <li>フレンドが名前を変更した際の自動通知・更新システム。</li>
+                            <li>大人数が集まるイベントでの「参加者名簿」の自動作成。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">[Behaviour] OnPlayerJoined &lt;Name&gt; (usr_a5e9ec13-8b7c...)
+                            [Behaviour] OnPlayerLeft &lt;Name&gt; (usr_a5e9ec13-8b7c...)</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> user_id_permanent</div>
+                            <div class="field-item"><span>Field:</span> display_name</div>
+                            <div class="field-item"><span>Source:</span> Behaviour Handler</div>
+                            <div class="field-item"><span>Privacy:</span> Internal Only</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 08 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">08</div>
+                <h2 class="cat-title">Udon ギミック・外部連携</h2>
+                <span class="badge badge-std">Standard</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">Udonスクリプト動作とOSCサービス検出</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>ワールド内の様々な仕掛けを制御する「Udon」スクリプトや、主要なサードパーティ製ギミック（USharpVideo,
+                            YamaStream等）の動作ログを抽出します。これにより、特定のワールドで「ビデオプレイヤーがなぜか動かなかった」といった事象の際、初期化の失敗やURL読み込みのタイムアウトがいつ起きたのかを具体的に特定できます。
+                        </p>
+                        <p>また、あなたのPCで動作しているOSCサービス（OyasumiVR等）をVRChatが自動検出した際の記録を取得します。標準モードでは「どのサービスがいつ起動・検出されたか」という生存確認レベルの情報を収集します。なお、通信ポート番号や詳細なネットワーク属性については、トラブルシューティング用の高度な情報であるため「開発者モード」に限定して記録する運用とします。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>ビデオプレイヤーの読み込み失敗原因（URLエラー/yt-dlpエラー等）の特定。</li>
+                            <li>外部連携ツール（OyasumiVR等）の自動起動・認識の成功確認。</li>
+                            <li>特定のワールドギミックが自分の環境で正しく初期化されているかの証拠。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">[Behaviour] YamaStream: Initialization started.
+                            [Behaviour] Found OSC service: OyasumiVR</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> udon_event_tag</div>
+                            <div class="field-item"><span>Field:</span> osc_service_name</div>
+                            <div class="field-item"><span>Freq:</span> Initialization / Event</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 11 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">11</div>
+                <h2 class="cat-title">自己アバター・ライフサイクル</h2>
+                <span class="badge badge-std">Standard</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">自分のアバター変更ログとロード解析</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>他人のアバター詳細はプライバシー保護のため一切記録しませんが、あなた自身がアバターを着替えた履歴は「セルフ・ファッションログ」として詳細に記録します。アバター名、ID、およびデータサイズ（MB）を保持することで、過去の自分の姿を振り返る重要なライフログとなります。
+                        </p>
+                        <p>また、着替え完了までにかかった実時間を秒単位で算出します。このデータは、特定のワールドでの着替えの重さを客観的に評価する際や、通信環境の安定性をアバターロードという側面から診断するのに非常に有用です。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>自分自身のアバター着替え履歴（自分史）の作成。</li>
+                            <li>アバターごとのロード時間・成功率の分析。</li>
+                            <li>特定アバター使用時のパフォーマンス特性の事後確認。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">[Behaviour] Loading Avatar: &lt;MyName&gt; (avtr_...)
+                            [Behaviour] Avatar Loaded in 4.52s</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> self_avatar_id</div>
+                            <div class="field-item"><span>Field:</span> self_avatar_name</div>
+                            <div class="field-item"><span>Source:</span> Avatar Manager</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 12 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">12</div>
+                <h2 class="cat-title">ビデオプレイヤー記録</h2>
+                <span class="badge badge-std">Standard</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">動画再生URLと同期ステータス</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>ワールド内で再生された、あらゆる動画（YouTube,
+                            Twitch等）の「URL」を時系列で保存します。再生開始、一時停止、終了といったイベントを、再生位置（タイムスタンプ）と共に記録するため、後から「あのワールドで流れていたあの曲は何だったか」を確実に、かつ即座にリスト形式で振り返ることができます。
+                        </p>
+                        <p>また、AVProプレイヤーが動画を解析（Resolve）した際の技術的なログも保持します。これにより、特定の動画が「エラーで再生できなかった」理由が、URLの存否なのか、それともUnityエンジンのコーデックエラーなのかを切り分けられます。プライバシー保護のため、リクエスタ（誰が流したか）の個人名は破棄し、純粋なメディア履歴のみを抽出します。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>ワールド内での「プレイリスト」自動生成。</li>
+                            <li>動画読み込みエラー時の「原因特定」と「回避策の検討」。</li>
+                            <li>複数のビデオプレイヤーが混在するワールドでの再生優先度の動作確認。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">[AVProVideo] Playing URL: https://youtube...
+                            [AVProVideo] Metadata resolved successfully.</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> video_url</div>
+                            <div class="field-item"><span>Field:</span> player_status</div>
+                            <div class="field-item"><span>Source:</span> AVPro Handler</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 13 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">13</div>
+                <h2 class="cat-title">写真・メディアファイル連携</h2>
+                <span class="badge badge-std">Standard</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">写真の絶対パスと解像度データ</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>VRChat内でカメラのシャッターを切った瞬間、あなたのPCのハードディスク（あるいはSSD）の「どこに」その写真が保存されたかを、フルパスで完全に記録します。これがあることで、後から外部のログビューア上で写真をクリックした際に、直接ファイルを開いたり、ギャラリーを自動生成したりといった強力な「ファイル管理連携」が可能になります。
+                        </p>
+                        <p>また、その写真が「どのワールドで」「誰と一緒にいた時に」撮られたものかを、同時刻の「入退室ログ」や「ワールド滞在ログ」と自動的に紐付けることが本プロジェクトの究極の目的の一つです。撮影時の解像度（4K判定等）も保持するため、高画質な思い出写真だけを自動でピックアップするような抽出も容易になります。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>撮った写真から「その時一緒にいた人リスト」を自動生成。</li>
+                            <li>特定のワールドで撮った写真だけを抽出するデジタルアルバム機能。</li>
+                            <li>写真ファイルの場所を忘れても、ログから即座にファイルパスを特定。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">VRChat_2026-03-01_3840x2160.png (Path: C:\Users\...)</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> screenshot_absolute_path</div>
+                            <div class="field-item"><span>Field:</span> resolved_resolution</div>
+                            <div class="field-item"><span>Source:</span> Camera System</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 14, 15, 16 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">14+</div>
+                <h2 class="cat-title">ソーシャル深化 & 運営フラグ</h2>
+                <span class="badge badge-std">Standard</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">グループ参加・フレンド更新 (Cat 14, 15, 16)</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>新しく所属したVRChatグループや、その中でのランク変更、さらには「現在オンラインのフレンド数」の推移などを記録します。これらは、あなたのVRChat内での「社会的な繋がり」の広がりを客観的な数値として残すものです。いつの間にか増えていたフレンドや、以前所属していたグループの履歴を整理する際に役立ちます。
+                        </p>
+                        <p>また、公式が配信する「今日のメッセージ」や、サーバーサイドからのグローバルな制限フラグに関するログも抽出します。これにより、VRChat公式がどのような告知やアップデートをリアルタイムに反映させているのかを、システム側の視点から把握することが可能です。自身のステータス（Green/Blue等の表示）の変更履歴も保持されます。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>フレンド数の増加グラフ의作成（ソーシャル成長記録）。</li>
+                            <li>自分がどの時間帯に「ステータス」を切り替えていたかの自己分析。</li>
+                            <li>各グループ活動の時期の整理・自分史の作成。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">[Behaviour] Group joined: &lt;GroupID&gt;
+                            [Behaviour] Current Friend Count: 512</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> group_id / rank</div>
+                            <div class="field-item"><span>Field:</span> social_presence_status</div>
+                            <div class="field-item"><span>Source:</span> Social Manager</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <h2
+            style="color: var(--dev-mode); font-family: 'Outfit', sans-serif; font-size: 2.5rem; margin: 10rem 0 3rem 0; padding: 1rem; background: rgba(255, 62, 62, 0.05); border-radius: 1rem;">
+            DEVELOPER MODE</h2>
+
+        <!-- CAT 1 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">01</div>
+                <h2 class="cat-title">ハードウェア・ランタイム詳細</h2>
+                <span class="badge badge-dev">Developer</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">PCスペックとVRデバイス構成</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>このデータ群は、VRChatが起動した瞬間に読み取られる「あなたのPCの体力」の証明です。CPUの型番からGPU（グラフィックカード）の名称、VRAM（ビデオメモリ）の容量、さらにはOSのバージョンまでを完全に網羅します。これにより、特定のワールドでの不調が「グラボのメモリ不足」なのか「CPUの世代の古さ」なのかを客観的に切り分けることが可能になります。
+                        </p>
+                        <p>また、使用しているHMD（Meta Quest 3, Valve
+                            Index等）や、左右それぞれのコントローラーの種類も個別に記録されます。冬場に電池切れでコントローラーが切断された際や、トラッキング方式の変更（Oculus Native /
+                            SteamVR）による遅延の差などを後志で分析する際に、この機器情報のスナップショットが極めて重要な意味を持ちます。</p>
+                        <ul class="usage-examples">
+                            <li>自分のPCスペックの変遷（パーツ交換履歴）をログとして自動保存。</li>
+                            <li>「Quest 2使用時」と「Quest 3使用時」でのFPS安定度の自動比較レポート。</li>
+                            <li>特定のVR機器だけで発生する「マイク認識エラー」の特定。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">Device Model: Meta Quest 3
+                            GPU: NVIDIA GeForce RTX 4090 (24GB VRAM)</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> cpu_model / gpu_model</div>
+                            <div class="field-item"><span>Field:</span> hmd_model_path</div>
+                            <div class="field-item"><span>Source:</span> Unity SystemInfo</div>
+                            <div class="field-item"><span>Freq:</span> Once per boot</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 2 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">02</div>
+                <h2 class="cat-title">インフラ・ネットワーク接続</h2>
+                <span class="badge badge-dev">Developer</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">Photon / EOS 通信品質統計</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>VRChatのマルチプレイヤー通信の心臓部である「Photonサーバー」や「EOS（Epic Online
+                            Services）」との通信状態を、ミクロな単位で記録します。単にネットが繋がっているかだけでなく、「どのリージョンのサーバーに繋がったか（Japan / US /
+                            EU）」「パケットが何個の束（Bunches）で送られたか」といった、低レイヤーの通信効率を可視化します。</p>
+                        <p>特に「Disconnect (Reason:
+                            5)」などの切断理由コードを取得することで、それが「サーバー側のダウン」なのか「自分の家の回線のタイムアウト」なのかを100%特定できます。これは、夜間のゴールデンタイムに発生しやすい「突発的なサーバー追い出し」の証拠として、あるいは回線業者への相談資料としても機能するほど具体的なデータです。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>「Japan リージョン」と「US リージョン」での平均 Ping 特性の比較。</li>
+                            <li>回線が切れやすい時間帯の特定による、ルーターの自動再起動タイミングの検討。</li>
+                            <li>サーバーメンテナンスや障害発生時の「ダウンタイム」の正確な記録。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">[Behaviour] Using nameserver host: ns.exitgames.com
+                            [Behaviour] Bunches: 2 / Reliable: OK</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> photon_region_code</div>
+                            <div class="field-item"><span>Field:</span> packet_bunches_count</div>
+                            <div class="field-item"><span>Source:</span> Network Bridge</div>
+                            <div class="field-item"><span>Policy:</span> Dev Mode Only</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 6 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">06</div>
+                <h2 class="cat-title">パフォーマンス統計 (Heartbeat)</h2>
+                <span class="badge badge-dev">Developer</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">JSON Performance Stats (毎分統計)</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>VRChatエンジンが1分おきに自動出力する「Performance
+                            Stats」ブロックから、FPSやPingの平均/最小/最大値、および描画負荷の具体的な数値を抽出します。単なる平均値だけでなく「最小FPS」を取得することで、一瞬のカクつき（スタッター）が発生したタイミングを特定できます。
+                        </p>
+                        <p>特筆すべきは「周囲のアバター負荷」の詳細な内訳です。ExcellentからVeryPoorまでの各ランクのアバターが周囲に何人いたのか、またポリゴン数やボーン数、マテリアル数の合計が毎分記録されます。これにより、「FPSが落ちた原因は、VeryPoorアバターが急に5人増えたからだ」といった因果関係を客観的に証明できます。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>特定ワールドでの平均FPSを算出し、自分のPCスペックでの「快適度」をランキング化。</li>
+                            <li>「Poor以下のアバターを非表示にした場合」と「そうでない場合」の負荷軽減率の比較。</li>
+                            <li>ネットワーク遅延（Ping）の推移をグラフ化し、プロバイダやWi-Fiの安定性を診断。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">{ "name": "fps_mean", "mean": 90.0 },
+                            { "name": "visible_avatar_poly_count", "total": 1312897000 }</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> fps_mean / min / max</div>
+                            <div class="field-item"><span>Field:</span> poly_count_total</div>
+                            <div class="field-item"><span>Format:</span> JSON Chunk</div>
+                            <div class="field-item"><span>Policy:</span> Dev Mode Only</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 9 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">09</div>
+                <h2 class="cat-title">例外・デバッグログ</h2>
+                <span class="badge badge-dev">Developer</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">エンジン例外エラーとAPIレスポンス</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>VRChatの動作中に発生した「NullReferenceException（ヌルリポ）」や「UdonVMException」といった、プログラムレベルの致命的なエラーを完全なスタックトレースと共に記録します。これは「ワールドが重くなった」「ギミックが反応しなくなった」といった曖昧な不具合の背後にある、論理的な故障原因を突き止めるための「決定的な証拠」となります。
+                        </p>
+                        <p>また、VRChatのバックエンドAPIとの通信で発生したエラー（404 Not Found / 503 Service
+                            Unavailable等）も収集します。アバターが表示されない、フレンドリストが読み込めないといったトラブルが「公式サーバーの不調」によるものなのか、それとも「特定の通信の失敗」によるものなのかを、生データに基づいて判断できます。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>ワールド内の特定の椅子に座るとエラーが出る、といった「踏むと危ない箇所」の判別。</li>
+                            <li>VRChat公式サーバーの障害発生時刻の正確な記録。</li>
+                            <li>アバターロード失敗時の「シェーダーコンパイルエラー」等の詳細原因特定。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">System.NullReferenceException: Object reference...
+                            HTTP/1.1 503 Service Unavailable</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> error_stack_trace</div>
+                            <div class="field-item"><span>Field:</span> api_status_code</div>
+                            <div class="field-item"><span>Source:</span> Unity Exception Handler</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 10 -->
+        <section class="doc-section">
+            <div class="cat-header">
+                <div class="cat-id">10</div>
+                <h2 class="cat-title">高度な統計・ランタイム指標</h2>
+                <span class="badge badge-dev">Developer</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">入力遅延とフレームタイムの内訳</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>単なるFPS数値の裏側にある、非常に低レベルな「処理時間」の内訳を抽出します。自分の手が動いてから画面に反映されるまでの「input_latency」や、CPUとGPUそれぞれが1フレームの描画に何ミリ秒費やしたか（cpu_frame_time
+                            / gpu_frame_time）を記録し、PCのボトルネックがどこにあるかを、これ以上ないほど正確に定量化します。</p>
+                        <p>また、あなた自身に付与されている「DeveloperTrustLevel（信託ランク）」や、内部的な機能制限フラグの状態もスナップショットとして保持します。これにより、アップデート後に自分のアカウントに新しい機能が反映されたか、あるいは内部的なデバッグフラグが予期せずオンになっていないかなどを、システム管理者レベルの視点で監視できます。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>「VRコントローラーの反応が数ミリ秒遅い」といった違和感の数値的な裏付け。</li>
+                            <li>CPU性能が限界なのか、グラボ性能が限界なのかの「ボトルネック判定」。</li>
+                            <li>自分のアカウントに適用されている隠しテスト機能（ベータ機能）の確認。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">"input_latency": 15.42 ms
+                            "gpu_frame_time": 0.00531 s</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> input_latency_ms</div>
+                            <div class="field-item"><span>Field:</span> dev_trust_level</div>
+                            <div class="field-item"><span>Source:</span> Internal Profiler</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CAT 18 -->
+        <section class="doc-section" id="cat-final">
+            <div class="cat-header">
+                <div class="cat-id">18</div>
+                <h2 class="cat-title">インスタンス・ポータル内部構造</h2>
+                <span class="badge badge-dev">Developer</span>
+            </div>
+
+            <div class="item-detailed-card">
+                <div class="item-name">ポータルの生成・消滅と同期データ量</div>
+                <div class="item-description-block">
+                    <div class="text-content">
+                        <p>ワールド内に動的に設置される「インスタンス・ポータル」の全挙動を、生成から消滅までミクロに追跡します。誰かが「別のワールドへの門」を開いた瞬間、それが手動配置だったのか、それともポータル生成がシステム的に拒否されたのかといった、ワールド内の物理的な変化をデータとして記録します。
+                        </p>
+                        <p>さらに、インスタンス入室時の「メタデータ同期」にかかったパケットサイズや、シーン全体がメモリに展開されるまでの「詳細な工程（instantiateScene,
+                            WarmShaders等）」を秒単位で抽出します。これにより、「このワールドが重いのはシーンのロードが遅いからではなく、シェーダーのコンパイルが長いからだ」といった技術的な真実が見えてきます。
+                        </p>
+                        <ul class="usage-examples">
+                            <li>ロード時間の異常（1分以上かかる等）をアラートとして検出。</li>
+                            <li>ワールド制作者向けの、ロード時間改善のためのデバッグ資料。</li>
+                            <li>ポータルが開いた時間の記録から、イベント進行のタイムラインを自動構成。</li>
+                        </ul>
+                    </div>
+                    <div class="technical-pane">
+                        <span class="label-tech">Technical Mapping</span>
+                        <div class="raw-pattern">[PortalManager] Portal Place: Manually
+                            [Behaviour] Granular Load: instantiateScene: 2.1s</div>
+                        <div class="field-list">
+                            <div class="field-item"><span>Field:</span> load_granular_phase_sec</div>
+                            <div class="field-item"><span>Field:</span> portal_dest_world_id</div>
+                            <div class="field-item"><span>Source:</span> Portal & Bridge</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <div
+                style="background: rgba(255, 62, 62, 0.05); border: 1px solid rgba(255, 62, 62, 0.2); border-radius: 1.5rem; padding: 2rem; margin-bottom: 4rem;">
+                <h3 style="color: var(--dev-mode); margin-top: 0;">Absolute Exclusion Policy</h3>
+                <p style="font-size: 0.9rem; color: var(--text-dim);">VRCXセーブデータ / 動画リクエスタID / 他人のアバター詳細 / ワールド内秘密値
+                    は物理的に破棄されます。</p>
+            </div>
+            <p>© 2026 CosmoArtsStore - VRC Logger Specification</p>
+            <p style="margin-top:1rem; opacity:0.5;">※ 全18カテゴリすべての詳細解説を網羅するまで、このフォーマットで拡張を継続します。</p>
+        </footer>
+    </div>
+
+</body>
+
+</html>

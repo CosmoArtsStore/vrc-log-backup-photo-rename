@@ -15,13 +15,19 @@
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
   --radius: 16px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
-  --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
 }
 
 /* ─── Reset ─────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 body {
   font-family: var(--font-sans);
@@ -137,7 +143,8 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 1rem 1.5rem;
+  /* 左右パディングを均等にし、月ナビ分の視覚的な重さを相殺 */
+  padding: 1rem 1.5rem 1rem 1rem;
   overflow: hidden;
   min-height: 0;
   gap: 1rem;
@@ -203,7 +210,10 @@ body {
 .photo-grid {
   scrollbar-width: none;
 }
-.photo-grid::-webkit-scrollbar { display: none; }
+
+.photo-grid::-webkit-scrollbar {
+  display: none;
+}
 
 .photo-card-wrapper {
   padding: 4px;
@@ -255,8 +265,13 @@ body {
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .photo-info {
@@ -284,7 +299,7 @@ body {
 .overlay-loader {
   position: fixed;
   inset: 0;
-  background: rgba(255,255,255,0.85);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -313,9 +328,15 @@ body {
   margin: 0 auto 1rem;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
-.progress-container { margin-top: 0.75rem; }
+.progress-container {
+  margin-top: 0.75rem;
+}
 
 .progress-bar {
   height: 6px;
@@ -337,7 +358,9 @@ body {
   margin-top: 0.4rem;
 }
 
-.current-world { opacity: 0.7; }
+.current-world {
+  opacity: 0.7;
+}
 
 /* ─── Empty State ───────────────────────────────────────────── */
 .empty-state {
@@ -350,7 +373,9 @@ body {
   color: var(--text-dim);
 }
 
-.empty-icon { font-size: 2.5rem; }
+.empty-icon {
+  font-size: 2.5rem;
+}
 
 .empty-state h3 {
   font-size: 1rem;
@@ -358,13 +383,15 @@ body {
   color: var(--text);
 }
 
-.empty-state p { font-size: 0.85rem; }
+.empty-state p {
+  font-size: 0.85rem;
+}
 
 /* ─── Modal ─────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -406,7 +433,9 @@ body {
   transition: background 0.2s;
 }
 
-.modal-close:hover { background: var(--border); }
+.modal-close:hover {
+  background: var(--border);
+}
 
 .modal-body {
   display: grid;
@@ -492,8 +521,16 @@ body {
   align-self: flex-start;
 }
 
-.save-button:hover { opacity: 0.9; transform: translateY(-1px); }
-.save-button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.save-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.save-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
 
 /* ─── Toasts ────────────────────────────────────────────────── */
 .toast-container {
@@ -520,12 +557,24 @@ body {
 }
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.toast-icon { font-size: 1rem; }
-.toast-msg { color: var(--text); }
+.toast-icon {
+  font-size: 1rem;
+}
+
+.toast-msg {
+  color: var(--text);
+}
 
 /* ================================================================
    Grid area (month-nav + grid + scrollbar)
@@ -538,6 +587,7 @@ body {
   min-height: 0;
   gap: 0;
   position: relative;
+  align-items: flex-start;
 }
 
 /* ─── Month navigation sidebar ──────────────────────────────── */
@@ -592,8 +642,13 @@ body {
   z-index: 1;
 }
 
-.month-nav-item:hover { background: rgba(99, 102, 241, 0.07); }
-.month-nav-item.active { background: rgba(99, 102, 241, 0.1); }
+.month-nav-item:hover {
+  background: rgba(99, 102, 241, 0.07);
+}
+
+.month-nav-item.active {
+  background: rgba(99, 102, 241, 0.1);
+}
 
 .month-nav-dot {
   width: 8px;
@@ -613,7 +668,9 @@ body {
   transform: scale(1.2);
 }
 
-.month-nav-item:hover .month-nav-dot { background: rgba(99, 102, 241, 0.5); }
+.month-nav-item:hover .month-nav-dot {
+  background: rgba(99, 102, 241, 0.5);
+}
 
 .month-nav-label {
   display: flex;
@@ -651,6 +708,9 @@ body {
   position: relative;
   min-width: 0;
   overflow: hidden;
+  display: flex;
+  /* react-window の固定幅 Grid を中央揃えにする */
+  justify-content: center;
 }
 
 /* ─── Custom scrollbar ───────────────────────────────────────── */
@@ -718,4 +778,6 @@ body {
   opacity: 0;
 }
 
-.grid-area:hover .scroll-month-indicator { opacity: 1; }
+.grid-area:hover .scroll-month-indicator {
+  opacity: 1;
+}

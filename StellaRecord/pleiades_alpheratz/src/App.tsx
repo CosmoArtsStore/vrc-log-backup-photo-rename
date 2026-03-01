@@ -138,7 +138,7 @@ function App() {
 
   // ─ grid dimensions ─
   // month-nav(128px) + gap(1rem≈16px) + content-pad(1.5rem×2≈48px) + scrollbar(20px) = ~212px
-  const columnCount = Math.max(1, Math.floor((windowSize.width - 212) / CARD_WIDTH));
+  const columnCount = Math.max(1, Math.floor((windowSize.width - 192) / CARD_WIDTH));
   const gridWidth = columnCount * CARD_WIDTH;
   // header(64) + action-cards(~108) + padding×3(~72) = 244
   const gridHeight = Math.max(200, windowSize.height - 244);
