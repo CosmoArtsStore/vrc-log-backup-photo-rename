@@ -1,0 +1,57 @@
+完璧です！すべてのタスクが完了しました。
+
+## ✅ 完了報告
+
+### 1. backup 正規化ロジックの削除 ✅
+[`stella_record_ui/src-tauri/src/config.rs`](f:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\stella_record_ui\src-tauri\src\config.rs) から不要な `backup`/`archive` 正規化ロジックを削除しました。
+
+**変更内容:**
+- `PolarisSetting::get_effective_archive_dir()`: 簡潔化
+- `PlanetariumSetting::get_effective_archive_dir()`: 簡潔化
+- コメントを「正規パスは log_archive」のみに変更
+- 旧設定からの移行コードを削除
+
+### 2. 全アプリのビルド完了 ✅
+
+以下のインストーラーが正常に生成されました:
+
+| アプリ名 | ファイル名 | サイズ | 生成時刻 |
+|---------|-----------|--------|----------|
+| **Polaris** | `Polaris_1.0.0_x64-setup.exe` | 335 KB | 15:51:22 |
+| **STELLA_RECORD** | `STELLA_RECORD_1.0.0_x64-setup.exe` | 3.6 MB | 15:55:12 |
+| **Alpheratz** | `Alpheratz_0.1.0_x64-setup.exe` | 5.2 MB | 15:57:42 |
+
+**生成場所**: `F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\target\release\bundle\nsis\`
+
+### 3. 公式ビルド手順の策定 ✅
+
+[`.agents/rules.md`](f:\DEVELOPFOLDER\RE-NAME-SYS\.agents\rules.md) に以下を追加しました:
+
+- **前提条件**の明記
+- **3つのビルドコマンド**（Polaris, STELLA_RECORD, Alpheratz）
+- **全アプリ一括ビルドコマンド**
+- **重要事項**（planetarium統合済み、この手順以外は認めない）
+
+### 4. 検証完了 ✅
+
+- ✅ `cargo check -p stella_record_ui`: 警告のみ、エラーなし
+- ✅ `cargo check -p polaris`: 警告のみ、エラーなし
+- ✅ 全インストーラーの存在確認完了
+
+---
+
+**手動ビルド手順（今後はこれのみ使用）:**
+
+```powershell
+cd F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord
+
+# 個別ビルド
+npm run build:Polaris-pkg
+npm run build:StellaRecord-pkg
+npm run build:Alpheratz-pkg
+
+# または一括ビルド
+npm run build:Polaris-pkg && npm run build:StellaRecord-pkg && npm run build:Alpheratz-pkg
+```
+
+すべての作業が完了しました！

@@ -115,46 +115,30 @@ pub fn load_launcher_json(filename: &str) -> Vec<AppCard> {
 }
 
 impl PolarisSetting {
-    /// アーカイブ先ディレクトリ。正規パスは ...\Polaris\log_archive。
-    /// 設定が ...\backup になっている場合は log_archive に正規化する。
+    /// アーカイブ先ディレクトリ。正規パスは log_archive。
     pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
         let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
         let default = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\log_archive");
 
         if self.archivePath.is_empty() {
-            return Ok(default);
+            Ok(default)
+        } else {
+            Ok(PathBuf::from(&self.archivePath))
         }
-        let mut path = PathBuf::from(&self.archivePath);
-        // 誤って ...\backup や ...\archive が指定されていた場合は log_archive に正規化
-        if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
-            if dir_name == "backup" || dir_name == "archive" {
-                path.pop();
-                path.push("log_archive");
-            }
-        }
-        Ok(path)
     }
 }
 
 impl PlanetariumSetting {
-    /// アーカイブ先ディレクトリ。正規パスは ...\Polaris\log_archive。
-    /// 設定が ...\backup になっている場合は log_archive に正規化する。
+    /// アーカイブ先ディレクトリ。正規パスは log_archive。
     pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
         let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
         let default = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\log_archive");
 
         if self.archivePath.is_empty() {
-            return Ok(default);
+            Ok(default)
+        } else {
+            Ok(PathBuf::from(&self.archivePath))
         }
-        let mut path = PathBuf::from(&self.archivePath);
-        // 誤って ...\backup や ...\archive が指定されていた場合は log_archive に正規化
-        if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
-            if dir_name == "backup" || dir_name == "archive" {
-                path.pop();
-                path.push("log_archive");
-            }
-        }
-        Ok(path)
     }
 
     pub fn get_effective_db_path(&self) -> Result<PathBuf, String> {

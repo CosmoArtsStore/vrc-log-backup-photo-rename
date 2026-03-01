@@ -68,6 +68,43 @@
 ## 3. 確認プロセス
 - **ユーザー環境での検証**: 最終確認は必ず NSIS インストーラーをビルドし、インストール後の状態で挙動を検証すること。
 
+## 4. ビルド手順（公式・この手順以外は認めない）
+
+### 前提条件
+- Node.js, Rust, Tauri CLI がインストール済み
+- 作業ディレクトリ: `F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord`
+
+### ビルドコマンド
+
+#### 1. Polaris（独立インストーラー）
+```powershell
+npm run build:Polaris-pkg
+```
+**生成物**: `F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\target\release\bundle\nsis\Polaris_1.0.0_x64-setup.exe`
+
+#### 2. STELLA_RECORD（メインアプリ、planetarium統合済み）
+```powershell
+npm run build:StellaRecord-pkg
+```
+**生成物**: `F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\target\release\bundle\nsis\STELLA_RECORD_1.0.0_x64-setup.exe`
+
+#### 3. Alpheratz（Pleiades）
+```powershell
+npm run build:Alpheratz-pkg
+```
+**生成物**: `F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\target\release\bundle\nsis\Alpheratz_0.1.0_x64-setup.exe`
+
+#### 全アプリ一括ビルド
+```powershell
+npm run build:Polaris-pkg && npm run build:StellaRecord-pkg && npm run build:Alpheratz-pkg
+```
+
+### 重要事項
+- **planetarium は stella_record_ui に統合済み**。独立したビルドは不要
+- **Polaris は STELLA_RECORD とは完全に独立**したインストーラー
+- ビルド前に必ず `cargo check -p stella_record_ui`, `cargo check -p polaris` でコンパイルエラーを確認すること
+- この手順以外のビルド方法は一切認めない
+
 
 Output must be in Japanese. 常に日本語で出力・返答すること。
 F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\Polarisは完全凍結 今後一切触らないこと。
