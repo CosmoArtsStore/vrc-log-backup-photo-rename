@@ -2,6 +2,10 @@
     ExecWait "taskkill /F /IM Polaris.exe"
 !macroend
 
+!macro NSIS_HOOK_POSTINSTALL
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Polaris" '"$INSTDIR\${MAINBINARYNAME}.exe"'
+!macroend
+
 !macro NSIS_HOOK_PREUNINSTALL
     ExecWait "taskkill /F /IM Polaris.exe"
 !macroend

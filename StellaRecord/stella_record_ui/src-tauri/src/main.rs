@@ -163,12 +163,11 @@ struct PlanetariumPayload {
 #[tauri::command]
 fn launch_planetarium(handle: tauri::AppHandle, _mode: String) -> Result<String, String> {
     let setting = load_planetarium_setting();
-    let tracking = setting.enableUserTracking;
     let db_path = setting.get_effective_db_path()?;
     let archive_dir = setting.get_effective_archive_dir()?;
     
     std::thread::spawn(move || {
-        let result = planetarium::run_diff_import(db_path, archive_dir, tracking, |status, progress| {
+        let result = planetarium::run_diff_import(db_path, archive_dir, |status, progress| {
             let _ = handle.emit("planetarium-progress", PlanetariumPayload {
                 status: status.clone(),
                 progress: progress.clone(),

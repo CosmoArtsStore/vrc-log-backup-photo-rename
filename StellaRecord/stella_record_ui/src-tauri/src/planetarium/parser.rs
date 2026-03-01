@@ -17,7 +17,7 @@ pub static RE_VIDEO: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[(?:<[^>]+>)?UShar
 pub static RE_VIDEO_ALT: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[(?:<[^>]+>)?USharpVideo(?:</[^>]+>)?\] Started video: (.*)").unwrap());
 pub static RE_USR: Lazy<Regex> = Lazy::new(|| Regex::new(r"\((usr_[^)]+)\)").unwrap());
 
-pub fn parse_access_type(access_raw: &str, tracking: bool) -> (Option<String>, Option<String>) {
+pub fn parse_access_type(access_raw: &str) -> (Option<String>, Option<String>) {
     let lower = access_raw.to_lowercase();
     let access_type = if lower.starts_with("private") {
         Some("private".to_string())
@@ -33,11 +33,7 @@ pub fn parse_access_type(access_raw: &str, tracking: bool) -> (Option<String>, O
         None
     };
 
-    let instance_owner = if tracking {
-        RE_USR.captures(access_raw).and_then(|c| c.get(1)).map(|m| m.as_str().to_string())
-    } else {
-        None
-    };
+    let instance_owner = RE_USR.captures(access_raw).and_then(|c| c.get(1)).map(|m| m.as_str().to_string());
 
     (access_type, instance_owner)
 }

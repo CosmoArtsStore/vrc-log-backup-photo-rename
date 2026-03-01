@@ -37,7 +37,6 @@ fn collect_log_files(archive_dir: &Path) -> Vec<std::path::PathBuf> {
 pub fn run_diff_import<F>(
     db_path: std::path::PathBuf,
     archive_dir: std::path::PathBuf,
-    tracking: bool,
     mut progress_callback: F,
 ) -> Result<(), String>
 where
@@ -87,7 +86,7 @@ where
                 format!("処理中: {}", filename),
                 format!("{}%", ((idx as f32 / total as f32) * 100.0) as u32),
             );
-            if let Err(e) = parse_and_import(&mut conn, log_path, &filename, tracking, &mut progress_callback) {
+            if let Err(e) = parse_and_import(&mut conn, log_path, &filename, &mut progress_callback) {
                 eprintln!("[Planetarium] エラー ({}): {}", filename, e);
             }
         }
@@ -101,7 +100,6 @@ fn parse_and_import<F>(
     conn: &mut Connection,
     log_path: &Path,
     filename: &str,
-    tracking: bool,
     progress_callback: &mut F,
 ) -> Result<()>
 where
@@ -182,14 +180,8 @@ where
 
         if let Some(caps) = RE_USER_AUTH.captures(&line) {
             if my_display_name.is_none() {
-                let dname = caps.get(1).unwrap().as_str().to_string();
-                if tracking {
-                    my_display_name = Some(dname);
-                    my_user_id = Some(caps.get(2).unwrap().as_str().to_string());
-                } else {
-                    my_display_name = Some("[LocalPlayer]".to_string());
-                    my_user_id = None;
-                }
+                my_display_name = Some(caps.get(1).unwrap().as_str().to_string());
+                my_user_id = Some(caps.get(2).unwrap().as_str().to_string());
             }
             continue;
         }
@@ -215,7 +207,7 @@ where
                 let world_id = caps.get(1).map(|m| m.as_str()).unwrap_or("").to_string();
                 let access_raw = caps.get(3).map(|m| m.as_str().trim()).unwrap_or("").to_string();
                 let region = caps.get(4).map(|m| m.as_str()).map(String::from);
-                let (access_type, instance_owner) = parse_access_type(&access_raw, tracking);
+                let (access_type, instance_owner) = parse_access_type(&access_raw);
                 let full_instance = format!("{}:{}", world_id, access_raw);
 
                 tx.execute(
@@ -245,45 +237,20 @@ where
         }
 
         if let Some(caps) = RE_PLAYER_JOIN.captures(&line) {
-            let mut dname = caps.get(1).unwrap().as_str().to_string();
+            let dname = caps.get(1).unwrap().as_str().to_string();
             let uid = caps.get(2).unwrap().as_str();
 
-            if !tracking {
-                if let Some(ref my_name) = my_display_name {
-                    if &dname == my_name || dname.contains("(Local)") {
-                        dname = "[LocalPlayer]".to_string();
-                    } else {
-                        dname = "[User_Masked]".to_string();
-                    }
-                } else {
-                    dname = "[User_Masked]".to_string();
-                }
-            }
-
-            let player_id = if tracking {
-                tx.execute(
-                    "INSERT INTO players (user_id, display_name) VALUES (?1, ?2)
-                     ON CONFLICT(user_id) DO UPDATE SET display_name = excluded.display_name",
-                    params![uid, dname],
-                )?;
-                tx.query_row(
-                    "SELECT id FROM players WHERE user_id = ?1",
-                    params![uid],
-                    |row| row.get::<_, i64>(0),
-                )
-                .ok()
-            } else {
-                tx.execute(
-                    "INSERT OR IGNORE INTO players (user_id, display_name) VALUES (NULL, ?1)",
-                    params![dname],
-                )?;
-                tx.query_row(
-                    "SELECT id FROM players WHERE display_name = ?1 AND user_id IS NULL LIMIT 1",
-                    params![dname],
-                    |row| row.get::<_, i64>(0),
-                )
-                .ok()
-            };
+            tx.execute(
+                "INSERT INTO players (user_id, display_name) VALUES (?1, ?2)
+                 ON CONFLICT(user_id) DO UPDATE SET display_name = excluded.display_name",
+                params![uid, dname],
+            )?;
+            let player_id: Option<i64> = tx.query_row(
+                "SELECT id FROM players WHERE user_id = ?1",
+                params![uid],
+                |row| row.get::<_, i64>(0),
+            )
+            .ok();
 
             if let (Some(vid), Some(pid)) = (current_visit_id, player_id) {
                 let is_local = if dname == "[LocalPlayer]" || line.contains("(Local)") {
@@ -300,35 +267,14 @@ where
         }
 
         if let Some(caps) = RE_PLAYER_LEFT.captures(&line) {
-            let mut dname = caps.get(1).unwrap().as_str().to_string();
             let uid = caps.get(2).unwrap().as_str();
-            if !tracking {
-                if let Some(ref my_name) = my_display_name {
-                    if &dname == my_name || dname.contains("(Local)") {
-                        dname = "[LocalPlayer]".to_string();
-                    } else {
-                        dname = "[User_Masked]".to_string();
-                    }
-                } else {
-                    dname = "[User_Masked]".to_string();
-                }
-            }
             if let Some(vid) = current_visit_id {
-                let player_id: Option<i64> = if tracking {
-                    tx.query_row(
-                        "SELECT id FROM players WHERE user_id = ?1",
-                        params![uid],
-                        |row| row.get(0),
-                    )
-                    .ok()
-                } else {
-                    tx.query_row(
-                        "SELECT id FROM players WHERE display_name = ?1 AND user_id IS NULL LIMIT 1",
-                        params![dname],
-                        |row| row.get(0),
-                    )
-                    .ok()
-                };
+                let player_id: Option<i64> = tx.query_row(
+                    "SELECT id FROM players WHERE user_id = ?1",
+                    params![uid],
+                    |row| row.get(0),
+                )
+                .ok();
                 if let Some(pid) = player_id {
                     tx.execute(
                         "UPDATE player_visits SET leave_time = ?1 WHERE visit_id = ?2 AND player_id = ?3 AND leave_time IS NULL",
@@ -348,11 +294,7 @@ where
                 {
                     my_display_name = Some(dname_raw.to_string());
                 }
-                let target_dname = if tracking {
-                    dname_raw.to_string()
-                } else {
-                    "[LocalPlayer]".to_string()
-                };
+                let target_dname = dname_raw.to_string();
                 if let Some(vid) = current_visit_id {
                     tx.execute(
                         "UPDATE player_visits SET is_local = 1 
@@ -366,19 +308,8 @@ where
 
         if let Some(caps) = RE_AVATAR.captures(&line) {
             if let Some(vid) = current_visit_id {
-                let mut dname = caps.get(1).unwrap().as_str().to_string();
+                let dname = caps.get(1).unwrap().as_str().to_string();
                 let avatar = caps.get(2).unwrap().as_str();
-                if !tracking {
-                    if let Some(ref my_name) = my_display_name {
-                        if &dname == my_name || dname.contains("(Local)") {
-                            dname = "[LocalPlayer]".to_string();
-                        } else {
-                            dname = "[User_Masked]".to_string();
-                        }
-                    } else {
-                        dname = "[User_Masked]".to_string();
-                    }
-                }
                 let player_id: Option<i64> = tx
                     .query_row(
                         "SELECT id FROM players WHERE display_name = ?1 LIMIT 1",
@@ -397,18 +328,7 @@ where
         if let Some(caps) = RE_VIDEO.captures(&line) {
             if let Some(vid) = current_visit_id {
                 let url = caps.get(1).unwrap().as_str();
-                let mut requester = caps.get(2).unwrap().as_str().to_string();
-                if !tracking {
-                    if let Some(ref my_name) = my_display_name {
-                        if &requester == my_name || requester.contains("(Local)") {
-                            requester = "[LocalPlayer]".to_string();
-                        } else {
-                            requester = "[User_Masked]".to_string();
-                        }
-                    } else {
-                        requester = "[User_Masked]".to_string();
-                    }
-                }
+                let requester = caps.get(2).unwrap().as_str().to_string();
                 let player_id: Option<i64> = tx
                     .query_row(
                         "SELECT id FROM players WHERE display_name = ?1 LIMIT 1",
@@ -452,14 +372,9 @@ where
         )?;
     }
 
-    let my_uid_stored = if tracking {
-        my_user_id.clone()
-    } else {
-        None
-    };
     tx.execute(
         "UPDATE app_sessions SET start_time = ?1, end_time = ?2, my_user_id = ?3, my_display_name = ?4, vrchat_build = ?5 WHERE log_filename = ?6",
-        params![start_time.unwrap_or_default(), end_time, my_uid_stored, my_display_name, vrchat_build, filename]
+        params![start_time.unwrap_or_default(), end_time, my_user_id, my_display_name, vrchat_build, filename]
     )?;
 
     tx.commit()?;

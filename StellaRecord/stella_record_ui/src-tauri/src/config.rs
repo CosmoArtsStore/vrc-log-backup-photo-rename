@@ -40,9 +40,6 @@ pub struct PlanetariumSetting {
     pub archivePath: String,
     #[serde(default)]
     pub dbPath: String,
-    /// §6.6 Privacy/Tracking モード。false = Privacy（デフォルト）
-    #[serde(default)]
-    pub enableUserTracking: bool,
 }
 
 impl Default for PlanetariumSetting {
@@ -50,7 +47,6 @@ impl Default for PlanetariumSetting {
         PlanetariumSetting {
             archivePath: String::new(),
             dbPath: String::new(),
-            enableUserTracking: false,
         }
     }
 }
