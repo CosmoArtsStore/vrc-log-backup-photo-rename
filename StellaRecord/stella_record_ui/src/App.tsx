@@ -65,6 +65,9 @@ function App() {
   const [dbTables, setDbTables] = useState<string[]>([]);
   const [currentTable, setCurrentTable] = useState("");
   const [tableData, setTableData] = useState<TableData>({ columns: [], rows: [] });
+  const [showEnhancedSyncModal, setShowEnhancedSyncModal] = useState(false);
+  const [archiveFiles, setArchiveFiles] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   const addToast = useCallback((msg: string, duration = 3000) => {
     const id = Date.now();
@@ -183,13 +186,36 @@ function App() {
     }
   };
 
-  const handleManualBackup = async () => {
-    addToast("アーカイブへの自動同期を開始します...");
+  const handleOpenEnhancedSync = async () => {
     try {
-      const res: string = await invoke("execute_manual_backup");
+      const files: string[] = await invoke("list_archive_files");
+      setArchiveFiles(files);
+      setShowEnhancedSyncModal(true);
+      setSelectedFile(null);
+    } catch (e) {
+      addToast(`ファイル一覧取得失敗: ${e}`);
+    }
+  };
+
+  const handleExecuteEnhancedSync = async () => {
+    if (!selectedFile) return;
+    try {
+      setShowEnhancedSyncModal(false);
+      setPlanetariumRunning(true);
+      await invoke("launch_enhanced_import", { fileName: selectedFile });
+    } catch (e) {
+      setPlanetariumRunning(false);
+      addToast(`強化同期エラー: ${e}`);
+    }
+  };
+
+  const handleCompressLogs = async () => {
+    addToast("アーカイブの圧縮を開始します (レベル3)...");
+    try {
+      const res: string = await invoke("compress_logs");
       addToast(res);
     } catch (e) {
-      addToast(`同期エラー: ${e}`);
+      addToast(`圧縮エラー: ${e}`);
     } finally {
       pollStorage();
     }
@@ -381,17 +407,31 @@ function App() {
           </div>
 
           <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px solid var(--border)' }}>
-            <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>ログ同期 (Polaris)</h4>
+            <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>ログアーカイブ最適化 (Polaris系)</h4>
             <p style={{ margin: '0 0 1rem', color: 'var(--text-dim)', fontSize: '0.8rem', lineHeight: '1.4' }}>
-              VRChatのフォルダから最新のログを手動でアーカイブへコピーします。
+              過去のログを個別に圧縮し、ストレージを節約します。圧縮後も強化同期で読み取可能です。
             </p>
             <button
               className="btn-action"
-              style={{ width: '100%', opacity: polarisRunning ? 0.6 : 1 }}
-              onClick={() => !polarisRunning && handleManualBackup()}
-              disabled={polarisRunning}
+              style={{ width: '100%' }}
+              onClick={handleCompressLogs}
             >
-              アーカイブへ同期
+              過去ログを圧縮
+            </button>
+          </div>
+
+          <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px solid var(--border)' }}>
+            <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>強化同期 (アーカイブ読込)</h4>
+            <p style={{ margin: '0 0 1rem', color: 'var(--text-dim)', fontSize: '0.8rem', lineHeight: '1.4' }}>
+              圧縮済み（.tar.zst）を含むアーカイブファイルを個別に選択してデータベースを更新します。
+            </p>
+            <button
+              className="btn-action primary"
+              style={{ width: '100%' }}
+              onClick={handleOpenEnhancedSync}
+              disabled={planetariumRunning}
+            >
+              強化同期を開始
             </button>
           </div>
         </div>
@@ -584,6 +624,46 @@ function App() {
       <main className="content-area">
         {renderSection()}
       </main>
+
+      {showEnhancedSyncModal && (
+        <div className="modal-overlay">
+          <div className="modal-content file-selector">
+            <h3>強化同期：ファイル選択</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '1rem' }}>
+              取り込むログファイル（.txt または .tar.zst）を選択してください。
+            </p>
+            <div className="file-list-container">
+              {archiveFiles.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
+                  アーカイブ内にファイルが見つかりません。
+                </div>
+              ) : (
+                archiveFiles.map(file => (
+                  <div
+                    key={file}
+                    className={`file-item ${selectedFile === file ? 'selected' : ''}`}
+                    onClick={() => setSelectedFile(file)}
+                  >
+                    <Icons.Folder />
+                    <span className="file-name">{file}</span>
+                    {file.endsWith('.tar.zst') && <span className="badge-zst">ZST</span>}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="btn-action" onClick={() => setShowEnhancedSyncModal(false)}>キャンセル</button>
+              <button
+                className="btn-action primary"
+                disabled={!selectedFile}
+                onClick={handleExecuteEnhancedSync}
+              >
+                取り込み開始
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="toast-container">
         {toasts.map(t => (

@@ -10,73 +10,123 @@ use stella_record_ui::config::{
     load_polaris_setting, load_planetarium_setting,
 };
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use tauri::Emitter;
+use std::path::PathBuf;
 
 // §5: STELLA_RECORD.exe — Polaris設定・Planetarium設定・手動バックアップ
 
 
-/// §5.4 手動バックアップ: Polaris.exe 未起動 & VRChat 未起動の場合のみ実行可能
+/// ログアーカイブ内のファイル一覧を取得 (.txt, .tar.zst)
 #[tauri::command]
-fn execute_manual_backup() -> Result<String, String> {
-    let mut sys = System::new_all();
-    sys.refresh_processes(ProcessesToUpdate::All, true);
-
-    let mut polaris_running = false;
-    let mut vrchat_running = false;
-
-    for p in sys.processes().values() {
-        let name = p.name().to_string_lossy().to_lowercase();
-        if name == "vrchat.exe" || name == "vrchat" {
-            vrchat_running = true;
-        }
-        if name == "polaris.exe" || name == "polaris" {
-            polaris_running = true;
-        }
-    }
-
-    if vrchat_running {
-        return Err("VRChatが起動中です。手動バックアップを実行する前に終了してください。".to_string());
-    }
-    if polaris_running {
-        return Err("Polaris が既に起動しています。常駐アプリが自動バックアップを管理しています。".to_string());
-    }
-
-    // 手動バックアップ処理
+fn list_archive_files() -> Result<Vec<String>, String> {
     let setting = load_polaris_setting();
-    let src_dir = {
-        let appdata = std::env::var("APPDATA").map_err(|_| "Failed to get APPDATA")?;
-        std::path::Path::new(&appdata).join("..\\LocalLow\\VRChat\\VRChat")
-    };
-    let dest_dir = setting.get_effective_archive_dir()?;
+    let archive_dir = setting.get_effective_archive_dir()?;
+    let mut files = Vec::new();
 
-    if !dest_dir.exists() {
-        std::fs::create_dir_all(&dest_dir)
-            .map_err(|e| format!("Failed to create archive dir: {}", e))?;
-    }
-
-    let mut count = 0;
-    if src_dir.exists() {
-        if let Ok(entries) = std::fs::read_dir(&src_dir) {
+    if archive_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&archive_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_file() {
                     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                        if name.starts_with("output_log_") && name.ends_with(".txt") {
-                            let dest_path = dest_dir.join(name);
-                            if !dest_path.exists() {
-                                if std::fs::copy(&path, &dest_path).is_ok() {
-                                    count += 1;
-                                }
-                            }
+                        if (name.starts_with("output_log_") && name.ends_with(".txt")) || name.ends_with(".tar.zst") {
+                            files.push(name.to_string());
                         }
                     }
                 }
             }
         }
     }
+    files.sort();
+    files.reverse(); // 新しいもの順
+    Ok(files)
+}
 
-    Ok(format!("完了しました。{}個のログファイルをバックアップしました。", count))
+/// 過去ログを圧縮 (レベル3)
+#[tauri::command]
+fn compress_logs() -> Result<String, String> {
+    let setting = load_polaris_setting();
+    let archive_dir = setting.get_effective_archive_dir()?;
+    if !archive_dir.exists() {
+        return Err("アーカイブディレクトリが存在しません。".to_string());
+    }
+
+    let mut count = 0;
+    let entries = std::fs::read_dir(&archive_dir).map_err(|e| e.to_string())?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                // output_log_*.txt かつ .tar.zst が存在しない場合
+                if name.starts_with("output_log_") && name.ends_with(".txt") {
+                    let zst_path = path.with_extension("txt.tar.zst");
+                    if !zst_path.exists() {
+                        compress_single_file(&path, &zst_path)?;
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(format!("完了しました。{}個のファイルを圧縮しました。", count))
+}
+
+fn compress_single_file(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
+    let file = std::fs::File::create(dst).map_err(|e| e.to_string())?;
+    let enc = zstd::stream::Encoder::new(file, 3).map_err(|e| e.to_string())?.auto_finish();
+    let mut tar = tar::Builder::new(enc);
+    
+    let file_name = src.file_name().ok_or("Invalid file name")?;
+    let mut f = std::fs::File::open(src).map_err(|e| e.to_string())?;
+    tar.append_file(file_name, &mut f).map_err(|e| e.to_string())?;
+    
+    tar.finish().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// 強化同期を開始
+#[tauri::command]
+fn launch_enhanced_import(handle: tauri::AppHandle, file_name: String) -> Result<String, String> {
+    let setting = load_planetarium_setting();
+    let db_path = setting.get_effective_db_path()?;
+    let archive_dir = setting.get_effective_archive_dir()?;
+    let target_path = archive_dir.join(&file_name);
+
+    if !target_path.exists() {
+        return Err("ファイルが見つかりません。".to_string());
+    }
+
+    std::thread::spawn(move || {
+        let result = planetarium::run_enhanced_import(db_path, target_path, |status, progress| {
+            let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                status,
+                progress,
+                is_running: true,
+            });
+        });
+
+        match result {
+            Ok(_) => {
+                let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                    status: "完了".to_string(),
+                    progress: "100%".to_string(),
+                    is_running: false,
+                });
+            }
+            Err(e) => {
+                let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                    status: format!("エラー: {}", e),
+                    progress: "0%".to_string(),
+                    is_running: false,
+                });
+            }
+        }
+        let _ = handle.emit("planetarium-finished", ());
+    });
+
+    Ok("強化同期を開始しました。".to_string())
 }
 
 /// §5.2 起動シーケンス / §5.5 Planetarium手動最新化・強制Sync
@@ -386,7 +436,9 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            execute_manual_backup,
+            list_archive_files,
+            compress_logs,
+            launch_enhanced_import,
             launch_planetarium,
             cancel_planetarium,
             read_launcher_json,

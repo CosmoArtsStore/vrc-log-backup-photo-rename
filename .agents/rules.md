@@ -104,9 +104,14 @@ npm run build:Polaris-pkg && npm run build:StellaRecord-pkg && npm run build:Alp
 - **Polaris は STELLA_RECORD とは完全に独立**したインストーラー
 - ビルド前に必ず `cargo check -p stella_record_ui`, `cargo check -p polaris` でコンパイルエラーを確認すること
 - この手順以外のビルド方法は一切認めない
+## 5. UI/Layout 修正の極則
+- **「目視」なき完了の禁止**: レイアウトや UI の修正を行う際は、コードの書き換えだけで完了としてはならない。
+- **ブラウザサブエージェントによる DOM 検証**: Tauri 等のバックエンド連携が必要な環境であっても、ブラウザサブエージェントを用いてデバッグサーバー（例: `http://localhost:1420`）にアクセスし、**JavaScript による DOM 操作（Mock データの注入）**を行って、動的な表示や境界条件での挙動（例：データ 0 件時の枠の維持、大量データ時のスクロールバーの到達範囲）が仕様通りであることを物理的に確認すること。
+- **エビデンスの提示**: 検証時のスクリーンショットや録画を `walkthrough.md` に添付し、ユーザーが「確かに直っている」と視覚的に確信できる状態にすること。
 
+## 6. その他プロジェクト固有ルール
+- F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\Polarisは完全凍結 今後一切触らないこと。
+- STELLARECORDのPolaris監視システムはPolaris.exeの監視を行うこと。ボタンを押下したら新規のPolarisが起動すること。
+- 依存関係はなくSTELLARECORD-setup.exeには同梱してはならない。
 
 Output must be in Japanese. 常に日本語で出力・返答すること。
-F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\Polarisは完全凍結 今後一切触らないこと。
-STELLARECORDのPolaris監視システムはPolaris.exeの監視を行うこと。ボタンを押下したら新規のPolarisが起動すること。
-依存関係はなくSTELLARECORD-setup.exeには同梱してはならない。

@@ -380,3 +380,71 @@ where
     tx.commit()?;
     Ok(())
 }
+/// 単一ファイル用の強化インポート (txt / tar.zst 対応)
+pub fn run_enhanced_import<F>(
+    db_path: std::path::PathBuf,
+    target_path: std::path::PathBuf,
+    mut progress_callback: F,
+) -> Result<(), String>
+where
+    F: FnMut(String, String),
+{
+    let mut conn = Connection::open(&db_path)
+        .map_err(|e| format!("Failed to open DB: {}", e))?;
+    
+    init_db(&conn)
+        .map_err(|e| format!("Failed to init DB: {}", e))?;
+
+    let filename = target_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+    
+    // .tar.zst の場合は一時展開
+    if filename.ends_with(".tar.zst") {
+        progress_callback("アーカイブを展開中...".to_string(), "0%".to_string());
+        
+        let file = std::fs::File::open(&target_path).map_err(|e| e.to_string())?;
+        let mut decoder = zstd::stream::Decoder::new(file).map_err(|e| e.to_string())?;
+        
+        // 一時的な .tar パス (同じディレクトリに作成)
+        let tar_path = target_path.with_extension(""); // .tar.zst -> .tar
+        {
+            let mut tar_file = std::fs::File::create(&tar_path).map_err(|e| e.to_string())?;
+            std::io::copy(&mut decoder, &mut tar_file).map_err(|e| e.to_string())?;
+        }
+
+        // Tar 展開 (メモリに展開するか、一時ファイルとして扱うか)
+        // 今回はシンプルにディレクトリへ展開し、中の txt を探す
+        let tar_file = std::fs::File::open(&tar_path).map_err(|e| e.to_string())?;
+        let mut archive = tar::Archive::new(tar_file);
+        
+        // 展開先ディレクトリ (一時的)
+        let parent = target_path.parent().unwrap_or(Path::new("."));
+        archive.unpack(parent).map_err(|e| e.to_string())?;
+
+        // Tar ファイルを削除
+        let _ = std::fs::remove_file(&tar_path);
+
+        // オリジナルの .txt 名称を特定 (X.txt.tar.zst -> X.txt)
+        let txt_name = filename.replace(".tar.zst", "");
+        let txt_path = parent.join(&txt_name);
+
+        if !txt_path.exists() {
+            return Err(format!("展開されたファイルが見つかりません: {}", txt_name));
+        }
+
+        progress_callback(format!("処理中: {}", txt_name), "10%".to_string());
+        let res = parse_and_import(&mut conn, &txt_path, &txt_name, &mut progress_callback);
+
+        // 展開された .txt も削除 (ユーザー要望により .tar.zst は残すが展開物は消す)
+        let _ = std::fs::remove_file(&txt_path);
+        
+        res.map_err(|e| e.to_string())?;
+    } else {
+        // 通常の .txt 処理
+        progress_callback(format!("処理中: {}", filename), "10%".to_string());
+        parse_and_import(&mut conn, &target_path, &filename, &mut progress_callback)
+            .map_err(|e| e.to_string())?;
+    }
+
+    progress_callback("完了".to_string(), "100%".to_string());
+    Ok(())
+}
