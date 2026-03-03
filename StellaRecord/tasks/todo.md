@@ -1,14 +1,12 @@
-# 修正済み・完了タスク
-- [x] ログ圧縮時のデータ消失バグの修正 (CRITICAL)
-- [x] データベース初期化 (Wipe) 時のパス不整合の解消
-- [x] StellaRecord UIへの「真空パック（圧縮）」ボタンの追加
-- [x] Planetarium.exe への `--import-only` / `--compress-only` フラグ実装
-- [x] Polaris アプリアイコンの更新
+# タスク: log-check\raw-log の整理
 
-# 未完了・保留タスク
-- [ ] インストーラー構成の最終確認（Polarisの非同梱化・独立性の担保）
-- [ ] 監視ロジックの動作確認（StellaRecordから外部Polarisの起動）
+## 計画
+- [ ] `f:\DEVELOPFOLDER\RE-NAME-SYS\public\log-check\raw-log` 内の全ファイルから特定のパターン（ロード情報など）を抽出する
+- [ ] 抽出した行を50音順（アルファベット順）でソートし、重複を排除する
+- [ ] 結果を `logRoad.txt` として出力する
 
-# レビュー項目
-- [ ] `walkthrough.md` の確認
-- [ ] 修正済みエンジンの実地動作検証
+## 進捗
+1. [x] フォルダ内容の確認
+2. [x] 抽出・ソートスクリプトの作成
+3. [x] スクリプトの実行
+4. [x] 結果の確認

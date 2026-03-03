@@ -1,0 +1,54 @@
+2026.02.25 00:18:03 Debug      -  Odin Serializer ArchitectureInfo initialization with defaults (all unaligned read/writes disabled).
+2026.02.25 00:18:03 Debug      -  Odin Serializer detected whitelisted runtime platform WindowsPlayer and memory read test succeeded; enabling all unaligned memory read/writes.
+2026.02.25 00:18:04 Debug      -  initialized Steam connection
+2026.02.25 00:18:04 Debug      -  Using server environment: Release, bf0942f7
+2026.02.25 00:18:04 Debug      -  Launching with args: 2
+2026.02.25 00:18:04 Debug      -  Arg: C:\Program Files (x86)\Steam\steamapps\common\VRChat\VRChat.exe
+2026.02.25 00:18:04 Debug      -  Arg: --startup-begin-ts=1319732228907
+2026.02.25 00:18:04 Warning    -  OvrLipSync Awake: Queried SampleRate: 48000 BufferSize: 1024
+2026.02.25 00:18:04 Warning    -  NativeAppAPI.GetAnalyticsSessionId() called but no native app API implementation is available
+2026.02.25 00:18:04 Debug      -  VRC Analytics Initialized
+2026.02.25 00:18:04 Debug      -  Found 141 time zones, default: 'Tokyo Standard Time', 24-hour clock: True
+2026.02.25 00:18:04 Debug      -  [DebugUI] Registered 6 debug UI pages: AssetBundleMemory, DrawHMD, Log, PlayerInfo, NetworkObjectInfo, PerformanceGraphs
+2026.02.25 00:18:15 Debug      -  Loaded HRTF: COMB_KEMAR_v2_OUT.sofa.
+2026.02.25 00:18:15 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at ÌÏÍÍÌÎÎÍÍÏÎÍÎÌÍÎÌÏÎÎÌÍÌ.ÌÎÏÎÎÌÏÏÏÎÎÎÌÌÏÏÍÌÍÏÍÌÍ () [0x00000] in <00000000000000000000000000000000>:0 
+  at ÌÏÍÍÏÍÎÏÍÍÎÎÍÏÏÌÌÏÌÌÎÎÏ.ÏÌÏÍÏÍÏÍÎÍÏÎÍÌÍÌÏÏÏÎÏÍÏ (System.Collections.Generic.Dictionary`2[TKey,TValue] ÌÍÏÌÏÏÍÍÎÎÏÍÌÌÍÎÍÎÍÎÌÏÌ) [0x00000] in <00000000000000000000000000000000>:0 
+  at ÌÏÍÍÏÍÎÏÍÍÎÎÍÏÏÌÌÏÌÌÎÎÏ.ÍÏÏÎÍÏÌÎÍÍÏÍÌÍÌÏÏÏÏÌÍÏÏ (VRC.Core.ApiWorld ÎÏÎÎÎÌÎÎÏÎÏÍÍÏÍÍÏÎÍÌÏÏÌ, VRC.Core.ApiWorldInstance ÍÏÌÍÍÎÎÌÌÏÎÎÏÍÎÌÌÏÌÎÎÏÏ, VRC.Core.ApiWorldInstance ÌÍÍÏÌÍÍÏÌÌÍÎÎÎÌÏÎÎÍÍÏÌÍ, ÎÎÏÎÎÍÌÌÍÎÌÏÏÎÎÌÌÍÏÍÎÌÌ ÏÎÍÏÎÏÌÍÍÍÍÌÌÎÏÍÌÎÍÍÌÌÍ, System.Int32 ÏÏÎÎÍÍÌÎÌÌÎÌÌÏÌÏÎÏÏÍÌÌÍ, System.Int64 ÎÏÍÍÏÌÏÍÎÏÌÌÍÍÍÎÌÏÌÎÎÍÎ, System.Int64 ÏÌÎÏÎÌÏÌÌÏÌÍÏÍÌÍÌÎÍÍÎÏÎ, System.Nullable`1[T] ÍÏÌÎÍÌÏÎÌÌÍÏÍÎÏÍÎÌÍÌÍÎÏ, System.Nullable`1[T] ÎÍÏÎÎÌÌÍÍÎÎÏÏÌÎÌÎÍÌÎÍÏÍ, System.Nullable`1[T] ÎÍÍÍÍÍÏÌÌÌÌÎÌÎÍÏÌÍÍÌÍÎÍ, System.Collections.Generic.Dictionary`2[TKey,TValue] ÏÏÏÌÏÏÏÏÎÍÍÍÍÎÏÍÌÍÎÏÍÏÏ, System.Int32 ÏÍÏÌÌÏÏÍÍÍÍÎÎÍÏÏÎÎÎÎÏÌÍ) [0x00000] in <00000000000000000000000000000000>:0 
+  at ÌÏÍÍÏÍÎÏÍÍÎÎÍÏÏÌÌÏÌÌÎÎÏ.ÎÎÍÏÏÏÎÎÌÎÎÏÍÎÍÎÏÎÌÎÏÍÎ () [0x00000] in <00000000000000000000000000000000>:0 
+  at QuitHandler.ÌÏÌÏÌÍÎÏÎÌÌÎÎÍÍÍÎÌÏÍÏÎÏ () [0x00000] in <00000000000000000000000000000000>:0 
+  at QuitHandler.ÌÍÍÎÏÏÌÎÍÏÍÍÎÍÌÏÏÍÍÌÌÏÏ () [0x00000] in <00000000000000000000000000000000>:0 
+  at UnityEngine.Application.Internal_ApplicationWantsToQuit () [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.25 00:18:15 Debug      -  Notifications Cleared!
+2026.02.25 00:18:15 Debug      -  Releasing HRTF.
+2026.02.25 00:18:16 Debug      -  [AssetBundleDownloadManager] Using default cache directory.
+2026.02.25 00:18:16 Debug      -  [AssetBundleDownloadManager] Using default cache size: 30.00GB
+2026.02.25 00:18:16 Debug      -  HRTF COMB_KEMAR_v2_OUT.sofa is already selected.
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.25 00:18:16 Debug      -  [LOADER] Watching directory C:\Users\kaimu\AppData\LocalLow\VRChat\VRChat\Avatars
+2026.02.25 00:18:16 Debug      -  [Behaviour] Registering Avatar Interaction
+2026.02.25 00:18:16 Debug      -  VRCNP: Server started
+2026.02.25 00:18:16 Debug      -  Subscription Set Up Transaction Callbacks for Steam AppID: 438100
+2026.02.25 00:18:16 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at SteamAudio.SteamAudioManager.ShutDown () [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.25 00:18:16 Debug      -  Installer: Running install.exe
+2026.02.25 00:18:16 Debug      -  NativeProcess.Start: started process id [11512]: C:/Program Files (x86)/Steam/steamapps/common/VRChat/VRChat_Data/../install.exe 
+2026.02.25 00:18:16 Debug      -  VRCApplication: HandleApplicationQuit at 14.43983
+2026.02.25 00:18:16 Error      -  Tried querying config VRC.Core.RemoteConfig before init
+2026.02.25 00:18:16 Debug      -  VRCNP: Stopping server
+2026.02.25 00:18:16 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at ÎÍÍÏÎÏÏÌÍÌÎÌÏÌÌÎÏÍÍÌÎÏÎ.OnDestroy () [0x00000] in <00000000000000000000000000000000>:0 

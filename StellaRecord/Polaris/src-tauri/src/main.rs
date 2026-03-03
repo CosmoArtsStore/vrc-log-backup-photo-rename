@@ -98,9 +98,9 @@ fn sync_logs() {
     let Ok(appdata) = std::env::var("APPDATA") else { return };
     let src_dir = Path::new(&appdata).join("..\\LocalLow\\VRChat\\VRChat");
 
-    // バックアップ先ディレクトリ: %LOCALAPPDATA%\CosmoArtsStore\STELLARECORD\Polaris\log_archive\
+    // バックアップ先ディレクトリ: %LOCALAPPDATA%\CosmoArtsStore\StellaRecord\Polaris\archive\
     let Ok(local_appdata) = std::env::var("LOCALAPPDATA") else { return };
-    let dest_dir = Path::new(&local_appdata).join("CosmoArtsStore\\STELLARECORD\\Polaris\\log_archive");
+    let dest_dir = Path::new(&local_appdata).join("CosmoArtsStore\\StellaRecord\\Polaris\\archive");
 
     // ディレクトリ作成
     if !dest_dir.exists() {

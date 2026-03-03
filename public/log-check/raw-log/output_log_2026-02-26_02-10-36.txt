@@ -1,0 +1,601 @@
+2026.02.26 02:10:39 Debug      -  Odin Serializer ArchitectureInfo initialization with defaults (all unaligned read/writes disabled).
+2026.02.26 02:10:39 Debug      -  Odin Serializer detected whitelisted runtime platform WindowsPlayer and memory read test succeeded; enabling all unaligned memory read/writes.
+2026.02.26 02:10:39 Debug      -  initialized Steam connection
+2026.02.26 02:10:39 Debug      -  Using server environment: Release, bf0942f7
+2026.02.26 02:10:39 Debug      -  Launching with args: 2
+2026.02.26 02:10:39 Debug      -  Arg: C:\Program Files (x86)\Steam\steamapps\common\VRChat\VRChat.exe
+2026.02.26 02:10:39 Debug      -  Arg: --startup-begin-ts=172939886621
+2026.02.26 02:10:39 Warning    -  OvrLipSync Awake: Queried SampleRate: 48000 BufferSize: 1024
+2026.02.26 02:10:39 Warning    -  NativeAppAPI.GetAnalyticsSessionId() called but no native app API implementation is available
+2026.02.26 02:10:39 Debug      -  VRC Analytics Initialized
+2026.02.26 02:10:39 Debug      -  Found 141 time zones, default: 'Tokyo Standard Time', 24-hour clock: True
+2026.02.26 02:10:39 Debug      -  [DebugUI] Registered 7 debug UI pages: AssetBundleMemory, DrawHMD, Log, PlayerInfo, NetworkObjectInfo, PerformanceGraphs, Audio
+2026.02.26 02:10:40 Debug      -  Loaded HRTF: default.
+2026.02.26 02:10:40 Debug      -  [AssetBundleDownloadManager] Using default cache directory.
+2026.02.26 02:10:40 Debug      -  [AssetBundleDownloadManager] Using default cache size: 30.00GB
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Warning    -  ObservableCast received value of type null, expected IList`1
+2026.02.26 02:10:40 Debug      -  [LOADER] Watching directory C:\Users\kaimu\AppData\LocalLow\VRChat\VRChat\Avatars
+2026.02.26 02:10:40 Debug      -  [Behaviour] Registering Avatar Interaction
+2026.02.26 02:10:40 Warning    -  AmplitudeAPI: upload payload size too large - 132525 > 131072 for 2 events, breaking up into smaller batches
+2026.02.26 02:10:40 Warning    -  AmplitudeAPI: upload payload size too large - 132525 > 131072 for 2 events, breaking up into smaller batches
+2026.02.26 02:10:40 Warning    -  AmplitudeAPI: upload payload size too large - 132525 > 131072 for 2 events, breaking up into smaller batches
+2026.02.26 02:10:40 Debug      -  VRCNP: Server started
+2026.02.26 02:10:40 Debug      -  Subscription Set Up Transaction Callbacks for Steam AppID: 438100
+2026.02.26 02:10:40 Debug      -  Initializing VRSDK.
+2026.02.26 02:10:40 Debug      -  Using PostPresentHandoff/AMD workaround: False
+2026.02.26 02:10:40 Debug      -  StartVRSDK: OpenVRLoader
+2026.02.26 02:10:41 Debug      -  <b>[SteamVR]</b> Initialized. Connected to oculus(oculus_virtualdesktop) : Meta Quest 3 : 1PASH5D1P17365 :: rift
+2026.02.26 02:10:41 Debug      -  [Behaviour] skipping analytic experiment fetch, not logged in yet
+2026.02.26 02:10:41 Debug      -  [Behaviour] waiting for UI Manager
+2026.02.26 02:10:41 Debug      -  [VRC Stacked Camera System] Created Stacked Camera : Cam_InternalUI
+2026.02.26 02:10:41 Debug      -  [VRC Stacked Camera System] Camera Stack has been initialized.
+2026.02.26 02:10:41 Debug      -  [UserInfoLogger] Environment Info: 
+    VRChat Build: 2026.1.2-1800-3b313b7927-Release
+    Store: Steam
+    Steam Beta Branch: default
+    Platform: standalonewindows
+    Device Model: ASUS D500MD_S500MD (ASUSTeK COMPUTER INC.)
+    Processor Type: 12th Gen Intel(R) Core(TM) i7-12700
+    System Memory Size: 32476MB
+    Operating System: Windows 11  (10.0.22631) 64bit
+    Graphics Device Name: NVIDIA GeForce RTX 3060
+    Graphics Device Version: Direct3D 11.0 [level 11.1]
+    Graphics Memory Size: 12115MB
+    Supports Audio: True
+    Default LDR Format: R8G8B8A8_SRGB
+    Default HDR Format: R16G16B16A16_SFloat
+    XR Device: None
+    HW Video Decoding: True
+    API Status: Available: ("pong")
+    CDN Status: Available: (pong)
+    Connected controller: (OpenVR Controller(Meta Quest 3 (Left Controller)) - Left)
+    Connected controller: (OpenVR Controller(Meta Quest 3 (Right Controller)) - Right)
+
+2026.02.26 02:10:41 Debug      -  [UserInfoLogger] User Settings Info:
+General Settings:
+    Clear cache on start: False
+    Show go button on load: False
+    Show community labs: True
+    Show community worlds in search: False
+    Hide notification photos: False
+    Selected network region: Japan
+    OSC enabled: False
+    AFK enabled: False
+Graphics Settings:
+    Quality: High
+    Antialiasing: x2
+    Near Clip Override: Dynamic
+Input Settings:
+    Mouse sensitivity: 1
+    Inverted mouse: False
+    UI Haptics enabled: True
+    Invert Controller Vertical Look: False
+Audio Settings:
+    Legacy Talk toggle: True
+    Legacy Talk default on: True
+    Legacy Disable mic button: False
+    Mic Mode: Toggle
+    Mic Behavior On Join: DefaultOn
+    Mic level (VR): 1
+    Mic level (Desktop): 0.4
+    Noise suppression: False
+    Noise gate: 0.004
+UI Settings:
+    Show tooltips: True
+    Desktop reticle: True
+    Show social rank: True
+    Main Menu free placement: True
+    Nameplate display: Standard
+    QM Info: on
+    Fallback Icon: visible
+    Status mode: AlwaysOn
+    Nameplate scale: 100%
+    Nameplate opacity: 50%
+Avatar Settings:
+    Fallback hidden: False
+    Maximum download size: 200 MB
+    Performance rating minimum to display: VeryPoor
+    Allow avatar copying: False
+    Disable avatar cloning on enter world: False
+    Avatar interaction level: All
+    Avatar self-interaction: True
+Accessibility Settings:
+    Gesture bar enabled: False
+    Earmuff mode: False
+    Earmuff mode (avatars): True
+    Earmuff mode, Always show visual aid: False
+    Earmuff mode radius: 0.4
+    Earmuff mode falloff: 0.95
+    Earmuff mode reduced volume: 0.1
+    Chat bubble visibility: Everyone
+    Chat bubble scale: 1.5
+    Chat bubble opacity: 1
+    Chat bubble timeout: 30
+Comfort & Safety Settings:
+    Personal space: False
+    Third person rotation: False
+    Comfort turning: False
+    Locomotion method: Gamelike
+    Vive advanced: False
+    Streamer mode enabled: False
+    Limit particle systems: False
+    Safety level: None
+    Allow untrusted URLs: True
+    Ask to portal: True
+    Mirror resolution: Full
+    Portal Mode: PlaceManually
+
+2026.02.26 02:10:41 Debug      -  Including StyleResource:Design
+2026.02.26 02:10:41 Error      -  StyleEngine: Missing resource reference:Atlas
+2026.02.26 02:10:41 Error      -  StyleEngine: Missing resource reference:Atlas
+2026.02.26 02:10:41 Debug      -  Including StyleResource:DefaultStyle
+2026.02.26 02:10:41 Error      -  StyleEngine: Missing resource reference:Atlas
+2026.02.26 02:10:41 Error      -  StyleEngine: Missing resource reference:Atlas
+2026.02.26 02:10:41 Warning    -  StyleEngine, Unable to find resource: images/background_layer_02_lines
+2026.02.26 02:10:41 Warning    -  StyleEngine, Unable to find resource: images/background_layer_03_dots
+2026.02.26 02:10:41 Warning    -  StyleEngine, Unable to find resource: images/icons/notification_friendrequest
+2026.02.26 02:10:41 Warning    -  StyleEngine, Unable to find resource: 
+2026.02.26 02:10:41 Debug      -  [SettingsManager] Graphics Quality set to: High
+2026.02.26 02:10:41 Debug      -  [SettingsManager] Lod Quality set to: High
+2026.02.26 02:10:41 Debug      -  [SettingsManager] Antialiasing set to: x2
+2026.02.26 02:10:41 Debug      -  [SettingsManager] Particle Physics Quality set to: High
+2026.02.26 02:10:41 Debug      -  [SettingsManager] Nameplate fallback icon visible set to: True
+2026.02.26 02:10:41 Debug      -  Advertising Service VRChat-Client-095412 of type OSCQuery on 51855
+2026.02.26 02:10:41 Debug      -  Advertising Service VRChat-Client-095412 of type OSC on 9000
+2026.02.26 02:10:41 Debug      -  [SettingsManager] Finger walk mode (#axes) set to: 3
+2026.02.26 02:10:41 Debug      -  [Behaviour] showing disconnect reason
+2026.02.26 02:10:41 Debug      -  STEAMVR Tracking System: oculus
+2026.02.26 02:10:41 Debug      -  STEAMVR HMD Model: Meta Quest 3
+2026.02.26 02:10:41 Debug      -  VRCInputProcessorTouch: can use Oculus Touch controller = False
+2026.02.26 02:10:41 Debug      -  Loading Preset TypeA
+2026.02.26 02:10:41 Debug      -  VRCInputProcessorOpenXR: can use OpenXR controller
+2026.02.26 02:10:41 Debug      -  Loading Preset TypeA
+2026.02.26 02:10:41 Debug      -  Loaded Input Binding[_OPENXR_GENERIC]: Custom
+2026.02.26 02:10:41 Warning    -  StyleEngine, Unable to find resource: 
+2026.02.26 02:10:41 Debug      -  Finished preloading styles
+2026.02.26 02:10:41 Debug      -  [Behaviour] Microphone device changing to 'System Default'
+2026.02.26 02:10:41 Debug      -  uSpeak: SetInputDevice 0 (11 total) 'マイク (Virtual Desktop Audio)'
+2026.02.26 02:10:41 Debug      -  [SettingsManager] Locomotion method set to: Gamelike
+2026.02.26 02:10:41 Debug      -  Comfort mode set to: 0
+2026.02.26 02:10:41 Debug      -  [Behaviour] Refreshing RemoteConfig
+2026.02.26 02:10:41 Debug      -  [Behaviour] showing alert
+2026.02.26 02:10:41 Debug      -  [SettingsManager] Locomotion method set to: Gamelike
+2026.02.26 02:10:41 Debug      -  Comfort mode set to: 0
+2026.02.26 02:10:42 Debug      -  [Behaviour] RemoteConfig refresh succeeded
+2026.02.26 02:10:42 Debug      -  [Behaviour] configuring network options
+2026.02.26 02:10:42 Debug      -  [Behaviour] Thread State: Dispatch=True/True
+2026.02.26 02:10:42 Debug      -  [SettingsManager] Current Language set to: ja
+2026.02.26 02:10:42 Warning    -  Path already exists, skipping: /usercamera/Pose
+2026.02.26 02:10:42 Debug      -  Current UTC Time is: 02/25/2026 17:10:50, sync took 0.011646s
+2026.02.26 02:10:42 Debug      -  [EOSManager] EOS Initialized Successfully
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOS] [Boot] EOSSDK Version 1.17.1.3-44532354 booting at 2026-02-25T17:10:42.168Z using CSharp
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOS] [Boot] EOSSDK Platform Properties [OS=Windows/10.0.22621.6133.64bit, ClientId=xyza78910ITit2HAPSDOzpe9gf8y9lAY, ProductId=a4a57ff548934dbeba0cc7c62cdf9f34, SandboxId=198988a88fe34e3e91ed15f7c91a15b1, DeploymentId=76151011566a4757ae955b380b05c378, ProductName=VRChat, ProductVersion=w_2026.1.2-3b313b7927, IsServer=false, Flags=DisableOverlay]
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOSAnalytics] Start Session (User: ...)
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOSOverlay] Overlay will not load, because it was explicitly disabled when creating the platform
+2026.02.26 02:10:42 Debug      -  [Behaviour] checking min client version
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOS] SetApplicationStatus - OldStatus: EOS_AS_Foreground, NewStatus: EOS_AS_Foreground, Current Time: 0001.01.01-00.00.00
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOSAntiCheat] [AntiCheatClient] AddNotifyMessageToServer bound with NotificationId=[24]
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOSAntiCheat] [AntiCheatClient] EOS_AntiCheatClient_AddNotifyClientIntegrityViolated bound with NotificationId=[25]
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOS] Updating Platform SDK Config, Time: 0.001691
+2026.02.26 02:10:42 Debug      -  [Behaviour] authenticating
+2026.02.26 02:10:42 Debug      -  [Behaviour] Trying to login with vrchat...
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOS] SDK Config Platform Update Request Successful, Time: 0.302227
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOSAnalytics] EOS SDK Analytics disabled for route [1].
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOS] Updating Product SDK Config, Time: 0.316705
+2026.02.26 02:10:42 Debug      -  User Authenticated: ココナツ／ぷらねっと (usr_ad548ad2-88d1-48eb-be09-765bdbe05249)
+- hasEmail: True
+- hasBirthday: True
+- tos: 12
+- avatar: avtr_b2427834-8a17-4d43-b6c4-eeba646821b7
+
+2026.02.26 02:10:42 Debug      -  [Purchasing] Initializing PurchasingManager
+2026.02.26 02:10:42 Error      -  [Purchasing] Failed to initialize PurchasingManager. Reason: 2 | Message: No builder or store found for the platform!
+2026.02.26 02:10:42 Debug      -  Checking For Active VRChat+ Subscription
+2026.02.26 02:10:42 Debug      -  Updating avatar cloning to 'False'
+2026.02.26 02:10:42 Debug      -  [SettingsManager] Allow Discord Friends set to: True
+2026.02.26 02:10:42 Debug      -  Notifications Cleared!
+2026.02.26 02:10:42 Debug      -  [Behaviour] running analytic experiment fetch (post first login)
+2026.02.26 02:10:42 Debug      -  [Behaviour] Ok
+2026.02.26 02:10:42 Debug      -  [Behaviour] Authenticated via vrchat
+2026.02.26 02:10:42 Debug      -  [Behaviour] checking for Verified account
+2026.02.26 02:10:42 Debug      -  [EOSManager] [Info][LogEOSAnalytics] Start Session (User: ...)
+2026.02.26 02:10:42 Debug      -  [AssetBundleDownloadManager] Using default cache expiry delay: 30.00 days
+2026.02.26 02:10:42 Debug      -  [SettingsManager] Clear cache on start set to: False
+2026.02.26 02:10:42 Debug      -  [AssetBundleDownloadManager] Asset bundle cache cleared successfully (cutoff was 2592000).
+2026.02.26 02:10:42 Debug      -  [Behaviour] Using network server version: Release_1626
+2026.02.26 02:10:42 Debug      -  [Behaviour] Sending token from provider vrchat
+2026.02.26 02:10:42 Debug      -  [EOSManager] Attempting to login to EOS.
+2026.02.26 02:10:42 Debug      -  [Behaviour] Locating best region
+2026.02.26 02:10:42 Debug      -  [Behaviour] Using nameserver host: ns.photonengine.io
+2026.02.26 02:10:42 Debug      -  [Behaviour] checking for account info update
+2026.02.26 02:10:42 Debug      -  [Behaviour] checking terms of service
+2026.02.26 02:10:42 Debug      -  [Behaviour] TOS current version: 12, accepted: 12
+2026.02.26 02:10:42 Debug      -  [Behaviour] checking privacy policy
+2026.02.26 02:10:42 Debug      -  [Behaviour] Privacy Policy current version: 2, accepted: 2
+2026.02.26 02:10:42 Debug      -  [Behaviour] set connect error state
+2026.02.26 02:10:42 Debug      -  [Behaviour] checking for youtube-dl updates
+2026.02.26 02:10:42 Debug      -  [Behaviour] upgrade settings data
+2026.02.26 02:10:42 Debug      -  [Behaviour] final wait for analytic experiments
+2026.02.26 02:10:42 Debug      -  [Behaviour] Refreshing analytic experiments
+2026.02.26 02:10:43 Debug      -  [EOSManager] [Info][LogEOS] SDK Config Product Update Request Successful, Time: 0.843187
+2026.02.26 02:10:43 Debug      -  [EOSManager] [Info][LogEOS] SDK Config Data - Watermark: -287380011
+2026.02.26 02:10:43 Debug      -  [EOSManager] [Info][LogEOS] ScheduleNextSDKConfigDataUpdate - Time: 0.843187, Update Interval: 304.647369
+2026.02.26 02:10:43 Debug      -  [Behaviour] launching in normal manner
+2026.02.26 02:10:43 Debug      -  [Behaviour] Going to Home Location: wrld_a5e9ec13-36b1-4e63-ae0c-dab9023401f9
+2026.02.26 02:10:43 Debug      -  [SettingsManager] Master volume set to: 125.00%
+2026.02.26 02:10:43 Debug      -  [SettingsManager] UI volume set to: 70.00%
+2026.02.26 02:10:43 Debug      -  [SettingsManager] World volume set to: 10.00%
+2026.02.26 02:10:43 Debug      -  [SettingsManager] Avatar volume set to: 100.00%
+2026.02.26 02:10:43 Debug      -  [SettingsManager] Voice volume set to: 95.00%
+2026.02.26 02:10:43 Debug      -  [SettingsManager] Mic activation threshold set to: 0.40%
+2026.02.26 02:10:43 Debug      -  [SettingsManager] Props volume set to: 100.00%
+2026.02.26 02:10:43 Debug      -  [SettingsManager] Mic volume set to: 100.00%
+2026.02.26 02:10:43 Debug      -  Get VRChat Subscription Details! Subscription Id:None active:False desc:
+2026.02.26 02:10:43 Debug      -  [Behaviour] No Active Subscription detected
+2026.02.26 02:10:43 Debug      -  Websockets API connected successfully!
+2026.02.26 02:10:43 Warning    -  ApiInventoryItem: Model failed validation, returning anyway: Error writing the following fields: animated, fileId, imageUrl, viewfinderBundleId
+2026.02.26 02:10:43 Warning    -  ApiInventoryItem: Model failed validation, returning anyway: Error writing the following fields: animated, fileId
+2026.02.26 02:10:43 Debug      -  BundlesManager: Available Bundles count: 1
+2026.02.26 02:10:44 Debug      -  [EOSManager] Fetched the UserInfo token successfully.
+2026.02.26 02:10:44 Debug      -  Received Notification: <Notification from username:fubukaze, sender user id:usr_30f2013a-59d1-44a2-9966-e90b844dbde1 to usr_ad548ad2-88d1-48eb-be09-765bdbe05249 of type: boop, id: not_db88f305-9beb-480d-b9d2-95b8ead22d14, created at: 02/25/2026 07:02:21 UTC, details: {{emojiId=, emojiVersion=, inventoryItemId=}}, type:boop, m seen:False, message: "fubukaze Booped You!">
+2026.02.26 02:10:44 Debug      -  [Behaviour] Going to current users Home world
+2026.02.26 02:10:44 Debug      -  [Behaviour] Destination requested: wrld_a5e9ec13-36b1-4e63-ae0c-dab9023401f9
+2026.02.26 02:10:44 Debug      -  [Behaviour] Fetching world information for wrld_a5e9ec13-36b1-4e63-ae0c-dab9023401f9
+2026.02.26 02:10:44 Debug      -  [Behaviour] No destination instance provided, will need to fetch: wrld_a5e9ec13-36b1-4e63-ae0c-dab9023401f9
+2026.02.26 02:10:44 Debug      -  [Behaviour] OnRegionListReceived
+2026.02.26 02:10:44 Debug      -  [EOSManager] [Info][LogEOSMessaging] Attempting connection to Stomp. LocalUserId=[000...2ba] Url=[<Redacted>]
+2026.02.26 02:10:44 Debug      -  [EOSManager] User Login Status changed to Logged In: 000206042a1c45c2b2bb8f07535f32ba
+2026.02.26 02:10:44 Debug      -  [EOSManager] EOS Login Succeeded. UserId: 000206042a1c45c2b2bb8f07535f32ba
+2026.02.26 02:10:44 Debug      -  [EOSManager] EOS LoginUser took '1.86'.
+2026.02.26 02:10:45 Debug      -  Fetched local user permissions
+2026.02.26 02:10:45 Debug      -  [EOSManager] [Info][LogEOSMessaging] Successfully connected to Stomp. LocalUserId=[000...2ba]
+2026.02.26 02:10:45 Debug      -  [Behaviour] Got best network region: Japan
+2026.02.26 02:10:46 Error      -  [API] [90, 404, Get, -1 https://api.vrchat.cloud/api/1/inventory/template/invt_022f4c96-c803-46bc-87da-5ec650af4994] Abandoning request, because - Not found
+2026.02.26 02:10:46 Debug      -  [Behaviour] Destination fetching: wrld_a5e9ec13-36b1-4e63-ae0c-dab9023401f9:65691~private(usr_ad548ad2-88d1-48eb-be09-765bdbe05249)~region(jp)
+2026.02.26 02:10:47 Debug      -  [Behaviour] Destination set: wrld_a5e9ec13-36b1-4e63-ae0c-dab9023401f9:65691~private(usr_ad548ad2-88d1-48eb-be09-765bdbe05249)~region(jp)
+2026.02.26 02:10:47 Debug      -  [Behaviour] Can enter world without flow reset, skipping reset
+2026.02.26 02:10:47 Debug      -  [Behaviour] entering main loop
+2026.02.26 02:10:47 Debug      -  [Behaviour] Beginning room transition
+2026.02.26 02:10:47 Debug      -  [AssetBundleDownloadManager] Verifying bundle load with CRC ****FBC3
+2026.02.26 02:10:47 Debug      -  [AssetBundleDownloadManager] Starting download of 10 MB, 0 still queued.
+2026.02.26 02:10:47 Debug      -  [AssetBundleDownloadManager] [100] Unpacking World (wrld_a5e9ec13-36b1-4e63-ae0c-dab9023401f9)
+2026.02.26 02:10:47 Debug      -  [Behaviour] Resetting statistics
+2026.02.26 02:10:47 Debug      -  [Behaviour] Disabling physics
+2026.02.26 02:10:47 Debug      -  [Behaviour] Serialization History Length defaulting to 120
+2026.02.26 02:10:47 Debug      -  [Behaviour] Transitioning to room
+2026.02.26 02:10:47 Debug      -  [Behaviour] Invoking 27 listeners for ExitWorld event
+2026.02.26 02:10:47 Debug      -  [Image Download] Clearing download queue
+2026.02.26 02:10:47 Debug      -  [String Download] Clearing string download queue
+2026.02.26 02:10:47 Debug      -  Update rate will vary between 50 and 1000 milliseconds.
+2026.02.26 02:10:47 Debug      -  Soft data rate ceiling will be 18432 bps
+2026.02.26 02:10:47 Debug      -  [Behaviour] Unloading scenes
+2026.02.26 02:10:47 Debug      -  Memory Usage: after world unload [none]
+- System.GC.GetTotalMemory: 108.33 MB
+- Profiler.GetMonoUsed/HeapSizeLong: 108.33 MB / 116.60 MB
+- Profiler.GetTotalAllocated/Reserved/UnusedMemoryLong: 1.05 GB / 1.24 GB / 196.41 MB
+- SystemInfo.graphicsMemorySize: 12115
+- SystemInfo.systemMemorySize:32476
+
+2026.02.26 02:10:47 Warning    -  [AssetBundleDownloadManager] Not disposing 100 (0) because it is still referenced.
+2026.02.26 02:10:47 Debug      -  [Behaviour] Switching to network region jp (current state: ConnectedToNameServer)
+2026.02.26 02:10:47 Debug      -  [Behaviour] Requesting join token
+2026.02.26 02:10:47 Debug      -  [Behaviour] Connecting to realtime network
+2026.02.26 02:10:47 Debug      -  [EOSManager] [Info][LogEOSAntiCheat] [AntiCheatClient] [BeginSession-003] Mode: 1
+2026.02.26 02:10:47 Debug      -  [Behaviour] Preparing assets...
+2026.02.26 02:10:47 Debug      -  [EOSManager] AntiCheat Session Begin: Success
+2026.02.26 02:10:47 Debug      -  [Behaviour] OnDisconnected: DisconnectByClientLogic
+2026.02.26 02:10:47 Warning    -  NativeAppAPI.ClientDisconnected() called but no native app API implementation is available
+2026.02.26 02:10:47 Debug      -  [Behaviour] Client invoked disconnect.
+2026.02.26 02:10:47 Debug      -  [Behaviour] Destroying VRC_OBJECTS
+2026.02.26 02:10:47 Debug      -  [Behaviour] Configuring Udon
+2026.02.26 02:10:47 Debug      -  Loading asset bundle: VRCDefaultWorldScene
+2026.02.26 02:10:48 Debug      -  [Behaviour] OnCustomAuthenticationResponse
+2026.02.26 02:10:48 Debug      -  [Behaviour] OnConnectedToMaster
+2026.02.26 02:10:48 Debug      -  [Behaviour] Connected to master in jp
+2026.02.26 02:10:48 Debug      -  [Behaviour] Entering world
+2026.02.26 02:10:48 Debug      -  [Behaviour] Entering Room: Avatar Testing Chamber
+2026.02.26 02:10:48 Debug      -  [Behaviour] Joining wrld_a5e9ec13-36b1-4e63-ae0c-dab9023401f9:65691~private(usr_ad548ad2-88d1-48eb-be09-765bdbe05249)~region(jp)
+2026.02.26 02:10:48 Debug      -  [Behaviour] Joining or Creating Room: Avatar Testing Chamber
+2026.02.26 02:10:48 Debug      -  [Behaviour] Successfully joined room
+2026.02.26 02:10:48 Debug      -  [Behaviour] Spent 0.001502991s entering world.
+2026.02.26 02:10:48 Debug      -  [Behaviour] Waiting to enter network room.
+2026.02.26 02:10:48 Debug      -  Added processed modified image URL: https://api.vrchat.cloud/api/1/image/file_d96dd8fe-c0c4-4eb6-a53a-7afe95c25437/1/256/modified
+2026.02.26 02:10:48 Debug      -  [Behaviour] Spent 0.1818113s waiting to enter room.
+2026.02.26 02:10:48 Debug      -  [Behaviour] Waiting to discover master client.
+2026.02.26 02:10:48 Debug      -  [Behaviour] Spent 6.67572E-06s waiting to discover master client.
+2026.02.26 02:10:48 Debug      -  [Behaviour] Waiting for network limits.
+2026.02.26 02:10:49 Warning    -  There can be only one active Event System.
+2026.02.26 02:10:49 Debug      -  UdonManager.OnSceneLoaded took '0.090'
+2026.02.26 02:10:49 Warning    -  Recovered 285 Network IDs from world
+2026.02.26 02:10:49 Debug      -  [Behaviour] Skipping registration of a video player on 'Internals' with the VideoPlayerOverseer as automatic resync is disabled.
+2026.02.26 02:10:49 Debug      -  [Behaviour] Skipping registration of a video player on 'Internals' with the VideoPlayerOverseer as automatic resync is disabled.
+2026.02.26 02:10:49 Debug      -  [AVProVideo] Initialising AVPro Video v2.8.5 (native plugin v2.8.5f1-ultra) on NVIDIA GeForce RTX 3060/Direct3D 11.0 [level 11.1] (MT False) on WindowsPlayer
+2026.02.26 02:10:49 Error      -  [AVProVideo] No MediaReference specified
+2026.02.26 02:10:49 Error      -  [AVProVideo] No file path specified
+2026.02.26 02:10:49 Debug      -  Loaded asset bundle: VRCDefaultWorldScene
+2026.02.26 02:10:49 Debug      -  Signature verification result 69+/0-/270=
+2026.02.26 02:10:49 Debug      -  [Behaviour] Room instantiate took 1.938295s
+2026.02.26 02:10:49 Debug      -  [Behaviour] Instantiating VRC_OBJECTS
+2026.02.26 02:10:49 Debug      -  [Behaviour] Hard max is 32
+2026.02.26 02:10:49 Debug      -  [Behaviour] Spent 0.002085686s initializing VRC Objects
+2026.02.26 02:10:49 Debug      -  [Behaviour] Processing scene objects
+2026.02.26 02:10:49 Debug      -  <color=yellow>Loading scene's render settings.</color>
+2026.02.26 02:10:49 Debug      -  Creating Scene Dynamic Bone Controller.
+2026.02.26 02:10:49 Debug      -  [Behaviour] Spent 0.06357765s processing scene objects.
+2026.02.26 02:10:49 Debug      -  [Behaviour] Fixing materials
+2026.02.26 02:10:50 Debug      -  [Behaviour] Attaching ComponentHandlers
+2026.02.26 02:10:50 Debug      -  [Behaviour] Spent 0.001875877s attaching initial component handlers.
+2026.02.26 02:10:50 Debug      -  [Behaviour] Finalizing scene
+2026.02.26 02:10:50 Debug      -  [Behaviour] Spent 0.001070023s finalizing scene.
+2026.02.26 02:10:50 Debug      -  [Behaviour] Warming shaders for world mirrors
+2026.02.26 02:10:57 Debug      -  [Behaviour] Spent 8.990386s waiting for network limits.
+2026.02.26 02:10:57 Debug      -  [Behaviour] Waiting for core objects to ready
+2026.02.26 02:10:57 Debug      -  [Behaviour] Configuring Udon
+2026.02.26 02:10:57 Debug      -  [Behaviour] Preloaded 0 Prefabs: 
+
+2026.02.26 02:10:57 Debug      -  [Behaviour] Spawning players
+2026.02.26 02:10:57 Debug      -  [Behaviour] Microphone device changing to 'System Default'
+2026.02.26 02:10:57 Debug      -  uSpeak: SetInputDevice 0 (11 total) 'マイク (Virtual Desktop Audio)'
+2026.02.26 02:10:57 Debug      -  [Behaviour] Finished spawning players.
+2026.02.26 02:10:58 Debug      -  [AVProMovieCapture] Init version: 5.0.5 (plugin v5.0.0f1-ultra) with GPU NVIDIA GeForce RTX 3060 Direct3D 11.0 [level 11.1] OS: Windows 11  (10.0.22631) 64bit
+2026.02.26 02:10:58 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Local] 22423328 1
+2026.02.26 02:10:58 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.02.26 02:10:58 Debug      -  Found SDK3 avatar descriptor.
+2026.02.26 02:10:58 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.02.26 02:10:58 Warning    -  Recovered 0 Network IDs from Avatar
+2026.02.26 02:10:58 Warning    -  FBIK chain length is 0, can't initiate solver.
+2026.02.26 02:10:58 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.02.26 02:10:58 Debug      -  [Behaviour] uSpeak [1][-1161481793]: InitializeSettings (owner ID 100002): codec 3, Opus48k, BitRate_24K, FrameDuration_20ms
+2026.02.26 02:10:58 Debug      -  [Behaviour] Configuring local player VRCPlayer[Local] 22423328 1
+2026.02.26 02:10:58 Warning    -  UnityPackage: Model failed validation, returning anyway: Error writing the following fields: unitySortNumber, assetVersion
+2026.02.26 02:10:58 Warning    -  UnityPackage: Model failed validation, returning anyway: Error writing the following fields: unitySortNumber, assetVersion
+2026.02.26 02:10:58 Debug      -  [Behaviour] Loading avatar for ココナツ／ぷらねっと
+2026.02.26 02:10:58 Debug      -  [Behaviour] Initialized player ココナツ／ぷらねっと
+2026.02.26 02:10:58 Debug      -  [Behaviour] Switching ココナツ／ぷらねっと to avatar ぷらしょこら
+2026.02.26 02:10:58 Debug      -  Measure Human Avatar Avatar isRemeasure:False
+2026.02.26 02:10:58 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.08, 0.12) scaled:(0.00, 0.07, 0.10)
+2026.02.26 02:10:58 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Local] 1 True 1
+2026.02.26 02:10:58 Debug      -  [Behaviour] Waiting for player persistence objects to be ready
+2026.02.26 02:10:58 Debug      -  [Behaviour] Player persistence object initialization complete
+2026.02.26 02:10:58 Debug      -  [Behaviour] uSpeak [1][-1161481528]: UpdateSettings locally, sending to remotes: codec 3, Opus48k, BitRate_24K, FrameDuration_20ms
+2026.02.26 02:10:58 Debug      -  Microphones installed (11 total)
+2026.02.26 02:10:58 Debug      -  -- [0] device name = 'マイク (Virtual Desktop Audio)' min/max freq = 48000 / 48000
+2026.02.26 02:10:58 Debug      -  -- [1] device name = 'マイク (Steam Streaming Microphone)' min/max freq = 48000 / 48000
+2026.02.26 02:10:58 Debug      -  -- [2] device name = 'Voicemeeter Out A4 (VB-Audio Voicemeeter VAIO)' min/max freq = 48000 / 48000
+2026.02.26 02:10:58 Debug      -  -- [3] device name = 'Voicemeeter Out A5 (VB-Audio Voicemeeter VAIO)' min/max freq = 48000 / 48000
+2026.02.26 02:10:58 Debug      -  -- [4] device name = 'Voicemeeter Out A2 (VB-Audio Voicemeeter VAIO)' min/max freq = 48000 / 48000
+2026.02.26 02:10:58 Debug      -  -- [5] device name = 'Voicemeeter Out A1 (VB-Audio Voicemeeter VAIO)' min/max freq = 48000 / 48000
+2026.02.26 02:10:58 Debug      -  -- [6] device name = 'Voicemeeter Out B3 (VB-Audio Voicemeeter VAIO)' min/max freq = 48000 / 48000
+2026.02.26 02:10:58 Debug      -  -- [7] device name = 'CABLE Output (VB-Audio Virtual Cable)' min/max freq = 44100 / 44100
+2026.02.26 02:10:58 Debug      -  -- [8] device name = 'Voicemeeter Out A3 (VB-Audio Voicemeeter VAIO)' min/max freq = 48000 / 48000
+2026.02.26 02:10:58 Debug      -  -- [9] device name = 'Voicemeeter Out B2 (VB-Audio Voicemeeter VAIO)' min/max freq = 48000 / 48000
+2026.02.26 02:10:58 Debug      -  -- [10] device name = 'Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)' min/max freq = 48000 / 48000
+2026.02.26 02:10:58 Debug      -  [Behaviour] uSpeak [1][-1161481521]: Stop Microphone: 
+2026.02.26 02:10:58 Debug      -  [Behaviour] uSpeak [1][-1161481520]: Start Microphone: マイク (Virtual Desktop Audio)
+2026.02.26 02:10:58 Debug      -  [Behaviour] uSpeak [1][-1161481520]: Using UnityMicrophone
+2026.02.26 02:10:58 Debug      -  [Behaviour] Collecting metadata for 1 player objects.
+2026.02.26 02:10:58 Debug      -  [Behaviour] Collecting metadata.
+2026.02.26 02:10:58 Debug      -  [Behaviour] Sending 179 bytes of instance metadata over 1 bunches.
+2026.02.26 02:10:59 Debug      -  Loaded preloaded HRTF.
+2026.02.26 02:10:59 Debug      -  Selected HRTF COMB_KEMAR_v2_OUT.sofa
+2026.02.26 02:10:59 Debug      -  [Behaviour] Waiting for players to initialize
+2026.02.26 02:10:59 Debug      -  [Behaviour] Player initialization complete.
+2026.02.26 02:10:59 Debug      -  [Behaviour] Readying scene objects
+2026.02.26 02:10:59 Debug      -  [Behaviour] Waiting for players to network ready
+2026.02.26 02:10:59 Debug      -  [INFO][<color=#008000>TLP</color>][-2146483648 UDON/TLP_Logger/TlpLogger] [<color=#008080>f=1964(0.000ms) elapsed=0.0000s time=8.3507s dt(real)=0.000ms </color>][<color=#804040>Local owner ココナツ／ぷらねっと(1)  is Master</color>] Starting at time 8.350742s.
+2026.02.26 02:10:59 Debug      -  Setting Target Color to: 2
+2026.02.26 02:10:59 Debug      -  [<color="#f27d4a">QvPen.Udon.QvPen_Settings</color>] QvPen v3.2.12 - ureishi
+2026.02.26 02:10:59 Debug      -  [<color=#9C6994>USharpVideo</color>] Started video load for URL: https://www.youtube.com/watch?v=jfKfPfyJRdk, requested by ココナツ／ぷらねっと
+2026.02.26 02:10:59 Debug      -  [Video Playback] Attempting to resolve URL 'https://www.youtube.com/watch?v=jfKfPfyJRdk'
+2026.02.26 02:10:59 Debug      -  NativeProcess.Start: started process id [27396]: C:/Users/kaimu/AppData/LocalLow/VRChat/VRChat\Tools/yt-dlp.exe (...)
+2026.02.26 02:10:59 Debug      -  [<color=#9C6994>USharpVideo</color>] USharpVideo v1.0.1 Initialized
+2026.02.26 02:10:59 Debug      -  [AvatarScalingSettings] Avatar eye height limits have been set to 0.2 to 5 meters.
+2026.02.26 02:10:59 Debug      -  LTCGI adapter start
+2026.02.26 02:10:59 Debug      -  LTCGI adapter started for 1 (1 dynamic) screens (max: 16), 0 renderers, GlobalShader mode, udon: True, took: 0ms
+2026.02.26 02:10:59 Debug      -  LTCGI adapter going to sleep 😴
+2026.02.26 02:10:59 Debug      -  [<color="#f27d4a">QvPen.Udon.QvPen_Pen</color>] QvPen v3.2.12
+2026.02.26 02:10:59 Debug      -  [<color="#f27d4a">QvPen.Udon.QvPen_Pen</color>] QvPen ID: 0xd5e1d43a
+2026.02.26 02:10:59 Debug      -  [<color="#f27d4a">QvPen.Udon.QvPen_Pen</color>] QvPen ID: 0x7d649e82
+2026.02.26 02:10:59 Debug      -  [<color="#f27d4a">QvPen.Udon.QvPen_Pen</color>] QvPen ID: 0x6d6f1b81
+2026.02.26 02:10:59 Debug      -  [<color="#f27d4a">QvPen.Udon.QvPen_Pen</color>] QvPen ID: 0x13ec294b
+2026.02.26 02:10:59 Debug      -  [<color="#f27d4a">QvPen.Udon.QvPen_Pen</color>] QvPen ID: 0xa19e014b
+2026.02.26 02:10:59 Debug      -  [<color="#f27d4a">QvPen.Udon.QvPen_Pen</color>] QvPen ID: 0x7d05e80d
+2026.02.26 02:10:59 Debug      -  [<color="#f27d4a">QvPen.Udon.QvPen_Pen</color>] QvPen ID: 0x52fb97b0
+2026.02.26 02:10:59 Debug      -  [<color="#f27d4a">QvPen.Udon.QvPen_Pen</color>] QvPen ID: 0xc6862edf
+2026.02.26 02:10:59 Debug      -  [<color=#8063cf>Picture Loader</color>] Found 1 Picture Downloader(s)
+2026.02.26 02:10:59 Debug      -  [<color=#8063cf>Picture Loader</color>] Started Loading 1 Picture(s)
+2026.02.26 02:10:59 Debug      -  [Behaviour] Executing Buffered Events
+2026.02.26 02:10:59 Debug      -  [Behaviour] OnPlayerJoinComplete ココナツ／ぷらねっと
+2026.02.26 02:10:59 Debug      -  [String Download] Attempting to load String from URL 'https://zigg0r.github.io/Stingloading/textdocuments/patreons.txt'
+2026.02.26 02:10:59 Debug      -  [Image Download] Attempting to load image from URL 'https://zigg0r.github.io/Stingloading/flyers/flyer_AvatarTestingChamber.png'
+2026.02.26 02:10:59 Debug      -  [AssetBundleDownloadManager] Starting download of 15 MB, 0 still queued.
+2026.02.26 02:10:59 Debug      -  [GC] Memory Usage: Before Allocation
+- System.GC.GetTotalMemory: 199.29 MB
+- Profiler.GetMonoUsed/HeapSizeLong: 199.29 MB / 214.60 MB
+- Profiler.GetTotalAllocated/Reserved/UnusedMemoryLong: 1.32 GB / 1.59 GB / 275.78 MB
+- SystemInfo.graphicsMemorySize: 12115
+- SystemInfo.systemMemorySize:32476
+
+2026.02.26 02:10:59 Debug      -  [GC] Ensuring the heap is at least 512MB by allocating 313MB.
+2026.02.26 02:10:59 Debug      -  [GC] Memory Usage: After Allocation
+- System.GC.GetTotalMemory: 615.61 MB
+- Profiler.GetMonoUsed/HeapSizeLong: 615.61 MB / 630.60 MB
+- Profiler.GetTotalAllocated/Reserved/UnusedMemoryLong: 1.32 GB / 1.59 GB / 276.48 MB
+- SystemInfo.graphicsMemorySize: 12115
+- SystemInfo.systemMemorySize:32476
+
+2026.02.26 02:10:59 Debug      -  [GC] Memory Usage: After Collection
+- System.GC.GetTotalMemory: 194.69 MB
+- Profiler.GetMonoUsed/HeapSizeLong: 194.69 MB / 630.60 MB
+- Profiler.GetTotalAllocated/Reserved/UnusedMemoryLong: 1.32 GB / 1.59 GB / 276.55 MB
+- SystemInfo.graphicsMemorySize: 12115
+- SystemInfo.systemMemorySize:32476
+
+2026.02.26 02:10:59 Debug      -  [Behaviour] Hiding overlay
+2026.02.26 02:10:59 Debug      -  [Behaviour] Lifting black fade
+2026.02.26 02:10:59 Debug      -  [Behaviour] I am MASTER
+Actor Nr: 1
+2026.02.26 02:10:59 Error      -  Object reference not set to an instance of an object.
+2026.02.26 02:10:59 Debug      -  [Behaviour] Finishing room transition.
+2026.02.26 02:10:59 Debug      -  [Behaviour] Invoking 31 listeners for EnterWorld event
+2026.02.26 02:11:00 Debug      -  Memory Usage: after world loaded [wrld_a5e9ec13-36b1-4e63-ae0c-dab9023401f9]
+- System.GC.GetTotalMemory: 198.15 MB
+- Profiler.GetMonoUsed/HeapSizeLong: 198.15 MB / 630.60 MB
+- Profiler.GetTotalAllocated/Reserved/UnusedMemoryLong: 1.32 GB / 1.59 GB / 275.76 MB
+- SystemInfo.graphicsMemorySize: 12115
+- SystemInfo.systemMemorySize:32476
+
+2026.02.26 02:11:00 Debug      -  [Behaviour] Finished entering world.
+2026.02.26 02:11:00 Debug      -  [Behaviour] Enabling physics
+2026.02.26 02:11:00 Debug      -  [Behaviour] World download took 11.1ms
+2026.02.26 02:11:00 Debug      -  [Behaviour] Spent 0.0ms waiting for GO
+2026.02.26 02:11:00 Debug      -  [Behaviour] World loading took 12,087.3ms
+2026.02.26 02:11:00 Debug      -  [Behaviour] Granular load times:
+{ 'total': 12.08725,
+  'preconfiguration': 0.051,
+  'instantiateScene': 1.94,
+  'configureCoreObjects': 0.008,
+  'processSceneObjects': 0.064,
+  'fixMaterials': 0.026,
+  'attachCallbackHandlers': 0.002,
+  'finalizeScene': 0.068,
+  'WarmShaders': 0.005,
+  'rpcManager': 0.252,
+  'enterWorld': 7.48,
+  'readyCoreObjects': 0.006,
+  'udonBlacklist': 0.003,
+  'preloadPrefabs': 0,
+  'collectWorldMetadata': 0,
+  'spawnPlayers': 0.018,
+  'onLoadingSceneActive': 0,
+  'processTasksBeforeWorldEnter': 0.968,
+  'waitForPPOReady': 0.136,
+  'collectPlayerMetadata': 0.002,
+  'collectNetworkCallingMetadata': 0.003,
+  'sendInstanceMetadata': 0.002,
+  'requestBufferedEvents': 0.082,
+  'waitForPlayerInitialize': 0.062,
+  'readySceneObjects': 0.141,
+  'waitForPlayerData': 0.116,
+  'executeBufferedEvents': 0.117,
+  'ensureHeapSize': 0.418,
+  'uimanagerInit': 0.07,
+  'finish': 0.045,
+}
+2026.02.26 02:11:00 Debug      -  [Behaviour] OnPlayerJoined ココナツ／ぷらねっと (usr_ad548ad2-88d1-48eb-be09-765bdbe05249)
+2026.02.26 02:11:00 Debug      -  [AssetBundleDownloadManager] [101] Unpacking Avatar (ぷらしょこら by ココナツ／ぷらねっと)
+2026.02.26 02:11:00 Debug      -  [Behaviour] Initialized PlayerAPI "ココナツ／ぷらねっと" is local
+2026.02.26 02:11:00 Debug      -  [Behaviour] Restored player 1
+2026.02.26 02:11:00 Debug      -  Fetched wallet balance from internal ledger. Balance=0
+2026.02.26 02:11:00 Debug      -  [EconomyStoreManager] [OnEnterWorld] Fetch World Store Success: esto_5d235f64-5a04-40d7-adc8-9ef21f7d7692, (0 Listings)
+2026.02.26 02:11:00 Debug      -  [<color=#8063cf>Picture Loader</color>] Picture from [https://zigg0r.github.io/Stingloading/flyers/flyer_AvatarTestingChamber.png] Loaded Successfully
+2026.02.26 02:11:00 Debug      -  [<color=#8063cf>Picture Loader</color>] Finished Loading 1 Picture(s)
+2026.02.26 02:11:01 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 1
+2026.02.26 02:11:01 Debug      -  Found SDK3 avatar descriptor.
+2026.02.26 02:11:01 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.02.26 02:11:01 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.02.26 02:11:01 Warning    -  Recovered 61 Network IDs from Avatar
+2026.02.26 02:11:01 Debug      -  Loading Avatar Data:avtr_b2427834-8a17-4d43-b6c4-eeba646821b7
+2026.02.26 02:11:01 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.02.26 02:11:01 Debug      -  Measure Human Avatar Avatar isRemeasure:False
+2026.02.26 02:11:01 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.04, 0.04) scaled:(0.00, 0.05, 0.06)
+2026.02.26 02:11:01 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Local] 1 True 8
+2026.02.26 02:11:01 Debug      -  Measure Human Avatar Avatar isRemeasure:True
+2026.02.26 02:11:02 Debug      -  Setting Target Color to: 3
+2026.02.26 02:11:03 Debug      -  NativeProcess.HasExited: process exited with code 0, took 3849 ms. Command line: C:/Users/kaimu/AppData/LocalLow/VRChat/VRChat\Tools/yt-dlp.exe (...)
+2026.02.26 02:11:03 Debug      -  [Video Playback] URL 'https://www.youtube.com/watch?v=jfKfPfyJRdk' resolved to 'https://manifest.googlevideo.com/api/manifest/hls_playlist/expire/1772061070/ei/Li2faYHeCIqX1d8P__bAiAc/ip/118.156.145.155/id/jfKfPfyJRdk.3/itag/96/source/yt_live_broadcast/requiressl/yes/ratebypass/yes/live/1/sgoap/gir%3Dyes%3Bitag%3D140/sgovp/gir%3Dyes%3Bitag%3D137/rqh/1/hls_chunk_host/rr1---sn-3qqp-ioqsk.googlevideo.com/xpc/EgVo2aDSNQ%3D%3D/bui/AVNa5-z-mHngy-DwGLTf6KSuaP6ip8DW6PP-jLP0VAgYnRwSS8jmDJ6PqEmDfWkEGReySv8yGYBG8SC3/spc/6dlaFLiIqwaqEvQtsnyN/vprv/1/playlist_type/DVR/met/1772039470,/mh/rr/mm/44/mn/sn-3qqp-ioqsk/ms/lva/mv/u/mvi/1/pl/26/rms/lva,lva/dover/11/pacing/0/keepalive/yes/fexp/51552689,51565116,51565681,51580968/mt/1772038052/sparams/expire,ei,ip,id,itag,source,requiressl,ratebypass,live,sgoap,sgovp,rqh,xpc,bui,spc,vprv,playlist_type/sig/AJEij0EwRQIhANpA6OpDwu0SUKIzAtSCIEhbUCZgUtCtBMzEhl2-lni7AiBRYbJGbuE1BCQ9_uG6N77c4GzjFtaSzzUId_FADhx6aA%3D%3D/lsparams/hls_chunk_host,met,mh,mm,mn,ms,mv,mvi,pl,rms/lsig/APaTxxMwRQIgYfak1h-w3tu-FDWbW5QFW8Ir929qrh0ZUdav1H9akEECIQDsXvGr78Oj7r8ZASG2RiX9yYm3ag49Z43rf0shR0x2vA%3D%3D/playlist/index.m3u8'
+2026.02.26 02:11:03 Debug      -  [AVProVideo] Opening https://manifest.googlevideo.com/api/manifest/hls_playlist/expire/1772061070/ei/Li2faYHeCIqX1d8P__bAiAc/ip/118.156.145.155/id/jfKfPfyJRdk.3/itag/96/source/yt_live_broadcast/requiressl/yes/ratebypass/yes/live/1/sgoap/gir%3Dyes%3Bitag%3D140/sgovp/gir%3Dyes%3Bitag%3D137/rqh/1/hls_chunk_host/rr1---sn-3qqp-ioqsk.googlevideo.com/xpc/EgVo2aDSNQ%3D%3D/bui/AVNa5-z-mHngy-DwGLTf6KSuaP6ip8DW6PP-jLP0VAgYnRwSS8jmDJ6PqEmDfWkEGReySv8yGYBG8SC3/spc/6dlaFLiIqwaqEvQtsnyN/vprv/1/playlist_type/DVR/met/1772039470,/mh/rr/mm/44/mn/sn-3qqp-ioqsk/ms/lva/mv/u/mvi/1/pl/26/rms/lva,lva/dover/11/pacing/0/keepalive/yes/fexp/51552689,51565116,51565681,51580968/mt/1772038052/sparams/expire,ei,ip,id,itag,source,requiressl,ratebypass,live,sgoap,sgovp,rqh,xpc,bui,spc,vprv,playlist_type/sig/AJEij0EwRQIhANpA6OpDwu0SUKIzAtSCIEhbUCZgUtCtBMzEhl2-lni7AiBRYbJGbuE1BCQ9_uG6N77c4GzjFtaSzzUId_FADhx6aA%3D%3D/lsparams/hls_chunk_host,met,mh,mm,mn,ms,mv,mvi,pl,rms/lsig/APaTxxMwRQIgYfak1h-w3tu-FDWbW5QFW8Ir929qrh0ZUdav1H9akEECIQDsXvGr78Oj7r8ZASG2RiX9yYm3ag49Z43rf0shR0x2vA%3D%3D/playlist/index.m3u8 (offset 0) with API MediaFoundation
+2026.02.26 02:11:05 Debug      -  [AVProVideo] Using playback path: MF-MediaEngine-Hardware (1920x1080@0.00)
+2026.02.26 02:11:05 Debug      -  [<color=#9C6994>USharpVideo</color>] Started video: https://www.youtube.com/watch?v=jfKfPfyJRdk
+2026.02.26 02:11:05 Debug      -  Setting Target Color to: 4
+2026.02.26 02:11:08 Debug      -  Setting Target Color to: 5
+2026.02.26 02:11:11 Debug      -  Setting Target Color to: 0
+2026.02.26 02:11:14 Debug      -  Setting Target Color to: 1
+2026.02.26 02:11:17 Debug      -  Setting Target Color to: 2
+2026.02.26 02:11:20 Debug      -  Setting Target Color to: 3
+2026.02.26 02:11:24 Debug      -  Setting Target Color to: 4
+2026.02.26 02:11:27 Debug      -  Setting Target Color to: 5
+2026.02.26 02:11:30 Debug      -  Setting Target Color to: 0
+2026.02.26 02:11:31 Debug      -  Notifications Cleared!
+2026.02.26 02:11:31 Error      -  Safe handle has been closed
+2026.02.26 02:11:31 Debug      -  <b>[SteamVR]</b> Initialized. Connected to oculus(oculus_virtualdesktop) : Meta Quest 3 : 1PASH5D1P17365 :: rift
+2026.02.26 02:11:32 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at SteamAudio.SteamAudioManager.ShutDown () [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.26 02:11:32 Debug      -  Installer: Running install.exe
+2026.02.26 02:11:32 Debug      -  NativeProcess.Start: started process id [29888]: C:/Program Files (x86)/Steam/steamapps/common/VRChat/VRChat_Data/../install.exe 
+2026.02.26 02:11:32 Debug      -  VRCApplication: HandleApplicationQuit at 54.54838
+2026.02.26 02:11:32 Debug      -  [AVProVideo] Shutdown
+2026.02.26 02:11:32 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at TMPro.TMP_SubMeshUI.UpdateMaterial () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.SetMaterialDirty () [0x00000] in <00000000000000000000000000000000>:0 
+  at UnityEngine.UI.MaskableGraphic.OnDisable () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.OnDisable () [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.26 02:11:32 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at TMPro.TMP_SubMeshUI.UpdateMaterial () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.SetMaterialDirty () [0x00000] in <00000000000000000000000000000000>:0 
+  at UnityEngine.UI.MaskableGraphic.OnDisable () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.OnDisable () [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.26 02:11:32 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at TMPro.TMP_SubMeshUI.UpdateMaterial () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.SetMaterialDirty () [0x00000] in <00000000000000000000000000000000>:0 
+  at UnityEngine.UI.MaskableGraphic.OnDisable () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.OnDisable () [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.26 02:11:32 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at TMPro.TMP_SubMeshUI.UpdateMaterial () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.SetMaterialDirty () [0x00000] in <00000000000000000000000000000000>:0 
+  at UnityEngine.UI.MaskUtilities.NotifyStencilStateChanged (UnityEngine.Component mask) [0x00000] in <00000000000000000000000000000000>:0 
+  at UnityEngine.UI.MaskableGraphic.OnDisable () [0x00000] in <00000000000000000000000000000000>:0 
+  at UnityEngine.UI.Image.OnDisable () [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.26 02:11:32 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at TMPro.TMP_SubMeshUI.UpdateMaterial () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.SetMaterialDirty () [0x00000] in <00000000000000000000000000000000>:0 
+  at UnityEngine.UI.MaskUtilities.NotifyStencilStateChanged (UnityEngine.Component mask) [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.26 02:11:32 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at TMPro.TMP_SubMeshUI.UpdateMaterial () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.SetMaterialDirty () [0x00000] in <00000000000000000000000000000000>:0 
+  at UnityEngine.UI.MaskableGraphic.OnDisable () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.OnDisable () [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.26 02:11:32 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at TMPro.TMP_SubMeshUI.UpdateMaterial () [0x00000] in <00000000000000000000000000000000>:0 
+  at TMPro.TMP_SubMeshUI.SetMaterialDirty () [0x00000] in <00000000000000000000000000000000>:0 
+  at UnityEngine.UI.MaskUtilities.NotifyStencilStateChanged (UnityEngine.Component mask) [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.26 02:11:32 Debug      -  VRCNP: Stopping server
+2026.02.26 02:11:32 Debug      -  UserInterface destroyed
+2026.02.26 02:11:32 Warning    -  [Behaviour] Logger is null
+2026.02.26 02:11:32 Debug      -  Deferring event  of type SendRPC because dispatcher is unavailable.
+2026.02.26 02:11:32 Error      -  Object reference not set to an instance of an object.
+System.NullReferenceException: Object reference not set to an instance of an object.
+  at UnityEngine.MonoBehaviour.StartCoroutine (System.Collections.IEnumerator routine) [0x00000] in <00000000000000000000000000000000>:0 
+  at VRC.SDKBase.VRC_EventHandler.DeferEvent (VRC.SDKBase.VRC_EventHandler+VrcEvent e, VRC.SDKBase.VRC_EventHandler+VrcBroadcastType broadcast, UnityEngine.GameObject instagator, System.Single fastForward) [0x00000] in <00000000000000000000000000000000>:0 
+  at VRC.SDKBase.VRC_EventHandler.TriggerEvent (VRC.SDKBase.VRC_EventHandler+VrcEvent e, VRC.SDKBase.VRC_EventHandler+VrcBroadcastType broadcast, UnityEngine.GameObject instagator, System.Single fastForward) [0x00000] in <00000000000000000000000000000000>:0 
+  at ÌÍÍÎÏÏÎÍÎÎÌÍÏÎÏÌÎÏÎÎÎÎÌ.ÍÏÍÎÌÏÏÌÏÍÌÌÌÎÏÌÍÌÏÏÏÌÏ (VRC.SDKBase.RPC+Destination ÌÌÏÍÏÎÎÎÎÏÎÏÌÌÏÏÍÌÎÍÎÏÍ, UnityEngine.GameObject ÎÍÌÏÌÍÍÌÎÍÌÌÎÎÌÎÏÍÍÍÎÌÎ, System.String ÎÍÎÏÍÍÍÏÎÎÎÎÌÏÍÎÌÌÎÎÎÎÍ, System.Object[] ÏÎÌÏÏÎÌÏÌÏÏÍÎÍÎÎÏÌÍÍÏÎÏ) [0x00000] in <00000000000000000000000000000000>:0 
+  at ÍÏÍÎÏÍÌÎÎÎÍÎÌÎÎÎÎÌÏÏÎÌÌ.ÏÌÍÍÏÌÏÎÏÎÍÎÎÎÎÍÏÎÎÌÌÌÎ (VRC.SDKBase.RPC+Destination ÌÌÏÍÏÎÎÎÎÏÎÏÌÌÏÏÍÌÎÍÎÏÍ, UnityEngine.GameObject ÎÍÌÏÌÍÍÌÎÍÌÌÎÎÌÎÏÍÍÍÎÌÎ, System.String ÎÍÎÏÍÍÍÏÎÎÎÎÌÏÍÎÌÌÎÎÎÎÍ, System.Object[] ÏÎÌÏÏÎÌÏÌÏÏÍÎÍÎÎÏÌÍÍÏÎÏ) [0x00000] in <00000000000000000000000000000000>:0 
+  at ÏÌÌÏÎÍÍÏÏÍÍÏÌÎÎÍÌÌÎÌÎÏÌ.ÌÌÏÍÎÏÏÏÎÏÎÍÏÏÏÍÍÎÏÍÌÍÍ () [0x00000] in <00000000000000000000000000000000>:0 
+  at ÏÌÌÏÎÍÍÏÏÍÍÏÌÎÎÍÌÌÎÌÎÏÌ.OnDestroy () [0x00000] in <00000000000000000000000000000000>:0 
+2026.02.26 02:11:32 Error      -  Not all events were triggered prior to the handler being destroyed.
+2026.02.26 02:11:32 Debug      -  [Behaviour] Destroying ココナツ／ぷらねっと
+2026.02.26 02:11:32 Debug      -  Saving Avatar Data:avtr_b2427834-8a17-4d43-b6c4-eeba646821b7
+2026.02.26 02:11:32 Debug      -  [Behaviour] uSpeak [1][-1161447489]: OnDestroy
+2026.02.26 02:11:32 Debug      -  [Behaviour] uSpeak [1][-1161447489]: ProcessCompletedEncodesAsync task cancelled (read).
+2026.02.26 02:11:32 Debug      -  [Behaviour] uSpeak [1][-1161447488]: ProcessVisemeAsync task cancelled (read).
+2026.02.26 02:11:32 Debug      -  [Behaviour] uSpeak [1][-1161447488]: ProcessEncodeAsync task cancelled (read).
+2026.02.26 02:11:32 Debug      -  [Behaviour] uSpeak [1][-1161447488]: Stop Microphone: マイク (Virtual Desktop Audio)

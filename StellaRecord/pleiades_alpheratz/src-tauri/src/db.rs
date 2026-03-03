@@ -1,0 +1,115 @@
+use rusqlite::Connection;
+use std::path::{Path, PathBuf};
+use std::fs;
+
+pub fn get_planetarium_db_path() -> PathBuf {
+    let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    let setting_path = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD\\PlanetariumSetting.json");
+    if let Ok(content) = fs::read_to_string(setting_path) {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(p) = val["dbPath"].as_str() {
+                if !p.is_empty() { return PathBuf::from(p); }
+            }
+        }
+    }
+    Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD\\Planetarium\\planetarium.db")
+}
+
+pub fn get_alpheratz_db_path() -> PathBuf {
+    let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Alpheratz\\db");
+    let _ = fs::create_dir_all(&dir);
+    dir.join("Alpheratz.db")
+}
+
+pub fn init_alpheratz_db() -> Result<(), String> {
+    let conn = Connection::open(get_alpheratz_db_path()).map_err(|e| e.to_string())?;
+    
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA foreign_keys = ON;"
+    ).map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS photos (
+            photo_filename  TEXT PRIMARY KEY,
+            photo_path      TEXT NOT NULL,
+            world_id        TEXT,
+            world_name      TEXT,
+            timestamp       TEXT NOT NULL,
+            memo            TEXT DEFAULT ''
+        )",
+        [],
+    ).map_err(|e| e.to_string())?;
+
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp)", []).map_err(|e| e.to_string())?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name)", []).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+use crate::models::PhotoRecord;
+
+pub fn get_photos(
+    start_date: Option<String>,
+    end_date: Option<String>,
+    world_query: Option<String>,
+    world_exact: Option<String>
+) -> Result<Vec<PhotoRecord>, String> {
+    let conn = Connection::open(get_alpheratz_db_path()).map_err(|e| e.to_string())?;
+    
+    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo FROM photos WHERE 1=1".to_string();
+    
+    if start_date.is_some() { sql.push_str(" AND timestamp >= :start"); }
+    if end_date.is_some() { sql.push_str(" AND timestamp <= :end"); }
+    if world_query.is_some() { sql.push_str(" AND world_name LIKE :query"); }
+    if world_exact.is_some() {
+        if world_exact.as_ref().map(|s| s.as_str()) == Some("unknown") {
+            sql.push_str(" AND world_name IS NULL");
+        } else {
+            sql.push_str(" AND world_name = :exact");
+        }
+    }
+
+    sql.push_str(" ORDER BY timestamp DESC");
+    
+    let mut results = Vec::new();
+    let query_val = world_query.as_ref().map(|w| format!("%{}%", w));
+    
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    
+    let mut params = Vec::new();
+    if let Some(ref s) = start_date { params.push((":start", s as &dyn rusqlite::ToSql)); }
+    if let Some(ref e) = end_date { params.push((":end", e as &dyn rusqlite::ToSql)); }
+    if let Some(ref q) = query_val { params.push((":query", q as &dyn rusqlite::ToSql)); }
+    if let Some(ref x) = world_exact {
+        if x != "unknown" {
+            params.push((":exact", x as &dyn rusqlite::ToSql));
+        }
+    }
+
+    let rows = stmt.query_map(params.as_slice(), |row| {
+        Ok(PhotoRecord {
+            photo_filename: row.get(0)?,
+            photo_path: row.get(1)?,
+            world_id: row.get(2)?,
+            world_name: row.get(3)?,
+            timestamp: row.get(4)?,
+            memo: row.get(5)?,
+        })
+    }).map_err(|e| e.to_string())?;
+
+    for r in rows {
+        if let Ok(rec) = r { results.push(rec); }
+    }
+    Ok(results)
+}
+
+pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
+    let conn = Connection::open(get_alpheratz_db_path()).map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE photos SET memo = ?1 WHERE photo_filename = ?2",
+        rusqlite::params![memo, filename],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
