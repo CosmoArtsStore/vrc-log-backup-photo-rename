@@ -5,6 +5,7 @@ export interface Photo {
     world_name: string | null;
     timestamp: string;
     memo: string;
+    phash: string | null;
 }
 
 export interface ScanProgress {

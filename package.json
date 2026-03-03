@@ -1,12 +1,19 @@
 {
-  "name": "vrc-log-backup-photo-rename",
-  "version": "0.1.0",
+  "name": "stellarecord-workspace",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev:Polaris": "npm run dev --prefix StellaRecord/polaris",
-    "dev:Alpheratz": "npm run dev --prefix StellaRecord/pleiades_alpheratz",
-    "build:Polaris-pkg": "npm --prefix StellaRecord run build:Polaris-pkg",
-    "build:StellaRecord-pkg": "npm --prefix StellaRecord run build:StellaRecord-pkg",
-    "build:Alpheratz-pkg": "npm --prefix StellaRecord run build:Alpheratz-pkg"
+    "dev:Polaris": "cd Polaris && npx tauri dev",
+    "dev:StellaRecord": "cd StellaRecord/stella_record_ui && npx tauri dev",
+    "dev:Alpheratz": "cd Alpheratz && npx tauri dev",
+    "dev:Mira": "echo \"Mira is not implemented yet!\"",
+    "build:Polaris-bin": "cd Polaris/src-tauri && cargo build --release -p polaris -q",
+    "build:Polaris-pkg": "npm run build:Polaris-bin && cd Polaris && npx tauri build",
+    "build:StellaRecord-pkg": "cd StellaRecord/stella_record_ui && npx tauri build",
+    "build:Alpheratz-pkg": "cd Alpheratz && npx tauri build",
+    "build:Mira-pkg": "echo \"Mira is not implemented yet!\""
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.0"
   }
 }

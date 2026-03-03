@@ -18,7 +18,7 @@ export const Header = ({
     return (
         <header className="header">
             <div className="logo-group">
-                <h1>Alpheratz</h1>
+                <img src="/Alpheratz-logo.png" alt="Alpheratz" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
             </div>
             <div className="search-bar">
                 <div className="input-group">

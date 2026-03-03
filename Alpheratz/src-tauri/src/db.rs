@@ -38,10 +38,14 @@ pub fn init_alpheratz_db() -> Result<(), String> {
             world_id        TEXT,
             world_name      TEXT,
             timestamp       TEXT NOT NULL,
-            memo            TEXT DEFAULT ''
+            memo            TEXT DEFAULT '',
+            phash           TEXT
         )",
         [],
     ).map_err(|e| e.to_string())?;
+
+    // Migration for existing databases
+    let _ = conn.execute("ALTER TABLE photos ADD COLUMN phash TEXT", []);
 
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp)", []).map_err(|e| e.to_string())?;
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name)", []).map_err(|e| e.to_string())?;
@@ -58,7 +62,7 @@ pub fn get_photos(
 ) -> Result<Vec<PhotoRecord>, String> {
     let conn = Connection::open(get_alpheratz_db_path()).map_err(|e| e.to_string())?;
     
-    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo FROM photos WHERE 1=1".to_string();
+    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo, phash FROM photos WHERE 1=1".to_string();
     
     if start_date.is_some() { sql.push_str(" AND timestamp >= :start"); }
     if end_date.is_some() { sql.push_str(" AND timestamp <= :end"); }
@@ -96,6 +100,7 @@ pub fn get_photos(
             world_name: row.get(3)?,
             timestamp: row.get(4)?,
             memo: row.get(5)?,
+            phash: row.get(6)?,
         })
     }).map_err(|e| e.to_string())?;
 

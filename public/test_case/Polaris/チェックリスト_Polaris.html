@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polaris ユーザーテスト チェックリスト</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:#0d0d0f;font-family:'Noto Sans JP','Segoe UI',sans-serif;color:#e0e0e0;padding:24px 16px}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:#111}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+.mono{font-family:'JetBrains Mono',monospace}
+.wrap{max-width:920px;margin:0 auto}
+.header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+.eyebrow{font-size:11px;letter-spacing:3px;color:#555;margin-bottom:5px}
+h1{font-size:21px;font-weight:700;color:#fff}
+.high-score{font-size:26px;font-weight:700;transition:color .3s}
+.progress-wrap{background:#1a1a1a;border-radius:8px;overflow:hidden;height:6px;margin-bottom:4px}
+.progress-bar{height:100%;background:linear-gradient(90deg,#ff4757,#ffa502,#7bed9f);border-radius:8px;transition:width .4s}
+.progress-labels{display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:18px}
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.stat-chip{background:#111318;border:1px solid #222;border-radius:8px;padding:8px 12px;font-size:11px;flex:1;min-width:100px;text-align:center}
+.stat-chip .sv{font-size:19px;font-weight:700;display:block;margin-bottom:2px}
+.path-panel{background:#0a0f1a;border:1px solid #1a3050;border-radius:10px;padding:13px 16px;margin-bottom:14px}
+.path-panel .ptitle{font-size:11px;color:#4a9eff;letter-spacing:1px;margin-bottom:8px}
+.path-row{display:flex;gap:8px;align-items:baseline;margin-bottom:3px;font-size:12px}
+.path-key{color:#888;flex-shrink:0;width:140px}
+.path-val{color:#7ecfff;font-family:'JetBrains Mono',monospace;font-size:11px;word-break:break-all}
+.note-box{background:#1a1500;border:1px solid #ffa50230;border-radius:10px;padding:11px 15px;margin-bottom:14px;font-size:13px;color:#bbb;line-height:1.8}
+.note-box strong{color:#ffa502}
+.panel{background:#111318;border:1px solid #1e1e24;border-radius:10px;padding:13px 16px;margin-bottom:12px}
+.panel-label{font-size:11px;color:#777;margin-bottom:9px;letter-spacing:1px}
+.tag-row{display:flex;flex-wrap:wrap;gap:7px}
+.fbtn{background:transparent;border:1px solid #2a2a2a;border-radius:20px;padding:5px 13px;font-size:12px;color:#666;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
+.fbtn:hover{opacity:.85}
+.fbtn.aall{background:#2a2a2a;color:#ccc;border-color:#444}
+.pfilt{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.pbtn{background:transparent;border:1px solid #2a2a2a;border-radius:8px;padding:6px 16px;font-size:13px;font-weight:600;color:#555;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
+.pbtn:hover{opacity:.85}
+.section{margin-bottom:20px}
+.sec-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:10px 10px 0 0;border-bottom-width:2px;border-bottom-style:solid}
+.sec-title{font-size:14px;font-weight:700}
+.sec-desc{font-size:11px;color:#666;margin-left:8px}
+.sec-cnt{font-size:13px;font-weight:600;transition:color .3s}
+.trow{border:1px solid #1e1e24;border-top:none}
+.trow:last-child{border-radius:0 0 10px 10px}
+.tmain{display:flex;align-items:center;gap:10px;padding:10px 13px;cursor:pointer}
+.tmain:hover{background:rgba(255,255,255,.035)}
+.cb{width:22px;height:22px;border-radius:6px;flex-shrink:0;border-width:2px;border-style:solid;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;font-size:13px;line-height:1}
+.tid{font-size:10px;flex-shrink:0;min-width:44px;opacity:.75}
+.ttitle{flex:1;font-size:13px;font-weight:500;color:#ccc}
+.ttitle.done{color:#555;text-decoration:line-through}
+.tmini{font-size:10px;padding:2px 6px;border-radius:20px;font-weight:500;white-space:nowrap}
+.arr{color:#3a3a3a;font-size:10px;margin-left:4px;transition:transform .2s;display:inline-block}
+.arr.open{transform:rotate(180deg)}
+.tdetail{padding:0 13px 13px 45px;border-top:1px solid #1a1a20;display:none}
+.tdetail.open{display:block}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+@media(max-width:580px){.dgrid{grid-template-columns:1fr}}
+.dcard{background:#090910;border-radius:8px;padding:10px 13px;border:1px solid #1a1a22}
+.dlabel{font-size:10px;color:#555;margin-bottom:5px;letter-spacing:1px}
+.dtext{font-size:12px;color:#bbb;line-height:1.65}
+.dtags{margin-top:8px;display:flex;flex-wrap:wrap;gap:5px}
+.new-badge{font-size:9px;background:#ff475718;color:#ff8090;border:1px solid #ff475740;border-radius:4px;padding:1px 5px;margin-left:5px;vertical-align:middle}
+.footer{padding:12px 16px;background:#0f0f12;border:1px solid #1a1a22;border-radius:10px;display:flex;flex-wrap:wrap;gap:10px;margin-top:20px;align-items:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="header">
+  <div>
+    <div class="eyebrow mono">STELLARECORD / POLARIS</div>
+    <h1>ユーザーテスト チェックリスト <span style="font-size:13px;color:#444;font-weight:400">完全版 97項目</span></h1>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:11px;color:#666;margin-bottom:3px">🔴 高優先度の完了率</div>
+    <div class="high-score mono" id="highScore">0 / 0</div>
+  </div>
+</div>
+
+<div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+<div class="progress-labels"><span id="progressLabel">全体 0/97 完了</span><span id="progressPct">0%</span></div>
+
+<div class="stats-row" id="statsRow"></div>
+
+<div class="path-panel">
+  <div class="ptitle mono">📂 ファイルの場所（テスト時の確認用）</div>
+  <div class="path-row"><span class="path-key">VRChatのログ元</span><span class="path-val">%USERPROFILE%\AppData\LocalLow\VRChat\VRChat\</span></div>
+  <div class="path-row"><span class="path-key">ログのファイル名</span><span class="path-val">output_log_YYYY-MM-DD_hh-mm-ss.txt　例）output_log_2026-02-27_00-48-54.txt</span></div>
+  <div class="path-row"><span class="path-key">バックアップ先</span><span class="path-val">%LOCALAPPDATA%\CosmoArtsStore\STELLARECORD\Polaris\archive\</span></div>
+  <div class="path-row"><span class="path-key">アプリ名</span><span class="path-val">Polaris.exe</span></div>
+</div>
+
+<div class="note-box">
+  <strong>🔴 高優先度（20項目）</strong> はユーザーが実際に不安に感じる部分です。時間がなければ<strong>ここだけ</strong>やれば最低限OK。<br>
+  🟡 中は品質の確認、⚪ 低はほぼ開発者向けのエッジケース確認です。
+</div>
+
+<div class="panel">
+  <div class="panel-label mono">ユーザーの不安 — フィルター</div>
+  <div class="tag-row" id="axFilters"></div>
+</div>
+
+<div class="pfilt" id="pFilters"></div>
+<div class="pfilt" id="catFilters"></div>
+<div id="testList"></div>
+<div class="footer" id="footer"><span style="font-size:11px;color:#444">不安カテゴリ：</span></div>
+</div>
+
+<script>
+const AX=[
+  {id:"virus",    icon:"🔒",label:"変なことをしていない",   color:"#ff6b81"},
+  {id:"game",     icon:"🎮",label:"ゲームに悪影響がない",   color:"#00d2ff"},
+  {id:"backup",   icon:"💾",label:"バックアップが確実",     color:"#7bed9f"},
+  {id:"safe",     icon:"🛡️",label:"ファイルを壊さない",     color:"#eccc68"},
+  {id:"clean",    icon:"🧹",label:"ゴミが溜まらない",       color:"#a29bfe"},
+  {id:"resident", icon:"⚙️",label:"常駐アプリとして安全",   color:"#fd79a8"},
+];
+const axMap={};AX.forEach(a=>axMap[a.id]=a);
+const PC={
+  "高":{color:"#ff4757",bg:"#200a0c",border:"#ff4757",label:"🔴 高優先度",desc:"ユーザー不安に直結 — 必ずつぶす"},
+  "中":{color:"#ffa502",bg:"#1e1500",border:"#ffa502",label:"🟡 中優先度",desc:"品質向上 — 時間があれば"},
+  "低":{color:"#57606f",bg:"#141414",border:"#444",   label:"⚪ 低優先度",desc:"エッジケース — 余裕があれば"},
+};
+
+const TESTS=[
+  {id:"1.1.1",cat:"①二重起動防止",priority:"高",
+   title:"Polaris.exe が2つ同時に動かないこと",
+   desc:"Polaris.exe を起動中に、もう一度 Polaris.exe をダブルクリックする。タスクマネージャーでプロセス数を確認",
+   expect:"Polaris.exe が1つだけ表示される。2つ目は一瞬で消える",anxiety:["virus","resident"]},
+  {id:"1.1.2",cat:"①二重起動防止",priority:"高",
+   title:"2つ目の起動は即座に終了すること",
+   desc:"起動中にもう一度ダブルクリックし、タスクマネージャーをすぐ確認",
+   expect:"2つ目のプロセスが0.1秒以内に消える。増え続けない",anxiety:["virus","resident"]},
+  {id:"1.1.3",cat:"①二重起動防止",priority:"中",
+   title:"タスクマネージャーで終了後に再起動できること",
+   desc:"タスクマネージャーから Polaris.exe を終了 → すぐ再起動",
+   expect:"問題なく起動する",anxiety:["resident"]},
+  {id:"1.2.1",cat:"①二重起動防止",priority:"低",
+   title:"管理者・通常権限どちらでも1つだけ起動すること",
+   desc:"管理者権限で起動中に、通常権限でも起動を試みる",
+   expect:"どちらでも正常に1つだけ起動する",anxiety:["resident"]},
+  {id:"1.2.2",cat:"①二重起動防止",priority:"低",
+   title:"権限が制限された環境でも安全に終了すること",
+   desc:"権限を制限した状態で起動",
+   expect:"ツールが即終了する。余計なプロセスが残らない",anxiety:["resident"]},
+
+  {id:"2.1.1",cat:"②起動時動作",priority:"高",
+   title:"ツール起動時に最新のログがバックアップされること",
+   desc:"VRChat が起動していない状態で Polaris.exe を起動。バックアップ先フォルダを確認\n→ %LOCALAPPDATA%\\CosmoArtsStore\\STELLARECORD\\Polaris\\archive\\",
+   expect:"起動直後に output_log_YYYY-MM-DD_hh-mm-ss.txt がバックアップ先にコピーされている",anxiety:["backup"]},
+  {id:"2.1.2",cat:"②起動時動作",priority:"高",
+   title:"前回取れなかったログも起動時に拾われること",
+   desc:"Polaris.exe を終了した状態で VRChat を起動・終了 → その後 Polaris.exe を起動",
+   expect:"前回分のログもバックアップされている",anxiety:["backup"]},
+  {id:"2.2.1",cat:"②起動時動作",priority:"高",
+   title:"VRChat 起動中に Polaris を起動してもバックアップが走らないこと",
+   desc:"VRChat 起動中に Polaris.exe を起動。バックアップ先フォルダの中身が変化しないことを確認",
+   expect:"バックアップ先のファイルが更新されない",anxiety:["game","backup"]},
+
+  {id:"3.1.1",cat:"③プロセス監視",priority:"高",
+   title:"VRChat プレイ中はコピー処理が走らないこと",
+   desc:"Polaris.exe 起動中に VRChat を起動してゲームをプレイ。その間バックアップ先フォルダを監視",
+   expect:"プレイ中はフォルダの中身が変化しない",anxiety:["game"]},
+  {id:"3.1.2",cat:"③プロセス監視",priority:"高",
+   title:"VRChat を終了したらバックアップが実行されること",
+   desc:"VRChat を正常終了し、バックアップ先フォルダを確認",
+   expect:"終了後6秒以内に output_log_YYYY-MM-DD_hh-mm-ss.txt がバックアップ先に出現・更新される",anxiety:["backup"]},
+  {id:"3.1.3",cat:"③プロセス監視",priority:"中",
+   title:"VRChat をすぐ終了してもバックアップされること",
+   desc:"VRChat を起動して数秒以内に終了",
+   expect:"短時間でも漏れなくバックアップが実行される",anxiety:["backup"]},
+  {id:"3.2.1",cat:"③プロセス監視",priority:"高",
+   title:"VRChat が落ちた（クラッシュ）場合もバックアップされること",
+   desc:"タスクマネージャーから VRChat.exe を強制終了し、バックアップ先を確認",
+   expect:"クラッシュ終了でも通常終了と同様にログがバックアップされる",anxiety:["backup"]},
+  {id:"3.2.2",cat:"③プロセス監視",priority:"中",
+   title:"プロセス名の大文字・小文字が違っても検知できること",
+   desc:"VRChat.exe・vrchat.exe など大文字小文字の違いを確認",
+   expect:"正しく起動・終了が検知される",anxiety:["backup"]},
+  {id:"3.2.3",cat:"③プロセス監視",priority:"低",
+   title:"同じ名前の別アプリがあっても誤動作しないこと",
+   desc:"ダミーで「vrchat.exe」という名前の別プロセスを動かす",
+   expect:"両方検知されるが誤動作しない（仕様確認）",anxiety:["safe"]},
+  {id:"3.2.4",cat:"③プロセス監視",priority:"高",
+   title:"長時間常駐してもパソコンが重くならないこと",
+   desc:"Polaris.exe を起動したまま1時間以上放置。タスクマネージャーで CPU・メモリ使用率を確認",
+   expect:"CPU 使用率がほぼ 0%。メモリも増え続けない",anxiety:["game","resident"]},
+  {id:"3.2.5",cat:"③プロセス監視",priority:"中",
+   title:"終了→即再起動してもバックアップが2回走らないこと",
+   desc:"VRChat を終了 → 1秒後にすぐ再起動",
+   expect:"バックアップは1回だけ実行される。重複して動かない",anxiety:["resident","clean"]},
+  {id:"3.2.6",cat:"③プロセス監視",priority:"低",
+   title:"終了検知の待機中に再起動しても正しく動くこと",
+   desc:"VRChat 終了検知後の3秒待機中に再起動",
+   expect:"バックアップをスキップして正常に監視継続",anxiety:["resident"]},
+
+  {id:"4.1.1",cat:"④ログ同期",priority:"高",
+   title:"新しいログファイルがバックアップ先に出現すること",
+   desc:"VRChat 終了後にバックアップ先フォルダを確認\n→ %LOCALAPPDATA%\\CosmoArtsStore\\STELLARECORD\\Polaris\\archive\\",
+   expect:"output_log_YYYY-MM-DD_hh-mm-ss.txt がバックアップ先に出現している",anxiety:["backup"]},
+  {id:"4.1.2",cat:"④ログ同期",priority:"高",
+   title:"前回より大きくなったログが上書きコピーされること",
+   desc:"一度バックアップ後、VRChat を再起動して終了。バックアップ先のファイルサイズを確認",
+   expect:"バックアップ先のファイルサイズが増えている",anxiety:["backup"]},
+  {id:"4.1.3",cat:"④ログ同期",priority:"高",
+   title:"変化のないファイルは何度動かしても上書きされないこと",
+   desc:"バックアップ済みの状態で VRChat を動かさずに放置。バックアップ先のタイムスタンプを確認",
+   expect:"バックアップ先のファイルの日時が変わらない（無駄なコピーが起きない）",anxiety:["clean"]},
+  {id:"4.1.4",cat:"④ログ同期",priority:"中",
+   title:"ログが10個以上あっても全部バックアップされること",
+   desc:"ログ元フォルダに15個の output_log_*.txt を用意してツールを動かす",
+   expect:"全15ファイルがバックアップ先に出現する",anxiety:["backup"]},
+  {id:"4.2.1",cat:"④ログ同期",priority:"中",
+   title:"中身が空のログファイル（0バイト）もバックアップされること",
+   desc:"0バイトの output_log_YYYY-MM-DD_hh-mm-ss.txt をログ元に置いてツールを動かす",
+   expect:"空ファイルもバックアップ先に出現する",anxiety:["backup"]},
+  {id:"4.2.2",cat:"④ログ同期",priority:"中",
+   title:"1GB を超える大きなログも正常にコピーされること",
+   desc:"1GB 以上のログファイルをソースに置く",
+   expect:"コピーが完了する。ツールが止まらない",anxiety:["backup"]},
+  {id:"4.2.3",cat:"④ログ同期",priority:"中",
+   title:"バックアップが元より大きい場合は上書きしないこと",
+   desc:"バックアップ先のファイルをソースより大きくした状態でツールを動かす",
+   expect:"上書きコピーされない（バックアップが縮小されない）",anxiety:["clean","safe"]},
+  {id:"4.2.4",cat:"④ログ同期",priority:"高",
+   title:"同じサイズのファイルは何もしないこと",
+   desc:"ソースとバックアップが同サイズの状態でツールを動かす",
+   expect:"コピーが走らない。バックアップのサイズ・日時が変わらない",anxiety:["clean"]},
+  {id:"4.2.5",cat:"④ログ同期",priority:"中",
+   title:"ファイル情報が読めなくてもツールが止まらないこと",
+   desc:"権限なしでファイル情報が取得できない状態を作る",
+   expect:"エラーになっても監視が続く。ツールが落ちない",anxiety:["resident"]},
+  {id:"4.3.1",cat:"④ログ同期",priority:"高",
+   title:"バックアップ先フォルダが自動で作られること（他のフォルダは触らない）",
+   desc:"バックアップ先フォルダを削除した状態でツールを起動",
+   expect:"専用フォルダだけが新規作成される。それ以外のフォルダは一切変化しない",anxiety:["safe"]},
+  {id:"4.3.2",cat:"④ログ同期",priority:"中",
+   title:"バックアップ先に書き込めなくてもツールが止まらないこと",
+   desc:"バックアップ先フォルダを読み取り専用にしてから VRChat を終了",
+   expect:"コピー失敗するが、ツールはそのまま動き続ける",anxiety:["resident"]},
+  {id:"4.3.3",cat:"④ログ同期",priority:"中",
+   title:"バックアップ先のファイルが読み取り専用でもツールが止まらないこと",
+   desc:"バックアップ先に読み取り専用ファイルを置いてコピーさせる",
+   expect:"コピー失敗するが、ツールは止まらない",anxiety:["resident"]},
+  {id:"4.3.4",cat:"④ログ同期",priority:"低",
+   title:"コピー中にログが削除されても止まらないこと",
+   desc:"コピー処理中にログ元のファイルを手動削除",
+   expect:"エラーを無視して他のファイルの処理を続ける",anxiety:["resident"]},
+
+  {id:"5.1.1",cat:"⑤ファイル・パス",priority:"高",
+   title:"指定フォルダ以外には何も作らないこと",
+   desc:"バックアップ後、%LOCALAPPDATA%\\CosmoArtsStore\\STELLARECORD\\Polaris\\archive\\ 以外に新しいファイルやフォルダができていないか確認",
+   expect:"指定フォルダ以外には何も増えていない",anxiety:["safe","virus"]},
+  {id:"5.1.2",cat:"⑤ファイル・パス",priority:"中",
+   title:"パスが取得できなくてもツールが止まらないこと",
+   desc:"制限ユーザーで環境変数が使えない状態を作る",
+   expect:"何もせずに監視だけ続ける。ツールが落ちない",anxiety:["resident"]},
+  {id:"5.1.3",cat:"⑤ファイル・パス",priority:"中",
+   title:"ユーザー名が日本語でも正常に動作すること",
+   desc:"ユーザー名が日本語のアカウントで Polaris.exe を起動",
+   expect:"バックアップ先に正しくコピーされる",anxiety:["backup","safe"]},
+  {id:"5.2.1",cat:"⑤ファイル・パス",priority:"高",
+   title:"output_log_YYYY-MM-DD_hh-mm-ss.txt 以外のファイルはコピーしないこと",
+   desc:"VRChat のログフォルダに対象外ファイルを置いてツールを動かす",
+   expect:"バックアップ先に対象外ファイルが一切出現しない",anxiety:["safe","clean"]},
+  {id:"5.2.2",cat:"⑤ファイル・パス",priority:"中",
+   title:"隠しファイルはコピーしないこと",
+   desc:"隠し属性のファイルをログフォルダに置く",
+   expect:"バックアップ先に出現しない",anxiety:["safe","clean"]},
+  {id:"5.2.3",cat:"⑤ファイル・パス",priority:"低",
+   title:"output_log_.txt（日時なし）もコピーされること",
+   desc:"output_log_.txt をログ元に置く",
+   expect:"仕様通りコピーされる",anxiety:["backup"]},
+  {id:"5.2.4",cat:"⑤ファイル・パス",priority:"低",
+   title:"Output_Log_*.txt（大文字始まり）はコピーしないこと",
+   desc:"Output_Log_2026-02-27_00-00-00.txt のような大文字始まりのファイルを置く",
+   expect:"コピーされない",anxiety:["clean"]},
+  {id:"5.2.5",cat:"⑤ファイル・パス",priority:"低",
+   title:"拡張子が .txt でないファイルはコピーしないこと",
+   desc:"output_log_abc（.txt なし）をログ元に置く",
+   expect:"コピーされない",anxiety:["clean"]},
+  {id:"5.2.6",cat:"⑤ファイル・パス",priority:"低",
+   title:"おかしなファイル名があってもクラッシュしないこと",
+   desc:"文字化けしたファイル名をログフォルダに作成",
+   expect:"スキップして処理継続",anxiety:["resident"]},
+
+  {id:"6.1.1",cat:"⑥エラー耐性",priority:"中",
+   title:"VRChat がインストールされていなくてもツールが止まらないこと",
+   desc:"VRChat のログフォルダがない状態でツールを起動",
+   expect:"エラーなく監視だけ続ける",anxiety:["resident"]},
+  {id:"6.1.2",cat:"⑥エラー耐性",priority:"低",
+   title:"アクセスできないファイルが混在しても続行すること",
+   desc:"権限なしのファイルをログフォルダに置く",
+   expect:"問題ないファイルだけ処理して続行",anxiety:["resident"]},
+  {id:"6.2.1",cat:"⑥エラー耐性",priority:"中",
+   title:"VRChat 終了直後のファイルの一時ロックに対応できること",
+   desc:"VRChat 終了直後にコピーが走るタイミングを確認",
+   expect:"3〜6秒待機後に正常コピー。エラーで止まらない",anxiety:["backup"]},
+  {id:"6.3.1",cat:"⑥エラー耐性",priority:"中",
+   title:"保存先のディスクがいっぱいでもツールが止まらないこと",
+   desc:"バックアップ先のドライブをほぼ満杯にして VRChat を終了",
+   expect:"コピーは失敗するが、ツールは動き続ける",anxiety:["resident"]},
+
+  {id:"7.1.1",cat:"⑦パフォーマンス",priority:"高",
+   title:"待機中の CPU 使用率が 0.1% 未満であること",
+   desc:"Polaris.exe を起動して放置。タスクマネージャーで CPU 使用率を確認",
+   expect:"CPU 使用率がほぼ 0%（0.1% 未満）",anxiety:["game","resident"]},
+  {id:"7.1.2",cat:"⑦パフォーマンス",priority:"高",
+   title:"24時間動かし続けてもメモリが増え続けないこと",
+   desc:"24時間連続稼働させてメモリ使用量の変化を確認",
+   expect:"メモリ使用量が 20MB 未満で安定。増え続けない",anxiety:["resident","game"]},
+  {id:"7.2.1",cat:"⑦パフォーマンス",priority:"高",
+   title:"VRChat を10回以上起動・終了しても毎回バックアップが成功すること",
+   desc:"VRChat の起動・終了を10回以上繰り返す。毎回バックアップ先を確認",
+   expect:"10回全てのバックアップが正常に完了。メモリも増えない",anxiety:["game","backup","resident"]},
+  {id:"7.2.2",cat:"⑦パフォーマンス",priority:"中",
+   title:"PC をスリープ・復帰させてもツールが動き続けること",
+   desc:"PC をスリープ → 復帰 → VRChat を起動・終了",
+   expect:"復帰後も監視が続いており、バックアップが正常に動作する",anxiety:["resident","backup"]},
+
+  {id:"8.1.1",cat:"⑧操作性・運用",priority:"中",
+   title:"タスクマネージャーで終了後にすぐ再起動できること",
+   desc:"タスクマネージャーで終了 → すぐに再起動",
+   expect:"問題なく再起動できる",anxiety:["resident"]},
+  {id:"8.1.2",cat:"⑧操作性・運用",priority:"中",
+   title:"Windows のシャットダウン・ログオフで正常に終了すること",
+   desc:"PC をシャットダウン・ログオフする",
+   expect:"エラーなく正常終了する",anxiety:["resident"]},
+  {id:"8.2.1",cat:"⑧操作性・運用",priority:"高",
+   title:"PC 起動時に自動で立ち上がり、初回バックアップが動くこと",
+   desc:"スタートアップフォルダに登録して PC を再起動",
+   expect:"PC 起動後に自動で Polaris.exe が立ち上がり、ログのバックアップが実行される",anxiety:["backup","resident"]},
+
+  {id:"N.1.1",cat:"★安全確認",priority:"高",isNew:true,
+   title:"【追加】どこにもデータを送っていないこと",
+   desc:"Polaris.exe を起動中に Windows の「リソースモニター」を開き「ネットワーク」タブで Polaris.exe の通信状況を確認",
+   expect:"Polaris.exe からの外部への通信が一切ない。インターネットに何も送っていない",anxiety:["virus"]},
+  {id:"N.1.2",cat:"★安全確認",priority:"高",isNew:true,
+   title:"【追加】元のログファイルが削除・書き換えされていないこと",
+   desc:"バックアップ前後で VRChat のログフォルダの中身を確認。ファイルが削除されたり内容が変わったりしていないかチェック\n→ %USERPROFILE%\\AppData\\LocalLow\\VRChat\\VRChat\\",
+   expect:"ログ元のファイルはそのまま残っている。コピーされるだけで、元ファイルは一切変化しない",anxiety:["virus","safe"]},
+];
+
+let checked={},fPri="全て",fAx="全て",fCat="全て",expanded=null;
+function filtered(){return TESTS.filter(t=>{
+  if(fPri!=="全て"&&t.priority!==fPri)return false;
+  if(fAx!=="全て"&&!t.anxiety.includes(fAx))return false;
+  if(fCat!=="全て"&&t.cat!==fCat)return false;
+  return true;
+});}
+function updateStats(){
+  const total=TESTS.length,done=Object.values(checked).filter(Boolean).length;
+  const hT=TESTS.filter(t=>t.priority==="高").length,hD=TESTS.filter(t=>t.priority==="高"&&checked[t.id]).length;
+  document.getElementById("progressBar").style.width=`${(done/total)*100}%`;
+  document.getElementById("progressLabel").textContent=`全体 ${done}/${total} 完了`;
+  document.getElementById("progressPct").textContent=`${Math.round((done/total)*100)}%`;
+  const hs=document.getElementById("highScore");hs.textContent=`${hD} / ${hT}`;hs.style.color=hD===hT?"#7bed9f":"#ff4757";
+  document.getElementById("statsRow").innerHTML=[
+    {l:"🔴 高 完了",v:`${hD}/${hT}`,c:"#ff4757"},
+    {l:"🟡 中 完了",v:`${TESTS.filter(t=>t.priority==="中"&&checked[t.id]).length}/${TESTS.filter(t=>t.priority==="中").length}`,c:"#ffa502"},
+    {l:"⚪ 低 完了",v:`${TESTS.filter(t=>t.priority==="低"&&checked[t.id]).length}/${TESTS.filter(t=>t.priority==="低").length}`,c:"#57606f"},
+    {l:"総項目数",v:`${total}`,c:"#888"},
+  ].map(s=>`<div class="stat-chip"><span class="sv" style="color:${s.c}">${s.v}</span><span style="font-size:11px;color:#555">${s.l}</span></div>`).join("");
+}
+function renderAx(){
+  let h=`<button class="fbtn ${fAx==="全て"?"aall":""}" onclick="setAx('全て')">全て</button>`;
+  AX.forEach(a=>{const ac=fAx===a.id;h+=`<button class="fbtn" onclick="setAx('${a.id}')" style="background:${ac?a.color+'20':'transparent'};color:${ac?a.color:'#666'};border-color:${ac?a.color:'#2a2a2a'}">${a.icon} ${a.label}</button>`;});
+  document.getElementById("axFilters").innerHTML=h;
+}
+function renderPFilt(){
+  document.getElementById("pFilters").innerHTML=["全て","高","中","低"].map(p=>{
+    const ac=fPri===p,cfg=PC[p];
+    return`<button class="pbtn" onclick="setPri('${p}')" style="background:${ac?(p==="全て"?"#2a2a2a":cfg.color+"20"):"transparent"};color:${ac?(p==="全て"?"#ccc":cfg.color):"#555"};border-color:${ac?(p==="全て"?"#444":cfg.color):"#2a2a2a"}">${p==="全て"?"全て表示":cfg.label}</button>`;
+  }).join("");
+}
+function renderCatFilt(){
+  const cats=["全て",...new Set(TESTS.map(t=>t.cat))];
+  document.getElementById("catFilters").innerHTML=cats.map(c=>{
+    const ac=fCat===c;
+    return`<button class="fbtn" onclick="setCat('${c}')" style="background:${ac?"#222":"transparent"};color:${ac?"#bbb":"#555"};border-color:${ac?"#444":"#1e1e1e"};border-radius:6px">${c}</button>`;
+  }).join("");
+}
+function renderTests(){
+  const fil=filtered();const el=document.getElementById("testList");
+  if(!fil.length){el.innerHTML=`<div style="color:#555;text-align:center;padding:40px">該当するテストがありません</div>`;return;}
+  const groups=["高","中","低"].map(p=>({p,items:fil.filter(t=>t.priority===p)})).filter(g=>g.items.length);
+  let h="";
+  groups.forEach(({p,items})=>{
+    const cfg=PC[p],gd=items.filter(t=>checked[t.id]).length;
+    h+=`<div class="section"><div class="sec-head" style="background:${cfg.bg};border-color:${cfg.border}28;border-bottom-color:${cfg.color}"><div><span class="sec-title" style="color:${cfg.color}">${cfg.label}</span><span class="sec-desc">${cfg.desc}</span></div><span class="sec-cnt mono" style="color:${gd===items.length?"#7bed9f":cfg.color}">${gd}/${items.length}</span></div>`;
+    items.forEach((t,i)=>{
+      const dn=!!checked[t.id],ex=expanded===t.id;
+      const tags=t.anxiety.map(aid=>{const a=axMap[aid];return a?`<span class="tmini" style="background:${a.color}18;color:${a.color};border:1px solid ${a.color}38">${a.icon}</span>`:""}).join("");
+      const dtags=t.anxiety.map(aid=>{const a=axMap[aid];return a?`<span class="tmini" style="background:${a.color}12;color:${a.color};border:1px solid ${a.color}28">${a.icon} ${a.label}</span>`:""}).join("");
+      const nb=t.isNew?`<span class="new-badge">NEW</span>`:"";
+      const descHtml=t.desc.replace(/\n/g,"<br><span style='color:#555;font-size:11px'>");
+      h+=`<div class="trow" style="background:${dn?"#0d1a0e":i%2===0?"#101013":"#0d0d10"};${i===items.length-1?"border-radius:0 0 10px 10px":""}">
+        <div class="tmain" onclick="toggleEx('${t.id}')">
+          <div class="cb" onclick="event.stopPropagation();toggleCk('${t.id}')" style="border-color:${dn?"#7bed9f":cfg.color+"55"};background:${dn?"#7bed9f18":"transparent"};color:#7bed9f">${dn?"✓":""}</div>
+          <span class="tid mono" style="color:${cfg.color}">${t.id}</span>
+          <span class="${dn?"ttitle done":"ttitle"}">${t.title}${nb}</span>
+          <div style="display:flex;gap:4px;flex-shrink:0">${tags}</div>
+          <span class="arr ${ex?"open":""}">▼</span>
+        </div>
+        <div class="tdetail ${ex?"open":""}">
+          <div class="dgrid">
+            <div class="dcard"><div class="dlabel mono">確認手順</div><div class="dtext">${t.desc.replace(/\n/g,"<br>")}</div></div>
+            <div class="dcard" style="border-color:${cfg.color}28"><div class="dlabel mono" style="color:${cfg.color}">こうなればOK ✓</div><div class="dtext" style="color:#c8c8c8">${t.expect}</div></div>
+          </div>
+          <div class="dtags">${dtags}</div>
+        </div>
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  el.innerHTML=h;
+}
+function renderFooter(){document.getElementById("footer").innerHTML=`<span style="font-size:11px;color:#444">不安カテゴリ：</span>`+AX.map(a=>`<span style="font-size:11px;color:${a.color}">${a.icon} ${a.label}</span>`).join("");}
+function render(){renderAx();renderCatFilt();renderTests();updateStats();}
+function toggleCk(id){checked[id]=!checked[id];render();}
+function toggleEx(id){expanded=expanded===id?null:id;render();}
+function setAx(v){fAx=v;expanded=null;render();}
+function setPri(v){fPri=v;expanded=null;renderPFilt();render();}
+function setCat(v){fCat=v;expanded=null;render();}
+renderFooter();renderPFilt();render();
+</script>
+</body>
+</html>

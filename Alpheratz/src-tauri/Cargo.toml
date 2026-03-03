@@ -1,0 +1,28 @@
+[package]
+name = "alpheratz"
+version = "0.1.0"
+description = "A Tauri App"
+edition = "2021"
+
+[lib]
+name = "alpheratz_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0.5", features = [] }
+
+[dependencies]
+tauri = { version = "2.2.4", features = ["protocol-asset"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1"
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.38", features = ["bundled"] }
+tauri-plugin-dialog = "2.2.0"
+tauri-plugin-fs = "2.2.0"
+tauri-plugin-shell = "2.2.0"
+image = "0.25.9"
+tokio = "1.49.0"
+winapi = { version = "0.3.9", features = ["winuser", "synchapi", "sysinfoapi", "reason", "handleapi", "winerror", "winbase"] }
+image_hasher = "3.1.1"
+base64 = "0.22.1"

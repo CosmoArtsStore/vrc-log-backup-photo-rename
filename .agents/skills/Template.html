@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{APP_NAME}} ユーザーテスト チェックリスト</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        body {
+            min-height: 100vh;
+            background: #0d0d0f;
+            font-family: 'Noto Sans JP', 'Segoe UI', sans-serif;
+            color: #e0e0e0;
+            padding: 24px 16px
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #111
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace
+        }
+
+        .wrap {
+            max-width: 920px;
+            margin: 0 auto
+        }
+
+        /* ヘッダー */
+        .header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 14px
+        }
+
+        .eyebrow {
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: #555;
+            margin-bottom: 5px
+        }
+
+        h1 {
+            font-size: 21px;
+            font-weight: 700;
+            color: #fff
+        }
+
+        .high-score {
+            font-size: 26px;
+            font-weight: 700;
+            transition: color .3s
+        }
+
+        /* プログレス */
+        .progress-wrap {
+            background: #1a1a1a;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 6px;
+            margin-bottom: 4px
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4757, #ffa502, #7bed9f);
+            border-radius: 8px;
+            transition: width .4s
+        }
+
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #555;
+            margin-bottom: 18px
+        }
+
+        /* 統計チップ */
+        .stats-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px
+        }
+
+        .stat-chip {
+            background: #111318;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 11px;
+            flex: 1;
+            min-width: 100px;
+            text-align: center
+        }
+
+        .stat-chip .sv {
+            font-size: 19px;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 2px
+        }
+
+        /* パス案内パネル（不要なら {{PATHS_HTML}} を空にする） */
+        .path-panel {
+            background: #0a0f1a;
+            border: 1px solid #1a3050;
+            border-radius: 10px;
+            padding: 13px 16px;
+            margin-bottom: 14px
+        }
+
+        .path-panel .ptitle {
+            font-size: 11px;
+            color: #4a9eff;
+            letter-spacing: 1px;
+            margin-bottom: 8px
+        }
+
+        .path-row {
+            display: flex;
+            gap: 8px;
+            align-items: baseline;
+            margin-bottom: 3px;
+            font-size: 12px
+        }
+
+        .path-key {
+            color: #888;
+            flex-shrink: 0;
+            width: 140px
+        }
+
+        .path-val {
+            color: #7ecfff;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            word-break: break-all
+        }
+
+        /* 注意書き */
+        .note-box {
+            background: #1a1500;
+            border: 1px solid #ffa50230;
+            border-radius: 10px;
+            padding: 11px 15px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            color: #bbb;
+            line-height: 1.8
+        }
+
+        .note-box strong {
+            color: #ffa502
+        }
+
+        /* フィルターパネル */
+        .panel {
+            background: #111318;
+            border: 1px solid #1e1e24;
+            border-radius: 10px;
+            padding: 13px 16px;
+            margin-bottom: 12px
+        }
+
+        .panel-label {
+            font-size: 11px;
+            color: #777;
+            margin-bottom: 9px;
+            letter-spacing: 1px
+        }
+
+        .tag-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px
+        }
+
+        .fbtn {
+            background: transparent;
+            border: 1px solid #2a2a2a;
+            border-radius: 20px;
+            padding: 5px 13px;
+            font-size: 12px;
+            color: #666;
+            cursor: pointer;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: all .15s
+        }
+
+        .fbtn:hover {
+            opacity: .85
+        }
+
+        .fbtn.aall {
+            background: #2a2a2a;
+            color: #ccc;
+            border-color: #444
+        }
+
+        .pfilt {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap
+        }
+
+        .pbtn {
+            background: transparent;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            cursor: pointer;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: all .15s
+        }
+
+        .pbtn:hover {
+            opacity: .85
+        }
+
+        /* セクション */
+        .section {
+            margin-bottom: 20px
+        }
+
+        .sec-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-radius: 10px 10px 0 0;
+            border-bottom-width: 2px;
+            border-bottom-style: solid
+        }
+
+        .sec-title {
+            font-size: 14px;
+            font-weight: 700
+        }
+
+        .sec-desc {
+            font-size: 11px;
+            color: #666;
+            margin-left: 8px
+        }
+
+        .sec-cnt {
+            font-size: 13px;
+            font-weight: 600;
+            transition: color .3s
+        }
+
+        /* テスト行 */
+        .trow {
+            border: 1px solid #1e1e24;
+            border-top: none
+        }
+
+        .trow:last-child {
+            border-radius: 0 0 10px 10px
+        }
+
+        .tmain {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 13px;
+            cursor: pointer
+        }
+
+        .tmain:hover {
+            background: rgba(255, 255, 255, .035)
+        }
+
+        .cb {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            border-width: 2px;
+            border-style: solid;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all .15s;
+            font-size: 13px;
+            line-height: 1
+        }
+
+        .tid {
+            font-size: 10px;
+            flex-shrink: 0;
+            min-width: 44px;
+            opacity: .75
+        }
+
+        .ttitle {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 500;
+            color: #ccc
+        }
+
+        .ttitle.done {
+            color: #555;
+            text-decoration: line-through
+        }
+
+        .tmini {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 20px;
+            font-weight: 500;
+            white-space: nowrap
+        }
+
+        .arr {
+            color: #3a3a3a;
+            font-size: 10px;
+            margin-left: 4px;
+            transition: transform .2s;
+            display: inline-block
+        }
+
+        .arr.open {
+            transform: rotate(180deg)
+        }
+
+        /* 展開詳細 */
+        .tdetail {
+            padding: 0 13px 13px 45px;
+            border-top: 1px solid #1a1a20;
+            display: none
+        }
+
+        .tdetail.open {
+            display: block
+        }
+
+        .dgrid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px
+        }
+
+        @media(max-width:580px) {
+            .dgrid {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .dcard {
+            background: #090910;
+            border-radius: 8px;
+            padding: 10px 13px;
+            border: 1px solid #1a1a22
+        }
+
+        .dlabel {
+            font-size: 10px;
+            color: #555;
+            margin-bottom: 5px;
+            letter-spacing: 1px
+        }
+
+        .dtext {
+            font-size: 12px;
+            color: #bbb;
+            line-height: 1.65
+        }
+
+        .dtags {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px
+        }
+
+        .new-badge {
+            font-size: 9px;
+            background: #ff475718;
+            color: #ff8090;
+            border: 1px solid #ff475740;
+            border-radius: 4px;
+            padding: 1px 5px;
+            margin-left: 5px;
+            vertical-align: middle
+        }
+
+        /* フッター */
+        .footer {
+            padding: 12px 16px;
+            background: #0f0f12;
+            border: 1px solid #1a1a22;
+            border-radius: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+            align-items: center
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+
+        <!-- ヘッダー -->
+        <div class="header">
+            <div>
+                <div class="eyebrow mono">{{APP_NAME}}</div>
+                <h1>ユーザーテスト チェックリスト</h1>
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:11px;color:#666;margin-bottom:3px">🔴 高優先度の完了率</div>
+                <div class="high-score mono" id="highScore">0 / 0</div>
+            </div>
+        </div>
+
+        <!-- プログレスバー -->
+        <div class="progress-wrap">
+            <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
+        <div class="progress-labels"><span id="progressLabel">全体 0/0 完了</span><span id="progressPct">0%</span></div>
+
+        <!-- 統計チップ -->
+        <div class="stats-row" id="statsRow"></div>
+
+        <!-- パス案内（不要な場合は空） -->
+        {{PATHS_HTML}}
+
+        <!-- 注意書き -->
+        <div class="note-box">
+            <strong>🔴 高優先度</strong> はユーザーが実際に不安に感じる部分です。時間がなければ<strong>ここだけ</strong>やれば最低限OK。<br>
+            🟡 中は品質の確認、⚪ 低はほぼ開発者向けのエッジケース確認です。
+        </div>
+
+        <!-- 不安カテゴリフィルター -->
+        <div class="panel">
+            <div class="panel-label mono">ユーザーの不安 — フィルター</div>
+            <div class="tag-row" id="axFilters"></div>
+        </div>
+
+        <!-- 優先度フィルター -->
+        <div class="pfilt" id="pFilters"></div>
+
+        <!-- カテゴリフィルター -->
+        <div class="pfilt" id="catFilters"></div>
+
+        <!-- テストリスト本体 -->
+        <div id="testList"></div>
+
+        <!-- フッター凡例 -->
+        <div class="footer" id="footer"><span style="font-size:11px;color:#444">不安カテゴリ：</span></div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  ↓↓↓ ここを差し替えるだけで別プロジェクトに使い回せる ↓↓↓
+        // ============================================================
+
+        // 不安カテゴリ定義 — id / icon / label / color を自由に設定
+        const AX = {{ AX_JS }};
+
+        // テスト項目定義
+        const TESTS = {{ TESTS_JS }};
+
+        // ============================================================
+        //  以下はロジック。通常は編集不要。
+        // ============================================================
+        const axMap = {}; AX.forEach(a => axMap[a.id] = a);
+        const PC = {
+            "高": { color: "#ff4757", bg: "#200a0c", border: "#ff4757", label: "🔴 高優先度", desc: "ユーザー不安に直結 — 必ずつぶす" },
+            "中": { color: "#ffa502", bg: "#1e1500", border: "#ffa502", label: "🟡 中優先度", desc: "品質向上 — 時間があれば" },
+            "低": { color: "#57606f", bg: "#141414", border: "#444", label: "⚪ 低優先度", desc: "エッジケース — 余裕があれば" },
+        };
+        let checked = {}, fPri = "全て", fAx = "全て", fCat = "全て", expanded = null;
+        function filtered() {
+            return TESTS.filter(t => {
+                if (fPri !== "全て" && t.priority !== fPri) return false;
+                if (fAx !== "全て" && !t.anxiety.includes(fAx)) return false;
+                if (fCat !== "全て" && t.cat !== fCat) return false;
+                return true;
+            });
+        }
+        function updateStats() {
+            const total = TESTS.length, done = Object.values(checked).filter(Boolean).length;
+            const hT = TESTS.filter(t => t.priority === "高").length, hD = TESTS.filter(t => t.priority === "高" && checked[t.id]).length;
+            document.getElementById("progressBar").style.width = `${(done / total) * 100}%`;
+            document.getElementById("progressLabel").textContent = `全体 ${done}/${total} 完了`;
+            document.getElementById("progressPct").textContent = `${Math.round((done / total) * 100)}%`;
+            const hs = document.getElementById("highScore"); hs.textContent = `${hD} / ${hT}`; hs.style.color = hD === hT ? "#7bed9f" : "#ff4757";
+            document.getElementById("statsRow").innerHTML = [
+                { l: "🔴 高 完了", v: `${hD}/${hT}`, c: "#ff4757" },
+                { l: "🟡 中 完了", v: `${TESTS.filter(t => t.priority === "中" && checked[t.id]).length}/${TESTS.filter(t => t.priority === "中").length}`, c: "#ffa502" },
+                { l: "⚪ 低 完了", v: `${TESTS.filter(t => t.priority === "低" && checked[t.id]).length}/${TESTS.filter(t => t.priority === "低").length}`, c: "#57606f" },
+                { l: "総項目数", v: `${total}`, c: "#888" },
+            ].map(s => `<div class="stat-chip"><span class="sv" style="color:${s.c}">${s.v}</span><span style="font-size:11px;color:#555">${s.l}</span></div>`).join("");
+        }
+        function renderAx() {
+            let h = `<button class="fbtn ${fAx === "全て" ? "aall" : ""}" onclick="setAx('全て')">全て</button>`;
+            AX.forEach(a => { const ac = fAx === a.id; h += `<button class="fbtn" onclick="setAx('${a.id}')" style="background:${ac ? a.color + '20' : 'transparent'};color:${ac ? a.color : '#666'};border-color:${ac ? a.color : '#2a2a2a'}">${a.icon} ${a.label}</button>`; });
+            document.getElementById("axFilters").innerHTML = h;
+        }
+        function renderPFilt() {
+            document.getElementById("pFilters").innerHTML = ["全て", "高", "中", "低"].map(p => {
+                const ac = fPri === p, cfg = PC[p];
+                return `<button class="pbtn" onclick="setPri('${p}')" style="background:${ac ? (p === "全て" ? "#2a2a2a" : cfg.color + "20") : "transparent"};color:${ac ? (p === "全て" ? "#ccc" : cfg.color) : "#555"};border-color:${ac ? (p === "全て" ? "#444" : cfg.color) : "#2a2a2a"}">${p === "全て" ? "全て表示" : cfg.label}</button>`;
+            }).join("");
+        }
+        function renderCatFilt() {
+            const cats = ["全て", ...new Set(TESTS.map(t => t.cat))];
+            document.getElementById("catFilters").innerHTML = cats.map(c => {
+                const ac = fCat === c;
+                return `<button class="fbtn" onclick="setCat('${c}')" style="background:${ac ? "#222" : "transparent"};color:${ac ? "#bbb" : "#555"};border-color:${ac ? "#444" : "#1e1e1e"};border-radius:6px">${c}</button>`;
+            }).join("");
+        }
+        function renderTests() {
+            const fil = filtered(); const el = document.getElementById("testList");
+            if (!fil.length) { el.innerHTML = `<div style="color:#555;text-align:center;padding:40px">該当するテストがありません</div>`; return; }
+            const groups = ["高", "中", "低"].map(p => ({ p, items: fil.filter(t => t.priority === p) })).filter(g => g.items.length);
+            let h = "";
+            groups.forEach(({ p, items }) => {
+                const cfg = PC[p], gd = items.filter(t => checked[t.id]).length;
+                h += `<div class="section"><div class="sec-head" style="background:${cfg.bg};border-color:${cfg.border}28;border-bottom-color:${cfg.color}"><div><span class="sec-title" style="color:${cfg.color}">${cfg.label}</span><span class="sec-desc">${cfg.desc}</span></div><span class="sec-cnt mono" style="color:${gd === items.length ? "#7bed9f" : cfg.color}">${gd}/${items.length}</span></div>`;
+                items.forEach((t, i) => {
+                    const dn = !!checked[t.id], ex = expanded === t.id;
+                    const tags = t.anxiety.map(aid => { const a = axMap[aid]; return a ? `<span class="tmini" style="background:${a.color}18;color:${a.color};border:1px solid ${a.color}38">${a.icon}</span>` : "" }).join("");
+                    const dtags = t.anxiety.map(aid => { const a = axMap[aid]; return a ? `<span class="tmini" style="background:${a.color}12;color:${a.color};border:1px solid ${a.color}28">${a.icon} ${a.label}</span>` : "" }).join("");
+                    const nb = t.isNew ? `<span class="new-badge">NEW</span>` : "";
+                    h += `<div class="trow" style="background:${dn ? "#0d1a0e" : i % 2 === 0 ? "#101013" : "#0d0d10"};${i === items.length - 1 ? "border-radius:0 0 10px 10px" : ""}">
+        <div class="tmain" onclick="toggleEx('${t.id}')">
+          <div class="cb" onclick="event.stopPropagation();toggleCk('${t.id}')" style="border-color:${dn ? "#7bed9f" : cfg.color + "55"};background:${dn ? "#7bed9f18" : "transparent"};color:#7bed9f">${dn ? "✓" : ""}</div>
+          <span class="tid mono" style="color:${cfg.color}">${t.id}</span>
+          <span class="${dn ? "ttitle done" : "ttitle"}">${t.title}${nb}</span>
+          <div style="display:flex;gap:4px;flex-shrink:0">${tags}</div>
+          <span class="arr ${ex ? "open" : ""}">▼</span>
+        </div>
+        <div class="tdetail ${ex ? "open" : ""}">
+          <div class="dgrid">
+            <div class="dcard"><div class="dlabel mono">確認手順</div><div class="dtext">${t.desc.replace(/\n/g, "<br>")}</div></div>
+            <div class="dcard" style="border-color:${cfg.color}28"><div class="dlabel mono" style="color:${cfg.color}">こうなればOK ✓</div><div class="dtext" style="color:#c8c8c8">${t.expect}</div></div>
+          </div>
+          <div class="dtags">${dtags}</div>
+        </div>
+      </div>`;
+                });
+                h += `</div>`;
+            });
+            el.innerHTML = h;
+        }
+        function renderFooter() { document.getElementById("footer").innerHTML = `<span style="font-size:11px;color:#444">不安カテゴリ：</span>` + AX.map(a => `<span style="font-size:11px;color:${a.color}">${a.icon} ${a.label}</span>`).join(""); }
+        function render() { renderAx(); renderCatFilt(); renderTests(); updateStats(); }
+        function toggleCk(id) { checked[id] = !checked[id]; render(); }
+        function toggleEx(id) { expanded = expanded === id ? null : id; render(); }
+        function setAx(v) { fAx = v; expanded = null; render(); }
+        function setPri(v) { fPri = v; expanded = null; renderPFilt(); render(); }
+        function setCat(v) { fCat = v; expanded = null; render(); }
+        renderFooter(); renderPFilt(); render();
+    </script>
+</body>
+
+</html>

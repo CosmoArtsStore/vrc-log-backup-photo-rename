@@ -8,6 +8,7 @@ pub struct PhotoRecord {
     pub world_name: Option<String>,
     pub timestamp: String,
     pub memo: String,
+    pub phash: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

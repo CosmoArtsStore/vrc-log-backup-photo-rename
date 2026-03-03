@@ -43,10 +43,11 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
         return Ok(());
     }
     
-    // 3. 新規ファイルのみを抽出
-    let new_files: Vec<(String, PathBuf)> = found_files.into_iter()
+    // 3. 新規ファイルのみを抽出して新着順（ファイル名降順）にソート
+    let mut new_files: Vec<(String, PathBuf)> = found_files.into_iter()
         .filter(|(name, _)| !existing_files.contains(name))
         .collect();
+    new_files.sort_by(|a, b| b.0.cmp(&a.0));
 
     let total = new_files.len();
     println!("Found {} new files to process.", total);
@@ -73,7 +74,8 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
                 // ワールド情報の特定: PNG XMPメタデータ → Planetarium DB の優先順
                 let (world_name, world_id) = resolve_world_info(&filename, &path, &plan_conn, &timestamp);
                 
-                upsert_photo(&conn, &filename, &path, world_id, world_name.clone(), &timestamp)?;
+                // pHashの計算は重いので、スキャンの高速化のためここでは一旦NULLで登録し、後でバックグラウンド実行する
+                upsert_photo(&conn, &filename, &path, world_id, world_name.clone(), &timestamp, None)?;
 
                 if i % 10 == 0 || i == total - 1 {
                     println!("Processed {}/{} - {}", i + 1, total, world_name.as_deref().unwrap_or("Unknown"));
@@ -95,6 +97,54 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
 
     println!("Scan finished successfully.");
     let _ = app.emit("scan:completed", ());
+    Ok(())
+}
+
+/// バックグラウンドで順次pHashを計算してDBを埋める
+pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
+    let conn = Connection::open(get_alpheratz_db_path()).map_err(|e| e.to_string())?;
+    
+    let mut stmt = conn.prepare("SELECT photo_filename, photo_path FROM photos WHERE phash IS NULL").map_err(|e| e.to_string())?;
+    let rows: Vec<(String, String)> = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+
+    if rows.is_empty() { return Ok(()); }
+    
+    println!("Starting background pHash generation for {} photos...", rows.len());
+
+    // UIにバックグラウンドのpHash解析が始まったことを伝える（控えめに表示するため）
+    let _ = app.emit("scan:phash_start", rows.len());
+
+    let hasher = image_hasher::HasherConfig::new().to_hasher();
+
+    for (i, (filename, path_str)) in rows.into_iter().enumerate() {
+        if app.state::<ScanCancelStatus>().0.load(Ordering::SeqCst) {
+            println!("Background pHash generation cancelled.");
+            break;
+        }
+
+        let path = Path::new(&path_str);
+        if let Ok(img) = image::open(&path) {
+            let phash = hasher.hash_image(&img).to_base64();
+            let _ = conn.execute(
+                "UPDATE photos SET phash = ?1 WHERE photo_filename = ?2",
+                rusqlite::params![phash, filename],
+            );
+        } else {
+            // 読み込みに失敗した場合も「失敗済み」として何か入れてスキップさせた方が良いが、
+            // 今回はとりあえずそのまま（次回起動再トライ）にする
+        }
+
+        if i > 0 && i % 25 == 0 {
+            // 25枚ごとにUIの写真をリロードさせてpHashを反映させる
+            let _ = app.emit("scan:completed", ());
+            println!("pHash generator: {} processed", i);
+        }
+    }
+    
+    println!("Background pHash generation completed.");
+    let _ = app.emit("scan:completed", ()); // 最後にUIに完全リロードさせる
     Ok(())
 }
 
@@ -149,12 +199,12 @@ fn resolve_world_info(filename: &str, path: &Path, plan_conn: &Option<Connection
     lookup_world_at_time(plan_conn, timestamp)
 }
 
-fn upsert_photo(conn: &Connection, filename: &str, path: &Path, world_id: Option<String>, world_name: Option<String>, timestamp: &str) -> Result<(), String> {
+fn upsert_photo(conn: &Connection, filename: &str, path: &Path, world_id: Option<String>, world_name: Option<String>, timestamp: &str, phash: Option<String>) -> Result<(), String> {
     let path_str = path.to_string_lossy().to_string().replace("\\", "/");
     conn.execute(
-        "INSERT OR IGNORE INTO photos (photo_filename, photo_path, world_id, world_name, timestamp)
-            VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![filename, path_str, world_id, world_name, timestamp]
+        "INSERT OR IGNORE INTO photos (photo_filename, photo_path, world_id, world_name, timestamp, phash)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![filename, path_str, world_id, world_name, timestamp, phash]
     ).map_err(|e| e.to_string())?;
     Ok(())
 }

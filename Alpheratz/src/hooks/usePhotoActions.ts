@@ -4,6 +4,7 @@ import { Photo } from "../types";
 
 export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<Photo[]>>, addToast: (msg: string) => void) => {
     const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+    const [photoHistory, setPhotoHistory] = useState<Photo[]>([]);
     const [localMemo, setLocalMemo] = useState("");
     const [isSavingMemo, setIsSavingMemo] = useState(false);
 
@@ -33,14 +34,41 @@ export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<P
         }
     };
 
-    const onSelectPhoto = useCallback((photo: Photo) => {
-        setSelectedPhoto(photo);
+    const onSelectPhoto = useCallback((photo: Photo, isSimilarSearch = false) => {
+        setSelectedPhoto(prev => {
+            if (prev && isSimilarSearch) {
+                setPhotoHistory(h => [...h, prev]);
+            } else if (!isSimilarSearch) {
+                setPhotoHistory([]);
+            }
+            return photo;
+        });
         setLocalMemo(photo.memo);
+    }, []);
+
+    const goBackPhoto = useCallback(() => {
+        setPhotoHistory(prev => {
+            if (prev.length > 0) {
+                const newHistory = [...prev];
+                const lastPhoto = newHistory.pop()!;
+                setSelectedPhoto(lastPhoto);
+                setLocalMemo(lastPhoto.memo);
+                return newHistory;
+            }
+            return prev;
+        });
+    }, []);
+
+    const closePhotoModal = useCallback(() => {
+        setSelectedPhoto(null);
+        setPhotoHistory([]);
     }, []);
 
     return {
         selectedPhoto,
-        setSelectedPhoto,
+        closePhotoModal,
+        photoHistory,
+        goBackPhoto,
         localMemo,
         setLocalMemo,
         isSavingMemo,

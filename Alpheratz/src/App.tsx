@@ -52,7 +52,7 @@ function App() {
   const { monthGroups, monthsByYear, activeMonthIndex } = useMonthGroups(photos, columnCount, scrollTop, ROW_HEIGHT);
 
   const {
-    selectedPhoto, setSelectedPhoto, localMemo, setLocalMemo, isSavingMemo,
+    selectedPhoto, closePhotoModal, photoHistory, goBackPhoto, localMemo, setLocalMemo, isSavingMemo,
     handleSaveMemo, handleOpenWorld, onSelectPhoto
   } = usePhotoActions(setPhotos, addToast);
 
@@ -124,10 +124,14 @@ function App() {
 
       {selectedPhoto && (
         <PhotoModal
-          photo={selectedPhoto} onClose={() => setSelectedPhoto(null)}
+          photo={selectedPhoto} onClose={closePhotoModal}
           localMemo={localMemo} setLocalMemo={setLocalMemo}
           handleSaveMemo={handleSaveMemo} isSavingMemo={isSavingMemo}
           handleOpenWorld={handleOpenWorld}
+          allPhotos={photos}
+          onSelectSimilar={(p) => onSelectPhoto(p, true)}
+          canGoBack={photoHistory.length > 0}
+          onGoBack={goBackPhoto}
         />
       )}
 
