@@ -3,7 +3,7 @@ use std::fs;
 
 pub fn get_thumbnail_cache_dir() -> PathBuf {
     let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
-    let cache_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Alpheratz\\thumbnail_cache");
+    let cache_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Alpheratz\\cache");
     let _ = fs::create_dir_all(&cache_dir);
     cache_dir
 }

@@ -6,6 +6,7 @@ pub use parser::*;
 
 use chrono::NaiveDateTime;
 use rusqlite::{params, Connection, Result};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -116,11 +117,24 @@ where
             .map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?
     };
     #[cfg(not(windows))]
-    let file = File::open(log_path)
+    let file = fs::File::open(log_path)
         .map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?;
 
-    let reader = BufReader::new(file);
+    parse_and_import_reader(conn, BufReader::new(file), filename, progress_callback)
+}
 
+/// BufReader<R> を受け取り実際にパース・インポートを行う汎用関数。
+/// .txt ファイルからも tar エントリからも呼び出せる。
+fn parse_and_import_reader<R, F>(
+    conn: &mut Connection,
+    reader: BufReader<R>,
+    filename: &str,
+    progress_callback: &mut F,
+) -> Result<()>
+where
+    R: std::io::Read,
+    F: FnMut(String, String),
+{
     let mut start_time: Option<String> = None;
     let mut end_time: Option<String> = None;
     let mut my_user_id: Option<String> = None;
@@ -143,6 +157,9 @@ where
         |row| row.get(0),
     )?;
 
+    // player_id キャッシュ: SELECT id FROM players WHERE user_id = ? を毎行発行しないために使用
+    let mut player_id_cache: HashMap<String, i64> = HashMap::new();
+
     progress_callback("パース開始".to_string(), "0%".to_string());
 
     let mut line_count = 0;
@@ -153,31 +170,34 @@ where
         };
         line_count += 1;
 
-        if line_count % 1000 == 0 {
+        if line_count % 5000 == 0 {
             progress_callback(format!("パース中... {} 行", line_count), "".to_string());
         }
 
-        if vrchat_build.is_none() {
-            if let Some(caps) = RE_BUILD.captures(&line) {
-                vrchat_build = Some(caps.get(1).unwrap().as_str().trim().to_string());
-            }
-        }
-
+        // --- タイムスタンプ更新 ---
         if let Some(caps) = RE_TIME.captures(&line) {
             let ts_str = caps.get(1).unwrap().as_str();
             if let Ok(dt) = NaiveDateTime::parse_from_str(ts_str, "%Y.%m.%d %H:%M:%S") {
                 current_ts = Some(dt);
-                let formatted_ts = dt.format("%Y-%m-%d %H:%M:%S").to_string();
+                let formatted = dt.format("%Y-%m-%d %H:%M:%S").to_string();
                 if start_time.is_none() {
-                    start_time = Some(formatted_ts.clone());
+                    start_time = Some(formatted.clone());
                 }
-                end_time = Some(formatted_ts.clone());
+                end_time = Some(formatted);
             }
         }
         let ts_str = current_ts
             .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string())
             .unwrap_or_default();
 
+        // --- VRChatビルド ---
+        if vrchat_build.is_none() {
+            if let Some(caps) = RE_BUILD.captures(&line) {
+                vrchat_build = Some(caps.get(1).unwrap().as_str().trim().to_string());
+            }
+        }
+
+        // --- ログイン認証（セッション開始時1回のみ） ---
         if let Some(caps) = RE_USER_AUTH.captures(&line) {
             if my_display_name.is_none() {
                 my_display_name = Some(caps.get(1).unwrap().as_str().to_string());
@@ -186,7 +206,9 @@ where
             continue;
         }
 
+        // --- ワールド名（Joiningの直前に出現）---
         if let Some(caps) = RE_ENTERING.captures(&line) {
+            // 現在のvisitを閉じる
             if let Some(vid) = current_visit_id {
                 tx.execute(
                     "UPDATE world_visits SET leave_time = ?1 WHERE id = ?2 AND leave_time IS NULL",
@@ -202,24 +224,28 @@ where
             continue;
         }
 
+        // --- ワールドJoin ---
         if let Some(caps) = RE_JOINING.captures(&line) {
             if let Some(ref rname) = pending_room_name {
                 let world_id = caps.get(1).map(|m| m.as_str()).unwrap_or("").to_string();
+                // instance_id: インスタンス番号のみ（例: "74156"）
+                let instance_id = caps.get(2).map(|m| m.as_str()).unwrap_or("").to_string();
                 let access_raw = caps.get(3).map(|m| m.as_str().trim()).unwrap_or("").to_string();
-                let region = caps.get(4).map(|m| m.as_str()).map(String::from);
+                let region = caps.get(4).map(|m| m.as_str().to_string());
                 let (access_type, instance_owner) = parse_access_type(&access_raw);
-                let full_instance = format!("{}:{}", world_id, access_raw);
 
                 tx.execute(
-                    "INSERT INTO world_visits (session_id, world_name, world_id, instance_id, access_type, instance_owner, region, join_time)
+                    "INSERT INTO world_visits
+                     (session_id, world_name, world_id, instance_id, access_type, instance_owner, region, join_time)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                    params![session_id, rname, world_id, full_instance, access_type, instance_owner, region, ts_str],
+                    params![session_id, rname, world_id, instance_id, access_type, instance_owner, region, ts_str],
                 )?;
                 current_visit_id = Some(tx.last_insert_rowid());
             }
             continue;
         }
 
+        // --- ルーム退室 ---
         if RE_LEFT_ROOM.is_match(&line) {
             if let Some(vid) = current_visit_id {
                 tx.execute(
@@ -236,48 +262,58 @@ where
             continue;
         }
 
+        // --- プレイヤー入室 ---
         if let Some(caps) = RE_PLAYER_JOIN.captures(&line) {
             let dname = caps.get(1).unwrap().as_str().to_string();
-            let uid = caps.get(2).unwrap().as_str();
+            let uid = caps.get(2).unwrap().as_str().to_string();
 
             tx.execute(
                 "INSERT INTO players (user_id, display_name) VALUES (?1, ?2)
                  ON CONFLICT(user_id) DO UPDATE SET display_name = excluded.display_name",
                 params![uid, dname],
             )?;
-            let player_id: Option<i64> = tx.query_row(
-                "SELECT id FROM players WHERE user_id = ?1",
-                params![uid],
-                |row| row.get::<_, i64>(0),
-            )
-            .ok();
+
+            let player_id = if let Some(&pid) = player_id_cache.get(&uid) {
+                Some(pid)
+            } else {
+                let pid: Option<i64> = tx.query_row(
+                    "SELECT id FROM players WHERE user_id = ?1",
+                    params![uid],
+                    |row| row.get::<_, i64>(0),
+                ).ok();
+                if let Some(pid) = pid {
+                    player_id_cache.insert(uid.clone(), pid);
+                }
+                pid
+            };
 
             if let (Some(vid), Some(pid)) = (current_visit_id, player_id) {
-                let is_local = if dname == "[LocalPlayer]" || line.contains("(Local)") {
-                    1
-                } else {
-                    0
-                };
                 tx.execute(
-                    "INSERT INTO player_visits (visit_id, player_id, is_local, join_time) VALUES (?1, ?2, ?3, ?4)",
-                    params![vid, pid, is_local, ts_str],
+                    "INSERT OR IGNORE INTO player_visits (visit_id, player_id, is_self, join_time)
+                     VALUES (?1, ?2, 0, ?3)",
+                    params![vid, pid, ts_str],
                 )?;
             }
             continue;
         }
 
+        // --- プレイヤー退室 ---
         if let Some(caps) = RE_PLAYER_LEFT.captures(&line) {
-            let uid = caps.get(2).unwrap().as_str();
+            let uid = caps.get(2).unwrap().as_str().to_string();
             if let Some(vid) = current_visit_id {
-                let player_id: Option<i64> = tx.query_row(
-                    "SELECT id FROM players WHERE user_id = ?1",
-                    params![uid],
-                    |row| row.get(0),
-                )
-                .ok();
+                let player_id = if let Some(&pid) = player_id_cache.get(&uid) {
+                    Some(pid)
+                } else {
+                    tx.query_row(
+                        "SELECT id FROM players WHERE user_id = ?1",
+                        params![uid],
+                        |row| row.get(0),
+                    ).ok()
+                };
                 if let Some(pid) = player_id {
                     tx.execute(
-                        "UPDATE player_visits SET leave_time = ?1 WHERE visit_id = ?2 AND player_id = ?3 AND leave_time IS NULL",
+                        "UPDATE player_visits SET leave_time = ?1
+                         WHERE visit_id = ?2 AND player_id = ?3 AND leave_time IS NULL",
                         params![ts_str, vid, pid],
                     )?;
                 }
@@ -285,79 +321,83 @@ where
             continue;
         }
 
+        // --- ローカルプレイヤー確定（ワールド入室ごとに出現）---
+        //   User Authenticated とは別に、ワールド内でのローカル/リモート判定に使う
         if let Some(caps) = RE_IS_LOCAL.captures(&line) {
             let dname_raw = caps.get(1).unwrap().as_str();
             let locality = caps.get(2).unwrap().as_str();
             if locality == "local" {
-                if my_display_name.is_none()
-                    || my_display_name.as_deref() == Some("[LocalPlayer]")
-                {
+                // my_display_name の補完（User Authenticated に頼れないログ形式の場合）
+                if my_display_name.is_none() || my_display_name.as_deref() == Some("[LocalPlayer]") {
                     my_display_name = Some(dname_raw.to_string());
                 }
-                let target_dname = dname_raw.to_string();
                 if let Some(vid) = current_visit_id {
                     tx.execute(
-                        "UPDATE player_visits SET is_local = 1 
-                         WHERE visit_id = ?1 AND player_id IN (SELECT id FROM players WHERE display_name = ?2)",
-                        params![vid, target_dname],
+                        "UPDATE player_visits SET is_self = 1
+                         WHERE visit_id = ?1
+                           AND player_id IN (SELECT id FROM players WHERE display_name = ?2)",
+                        params![vid, dname_raw],
                     )?;
                 }
             }
             continue;
         }
 
-        if let Some(caps) = RE_AVATAR.captures(&line) {
-            if let Some(vid) = current_visit_id {
-                let dname = caps.get(1).unwrap().as_str().to_string();
-                let avatar = caps.get(2).unwrap().as_str();
-                let player_id: Option<i64> = tx
-                    .query_row(
-                        "SELECT id FROM players WHERE display_name = ?1 LIMIT 1",
-                        params![dname],
-                        |row| row.get(0),
-                    )
-                    .ok();
-                tx.execute(
-                    "INSERT INTO avatar_changes (visit_id, player_id, display_name_raw, avatar_name, timestamp) VALUES (?1, ?2, ?3, ?4, ?5)",
-                    params![vid, player_id, dname, avatar, ts_str],
-                )?;
-            }
-            continue;
-        }
-
+        // --- 動画再生（URLのみ記録）---
         if let Some(caps) = RE_VIDEO.captures(&line) {
             if let Some(vid) = current_visit_id {
-                let url = caps.get(1).unwrap().as_str();
-                let requester = caps.get(2).unwrap().as_str().to_string();
-                let player_id: Option<i64> = tx
-                    .query_row(
-                        "SELECT id FROM players WHERE display_name = ?1 LIMIT 1",
-                        params![requester],
-                        |row| row.get(0),
-                    )
-                    .ok();
+                let url = caps.get(1).unwrap().as_str().trim_end_matches(',')
+                    .trim().to_string();
                 tx.execute(
-                    "INSERT INTO video_playbacks (visit_id, player_id, display_name_raw, url, timestamp) VALUES (?1, ?2, ?3, ?4, ?5)",
-                    params![vid, player_id, requester, url, ts_str],
-                )?;
-            }
-            continue;
-        }
-
-        if let Some(caps) = RE_VIDEO_ALT.captures(&line) {
-            if let Some(vid) = current_visit_id {
-                let url = caps.get(1).unwrap().as_str();
-                tx.execute(
-                    "INSERT INTO video_playbacks (visit_id, player_id, display_name_raw, url, timestamp) VALUES (?1, NULL, NULL, ?2, ?3)",
+                    "INSERT INTO video_playbacks (visit_id, url, timestamp) VALUES (?1, ?2, ?3)",
                     params![vid, url, ts_str],
                 )?;
             }
+            continue;
+        }
+
+        // --- 動画再生 代替パターン（USharpVideo Started video:）---
+        if let Some(caps) = RE_VIDEO_ALT.captures(&line) {
+            if let Some(vid) = current_visit_id {
+                let url = caps.get(1).unwrap().as_str().to_string();
+                tx.execute(
+                    "INSERT INTO video_playbacks (visit_id, url, timestamp) VALUES (?1, ?2, ?3)",
+                    params![vid, url, ts_str],
+                )?;
+            }
+            continue;
+        }
+
+        // --- 通知受信（group タイプはスキップ）---
+        if let Some(caps) = RE_NOTIFICATION.captures(&line) {
+            let notif_type = caps.get(3).unwrap().as_str().trim().to_string();
+            if !is_collectible_notification(&notif_type) {
+                continue;
+            }
+            let sender_username = caps.get(1).map(|m| m.as_str()).filter(|s| !s.is_empty()).map(String::from);
+            let sender_user_id  = caps.get(2).map(|m| m.as_str()).filter(|s| !s.is_empty()).map(String::from);
+            let notif_id        = caps.get(4).map(|m| m.as_str().to_string());
+            let created_at_raw  = caps.get(5).map(|m| m.as_str()).unwrap_or("").trim();
+            let message         = caps.get(6).map(|m| m.as_str().to_string());
+
+            // created_at: "02/27/2026 05:05:12 UTC" -> "2026-02-27 05:05:12"
+            let created_at = NaiveDateTime::parse_from_str(created_at_raw, "%m/%d/%Y %H:%M:%S UTC")
+                .ok()
+                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string());
+
+            tx.execute(
+                "INSERT OR IGNORE INTO notifications
+                 (session_id, notif_id, notif_type, sender_user_id, sender_username, message, created_at, received_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![session_id, notif_id, notif_type, sender_user_id, sender_username, message, created_at, ts_str],
+            )?;
             continue;
         }
     }
 
     progress_callback("コミット中".to_string(), "100%".to_string());
 
+    // ファイル末尾で未クローズのvisitを閉じる
     if let Some(vid) = current_visit_id {
         let last_ts = current_ts
             .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string())
@@ -373,7 +413,9 @@ where
     }
 
     tx.execute(
-        "UPDATE app_sessions SET start_time = ?1, end_time = ?2, my_user_id = ?3, my_display_name = ?4, vrchat_build = ?5 WHERE log_filename = ?6",
+        "UPDATE app_sessions
+         SET start_time = ?1, end_time = ?2, my_user_id = ?3, my_display_name = ?4, vrchat_build = ?5
+         WHERE log_filename = ?6",
         params![start_time.unwrap_or_default(), end_time, my_user_id, my_display_name, vrchat_build, filename]
     )?;
 
@@ -397,47 +439,37 @@ where
 
     let filename = target_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
     
-    // .tar.zst の場合は一時展開
     if filename.ends_with(".tar.zst") {
         progress_callback("アーカイブを展開中...".to_string(), "0%".to_string());
         
         let file = std::fs::File::open(&target_path).map_err(|e| e.to_string())?;
-        let mut decoder = zstd::stream::Decoder::new(file).map_err(|e| e.to_string())?;
-        
-        // 一時的な .tar パス (同じディレクトリに作成)
-        let tar_path = target_path.with_extension(""); // .tar.zst -> .tar
-        {
-            let mut tar_file = std::fs::File::create(&tar_path).map_err(|e| e.to_string())?;
-            std::io::copy(&mut decoder, &mut tar_file).map_err(|e| e.to_string())?;
-        }
+        // ② ディスクに .tar を書き出さず、zstdデコーダー → tarアーカイブへ直接ストリーム展開
+        let decoder = zstd::stream::Decoder::new(file).map_err(|e| e.to_string())?;
+        let mut archive = tar::Archive::new(decoder);
 
-        // Tar 展開 (メモリに展開するか、一時ファイルとして扱うか)
-        // 今回はシンプルにディレクトリへ展開し、中の txt を探す
-        let tar_file = std::fs::File::open(&tar_path).map_err(|e| e.to_string())?;
-        let mut archive = tar::Archive::new(tar_file);
-        
-        // 展開先ディレクトリ (一時的)
-        let parent = target_path.parent().unwrap_or(Path::new("."));
-        archive.unpack(parent).map_err(|e| e.to_string())?;
-
-        // Tar ファイルを削除
-        let _ = std::fs::remove_file(&tar_path);
-
-        // オリジナルの .txt 名称を特定 (X.txt.tar.zst -> X.txt)
+        // txt ファイルのみを BufReader として取り出してインメモリでパース
         let txt_name = filename.replace(".tar.zst", "");
-        let txt_path = parent.join(&txt_name);
-
-        if !txt_path.exists() {
-            return Err(format!("展開されたファイルが見つかりません: {}", txt_name));
+        let mut found = false;
+        for entry in archive.entries().map_err(|e| e.to_string())? {
+            let mut entry = entry.map_err(|e| e.to_string())?;
+            let entry_name = entry.path().map_err(|e| e.to_string())?;
+            let entry_name_str = entry_name.to_string_lossy().to_string();
+            if entry_name_str == txt_name || entry_name_str.ends_with(&txt_name) {
+                found = true;
+                progress_callback(format!("処理中: {}", txt_name), "10%".to_string());
+                // BufReader でラップしてそのままパーサへ渡す
+                parse_and_import_reader(
+                    &mut conn,
+                    BufReader::new(&mut entry),
+                    &txt_name,
+                    &mut progress_callback,
+                ).map_err(|e| e.to_string())?;
+                break;
+            }
         }
-
-        progress_callback(format!("処理中: {}", txt_name), "10%".to_string());
-        let res = parse_and_import(&mut conn, &txt_path, &txt_name, &mut progress_callback);
-
-        // 展開された .txt も削除 (ユーザー要望により .tar.zst は残すが展開物は消す)
-        let _ = std::fs::remove_file(&txt_path);
-        
-        res.map_err(|e| e.to_string())?;
+        if !found {
+            return Err(format!("アーカイブ内にログファイルが見つかりません: {}", txt_name));
+        }
     } else {
         // 通常の .txt 処理
         progress_callback(format!("処理中: {}", filename), "10%".to_string());

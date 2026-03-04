@@ -12,3 +12,4 @@ tauri-build = { version = "2.0.5", features = [] }
 tauri = { version = "2.2.4", features = [] }
 sysinfo = "0.33.0"
 windows = { version = "0.58", features = ["Win32_System_Threading", "Win32_Foundation", "Win32_Security"] }
+chrono = "0.4.44"

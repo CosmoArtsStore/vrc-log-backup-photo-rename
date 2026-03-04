@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpheratz ユーザーテスト チェックリスト</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        body {
+            min-height: 100vh;
+            background: #0d0d0f;
+            font-family: 'Noto Sans JP', 'Segoe UI', sans-serif;
+            color: #e0e0e0;
+            padding: 24px 16px
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #111
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace
+        }
+
+        .wrap {
+            max-width: 920px;
+            margin: 0 auto
+        }
+
+        .header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 14px
+        }
+
+        .eyebrow {
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: #555;
+            margin-bottom: 5px
+        }
+
+        h1 {
+            font-size: 21px;
+            font-weight: 700;
+            color: #fff
+        }
+
+        .high-score {
+            font-size: 26px;
+            font-weight: 700;
+            transition: color .3s
+        }
+
+        .progress-wrap {
+            background: #1a1a1a;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 6px;
+            margin-bottom: 4px
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4757, #ffa502, #7bed9f);
+            border-radius: 8px;
+            transition: width .4s
+        }
+
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #555;
+            margin-bottom: 18px
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px
+        }
+
+        .stat-chip {
+            background: #111318;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 11px;
+            flex: 1;
+            min-width: 100px;
+            text-align: center
+        }
+
+        .stat-chip .sv {
+            font-size: 19px;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 2px
+        }
+
+        .path-panel {
+            background: #0a0f1a;
+            border: 1px solid #1a3050;
+            border-radius: 10px;
+            padding: 13px 16px;
+            margin-bottom: 14px
+        }
+
+        .path-panel .ptitle {
+            font-size: 11px;
+            color: #4a9eff;
+            letter-spacing: 1px;
+            margin-bottom: 8px
+        }
+
+        .path-row {
+            display: flex;
+            gap: 8px;
+            align-items: baseline;
+            margin-bottom: 3px;
+            font-size: 12px
+        }
+
+        .path-key {
+            color: #888;
+            flex-shrink: 0;
+            width: 160px
+        }
+
+        .path-val {
+            color: #7ecfff;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            word-break: break-all
+        }
+
+        .note-box {
+            background: #1a1500;
+            border: 1px solid #ffa50230;
+            border-radius: 10px;
+            padding: 11px 15px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            color: #bbb;
+            line-height: 1.8
+        }
+
+        .note-box strong {
+            color: #ffa502
+        }
+
+        .panel {
+            background: #111318;
+            border: 1px solid #1e1e24;
+            border-radius: 10px;
+            padding: 13px 16px;
+            margin-bottom: 12px
+        }
+
+        .panel-label {
+            font-size: 11px;
+            color: #777;
+            margin-bottom: 9px;
+            letter-spacing: 1px
+        }
+
+        .tag-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px
+        }
+
+        .fbtn {
+            background: transparent;
+            border: 1px solid #2a2a2a;
+            border-radius: 20px;
+            padding: 5px 13px;
+            font-size: 12px;
+            color: #666;
+            cursor: pointer;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: all .15s
+        }
+
+        .fbtn:hover {
+            opacity: .85
+        }
+
+        .fbtn.aall {
+            background: #2a2a2a;
+            color: #ccc;
+            border-color: #444
+        }
+
+        .pfilt {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap
+        }
+
+        .pbtn {
+            background: transparent;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            cursor: pointer;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: all .15s
+        }
+
+        .pbtn:hover {
+            opacity: .85
+        }
+
+        .section {
+            margin-bottom: 20px
+        }
+
+        .sec-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-radius: 10px 10px 0 0;
+            border-bottom-width: 2px;
+            border-bottom-style: solid
+        }
+
+        .sec-title {
+            font-size: 14px;
+            font-weight: 700
+        }
+
+        .sec-desc {
+            font-size: 11px;
+            color: #666;
+            margin-left: 8px
+        }
+
+        .sec-cnt {
+            font-size: 13px;
+            font-weight: 600;
+            transition: color .3s
+        }
+
+        .trow {
+            border: 1px solid #1e1e24;
+            border-top: none
+        }
+
+        .trow:last-child {
+            border-radius: 0 0 10px 10px
+        }
+
+        .tmain {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 13px;
+            cursor: pointer
+        }
+
+        .tmain:hover {
+            background: rgba(255, 255, 255, .035)
+        }
+
+        .cb {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            border-width: 2px;
+            border-style: solid;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all .15s;
+            font-size: 13px;
+            line-height: 1
+        }
+
+        .tid {
+            font-size: 10px;
+            flex-shrink: 0;
+            min-width: 44px;
+            opacity: .75
+        }
+
+        .ttitle {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 500;
+            color: #ccc
+        }
+
+        .ttitle.done {
+            color: #555;
+            text-decoration: line-through
+        }
+
+        .tmini {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 20px;
+            font-weight: 500;
+            white-space: nowrap
+        }
+
+        .arr {
+            color: #3a3a3a;
+            font-size: 10px;
+            margin-left: 4px;
+            transition: transform .2s;
+            display: inline-block
+        }
+
+        .arr.open {
+            transform: rotate(180deg)
+        }
+
+        .tdetail {
+            padding: 0 13px 13px 45px;
+            border-top: 1px solid #1a1a20;
+            display: none
+        }
+
+        .tdetail.open {
+            display: block
+        }
+
+        .dgrid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px
+        }
+
+        @media(max-width:580px) {
+            .dgrid {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .dcard {
+            background: #090910;
+            border-radius: 8px;
+            padding: 10px 13px;
+            border: 1px solid #1a1a22
+        }
+
+        .dlabel {
+            font-size: 10px;
+            color: #555;
+            margin-bottom: 5px;
+            letter-spacing: 1px
+        }
+
+        .dtext {
+            font-size: 12px;
+            color: #bbb;
+            line-height: 1.65
+        }
+
+        .dtags {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px
+        }
+
+        .new-badge {
+            font-size: 9px;
+            background: #ff475718;
+            color: #ff8090;
+            border: 1px solid #ff475740;
+            border-radius: 4px;
+            padding: 1px 5px;
+            margin-left: 5px;
+            vertical-align: middle
+        }
+
+        .footer {
+            padding: 12px 16px;
+            background: #0f0f12;
+            border: 1px solid #1a1a22;
+            border-radius: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+            align-items: center
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="header">
+            <div>
+                <div class="eyebrow mono">Alpheratz</div>
+                <h1>ユーザーテスト チェックリスト</h1>
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:11px;color:#666;margin-bottom:3px">🔴 高優先度の完了率</div>
+                <div class="high-score mono" id="highScore">0 / 0</div>
+            </div>
+        </div>
+
+        <div class="progress-wrap">
+            <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
+        <div class="progress-labels"><span id="progressLabel">全体 0/0 完了</span><span id="progressPct">0%</span></div>
+
+        <div class="stats-row" id="statsRow"></div>
+
+        <div class="path-panel">
+            <div class="ptitle mono">📂 関連パス</div>
+            <div class="path-row"><span class="path-key">アプリフォルダ</span><span
+                    class="path-val">F:\DEVELOPFOLDER\RE-NAME-SYS\Alpheratz\</span></div>
+            <div class="path-row"><span class="path-key">データベース</span><span
+                    class="path-val">C:\Users\[ユーザー名]\AppData\Roaming\alpheratz\alpheratz.db</span></div>
+            <div class="path-row"><span class="path-key">設定ファイル</span><span
+                    class="path-val">C:\Users\[ユーザー名]\AppData\Roaming\alpheratz\settings.json</span></div>
+            <div class="path-row"><span class="path-key">デフォルト写真フォルダ</span><span
+                    class="path-val">C:\Users\[ユーザー名]\Pictures\VRChat\</span></div>
+        </div>
+
+        <div class="note-box">
+            <strong>🔴 高優先度</strong> はユーザーが実際に不安に感じる部分です。時間がなければ<strong>ここだけ</strong>やれば最低限OK。<br>
+            🟡 中は品質の確認、⚪ 低はほぼ開発者向けのエッジケース確認です。
+        </div>
+
+        <div class="panel">
+            <div class="panel-label mono">ユーザーの不安 — フィルター</div>
+            <div class="tag-row" id="axFilters"></div>
+        </div>
+        <div class="pfilt" id="pFilters"></div>
+        <div class="pfilt" id="catFilters"></div>
+        <div id="testList"></div>
+        <div class="footer" id="footer"><span style="font-size:11px;color:#444">不安カテゴリ：</span></div>
+    </div>
+
+    <script>
+        const AX = [
+            { id: "data", icon: "🗃️", label: "元データが壊れない・消えない", color: "#ff6b6b" },
+            { id: "perf", icon: "⚡", label: "動作が重くならない", color: "#ffa502" },
+            { id: "privacy", icon: "🔒", label: "外部送信・プライバシー問題なし", color: "#a29bfe" },
+            { id: "db", icon: "🗄️", label: "DBが壊れない・重複しない", color: "#00cec9" },
+            { id: "ux", icon: "🖼️", label: "写真が正しく表示・操作できる", color: "#74b9ff" },
+            { id: "search", icon: "🔍", label: "検索・類似機能が正しく動く", color: "#55efc4" },
+        ];
+
+        const TESTS = [
+            // ─── ①起動・初期設定 ───
+            {
+                id: "1.1", cat: "①起動・初期設定", priority: "高",
+                title: "初回起動でアプリが正常に立ち上がる",
+                desc: "アプリを初めて起動する。\n画面が表示されるまでの時間を確認する。",
+                expect: "3秒以内にメイン画面が開く。クラッシュしない。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "1.2", cat: "①起動・初期設定", priority: "高",
+                title: "写真フォルダの選択が機能する",
+                desc: "設定ボタン →「写真フォルダを選択」を押す。\nVRChat写真が入ったフォルダ（例: Pictures\\VRChat）を選ぶ。",
+                expect: "選んだフォルダのパスが設定に表示される。選択後にスキャンが始まる。",
+                anxiety: ["ux", "data"]
+            },
+            {
+                id: "1.3", cat: "①起動・初期設定", priority: "中",
+                title: "ドライブルート（C:\\, F:\\）を設定フォルダにしたときの挙動",
+                desc: "設定でフォルダをドライブルート（C:\\など）に設定してスキャンを開始する。",
+                expect: "「スキャンを中断」ボタンで停止できる。アプリが固まらない。\n※ドライブ全体は対象外なので警告があれば望ましい。",
+                anxiety: ["perf", "data"]
+            },
+            {
+                id: "1.4", cat: "①起動・初期設定", priority: "低",
+                title: "設定ファイルが正しい場所に保存される",
+                desc: "設定を変更・保存後、AppData\\Roaming\\alpheratz\\settings.json を確認する。",
+                expect: "settings.jsonが存在し、設定したフォルダパスが記録されている。",
+                anxiety: ["data"]
+            },
+
+            // ─── ②スキャン・読み込み ───
+            {
+                id: "2.1", cat: "②スキャン・読み込み", priority: "高",
+                title: "スキャン後に写真が一覧に表示される",
+                desc: "「スキャンを開始」ボタンを押す。\nスキャン完了後、写真が一覧に並んでいるか確認する。",
+                expect: "VRChat写真（VRChat_xxxx形式）が一覧に表示される。",
+                anxiety: ["ux", "db"]
+            },
+            {
+                id: "2.2", cat: "②スキャン・読み込み", priority: "高",
+                title: "元写真ファイルが削除・改ざんされない",
+                desc: "スキャン前後で写真フォルダ内のファイルを確認する。\nファイル数・更新日時・サイズが変わっていないかチェックする。",
+                expect: "ファイルが1つも削除・変更されていない。サイズ・日時が完全に一致する。",
+                anxiety: ["data"],
+                isNew: true
+            },
+            {
+                id: "2.3", cat: "②スキャン・読み込み", priority: "高",
+                title: "300枚程度のスキャンが2分以内に終わる",
+                desc: "300枚程度の写真フォルダでスキャンを実行する。\n完了までの時間を計測する。",
+                expect: "スキャン（DB登録部分）が2分以内に完了する。\npHash解析はバックグラウンドで続いても許容範囲。",
+                anxiety: ["perf"]
+            },
+            {
+                id: "2.4", cat: "②スキャン・読み込み", priority: "高",
+                title: "スキャンを「中断」ボタンで止められる",
+                desc: "スキャン中に「スキャンを中断」ボタンを押す。",
+                expect: "スキャンが止まり、通常の閲覧画面に戻る。アプリが固まらない。",
+                anxiety: ["ux", "perf"]
+            },
+            {
+                id: "2.5", cat: "②スキャン・読み込み", priority: "中",
+                title: "2回目のスキャンで重複登録されない",
+                desc: "スキャンを2回連続で実行する。\n表示件数と実際の写真フォルダ内ファイル数を比較する。",
+                expect: "同じ写真が2件表示されたりしない。件数が一致する。",
+                anxiety: ["db"]
+            },
+            {
+                id: "2.6", cat: "②スキャン・読み込み", priority: "中",
+                title: "新しい写真を追加後のスキャンで差分だけ登録される",
+                desc: "写真フォルダに新しいVRChat写真を1枚追加してからスキャンする。",
+                expect: "追加した1枚だけが新たに一覧に追加される。既存の件数は変わらない。",
+                anxiety: ["db"]
+            },
+            {
+                id: "2.7", cat: "②スキャン・読み込み", priority: "低",
+                title: "写真のない空フォルダを設定してもクラッシュしない",
+                desc: "VRChat写真が1枚もない空のフォルダを設定してスキャンする。",
+                expect: "「写真が見つかりません」などの表示になる。エラーでクラッシュしない。",
+                anxiety: ["ux"]
+            },
+
+            // ─── ③写真一覧・表示 ───
+            {
+                id: "3.1", cat: "③写真一覧・表示", priority: "高",
+                title: "新着順（新しい写真が上に）表示される",
+                desc: "一覧の並び順を確認する。一番上の写真が最も新しい日付か確認する。",
+                expect: "最新のVRChat写真が一番上に表示されている。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "3.2", cat: "③写真一覧・表示", priority: "高",
+                title: "写真をクリックするとモーダルが開く",
+                desc: "一覧のサムネイルを1枚クリックする。",
+                expect: "拡大表示モーダルが開き、写真・ワールド名・撮影日時が確認できる。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "3.3", cat: "③写真一覧・表示", priority: "中",
+                title: "スクロールがスムーズで引っかからない",
+                desc: "写真一覧を上下にスクロールする。速くスクロールしても確認する。",
+                expect: "カクつきなくスムーズにスクロールできる。",
+                anxiety: ["perf"]
+            },
+            {
+                id: "3.4", cat: "③写真一覧・表示", priority: "中",
+                title: "左側の月別ナビで特定月へジャンプできる",
+                desc: "左サイドバーの月をクリックする。",
+                expect: "その月の写真先頭へスクロールされる。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "3.5", cat: "③写真一覧・表示", priority: "中",
+                title: "ワールド名フィルターで絞り込みができる",
+                desc: "右上のプルダウンから任意のワールドを選択する。",
+                expect: "選んだワールドの写真だけが表示される。",
+                anxiety: ["ux", "search"]
+            },
+            {
+                id: "3.6", cat: "③写真一覧・表示", priority: "中",
+                title: "検索ワードで写真を絞り込める",
+                desc: "検索バーにワールド名の一部を入力する。",
+                expect: "入力したワードを含むワールドの写真だけが表示される。",
+                anxiety: ["ux", "search"]
+            },
+            {
+                id: "3.7", cat: "③写真一覧・表示", priority: "低",
+                title: "検索結果が0件のときの表示が適切",
+                desc: "存在しないワールド名で検索する。",
+                expect: "「検索結果が見つかりません」などのメッセージが表示される。絵文字でなくSVGアイコン。",
+                anxiety: ["ux"]
+            },
+
+            // ─── ④詳細モーダル ───
+            {
+                id: "4.1", cat: "④詳細モーダル", priority: "高",
+                title: "横画像が大きく正しく表示される",
+                desc: "横向き（16:9）の写真をクリックしてモーダルを開く。",
+                expect: "写真が横長のスペースにほぼ画面幅いっぱいで表示される。縦につぶれない。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "4.2", cat: "④詳細モーダル", priority: "高",
+                title: "ワールド名・日時が正しく表示される",
+                desc: "メタデータ付きのVRChat写真のモーダルを開く。\nワールド名・撮影日時を確認する。",
+                expect: "写真のメタデータと一致するワールド名と日時が表示される。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "4.3", cat: "④詳細モーダル", priority: "高",
+                title: "「VRChatワールドページを開く」が正しいURLに遷移する",
+                desc: "ワールド情報があるモーダルで「VRChatワールドページを開く」ボタンを押す。",
+                expect: "VRChat のそのワールドページ（https://vrchat.com/home/world/...）がブラウザで開く。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "4.4", cat: "④詳細モーダル", priority: "高",
+                title: "「エクスプローラーで表示」がファイルを選択した状態で開く",
+                desc: "モーダルの「エクスプローラーで表示」ボタンを押す。",
+                expect: "Windowsエクスプローラーが開き、その写真ファイルがハイライト選択された状態になる。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "4.5", cat: "④詳細モーダル", priority: "中",
+                title: "ファイル名が右下に表示される",
+                desc: "モーダルを開き、写真の右下を確認する。",
+                expect: "「VRChat_2024-xx-xx_....png」のようなファイル名が薄く表示されている。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "4.6", cat: "④詳細モーダル", priority: "中",
+                title: "メモを入力して保存できる",
+                desc: "モーダルのメモ欄に文字を入力し「保存」を押す。\nモーダルを閉じて同じ写真を再度開く。",
+                expect: "メモが保存されており、再度開いたときに表示される。",
+                anxiety: ["data"]
+            },
+            {
+                id: "4.7", cat: "④詳細モーダル", priority: "中",
+                title: "モーダルを閉じると一覧に戻る",
+                desc: "モーダルを「×」ボタン・オーバーレイクリックで閉じる。",
+                expect: "一覧画面に戻る。スクロール位置が保持されていれば尚良い。",
+                anxiety: ["ux"]
+            },
+
+            // ─── ⑤類似画像・ワールド推測 ───
+            {
+                id: "5.1", cat: "⑤類似画像・ワールド推測", priority: "高",
+                title: "メタデータなし写真で「類似ワールドを調べる」ボタンが表示される",
+                desc: "メタデータ（WorldID）がない写真のモーダルを開く。",
+                expect: "「メタデータがありません。似た写真から推測しますか？」と「類似ワールドを調べる」ボタンが表示される。",
+                anxiety: ["ux", "search"]
+            },
+            {
+                id: "5.2", cat: "⑤類似画像・ワールド推測", priority: "高",
+                title: "「類似ワールドを調べる」押下中にローディングが表示される",
+                desc: "「類似ワールドを調べる」ボタンを押してすぐに確認する。",
+                expect: "スピナー（くるくる）が表示され、検索中であることがわかる。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "5.3", cat: "⑤類似画像・ワールド推測", priority: "中",
+                title: "メタデータあり写真で「類似画像を調べる」ボタンが表示される",
+                desc: "ワールド情報がある写真のモーダルを開く。",
+                expect: "「類似画像を調べる」ボタンが表示される。",
+                anxiety: ["ux", "search"]
+            },
+            {
+                id: "5.4", cat: "⑤類似画像・ワールド推測", priority: "中",
+                title: "類似写真をクリックするとその写真のモーダルへ遷移できる",
+                desc: "類似写真一覧のサムネイルをクリックする。",
+                expect: "クリックした写真の詳細モーダルが開く。",
+                anxiety: ["ux", "search"]
+            },
+            {
+                id: "5.5", cat: "⑤類似画像・ワールド推測", priority: "中",
+                title: "類似モーダルから元の写真に戻れる",
+                desc: "類似写真のモーダルに遷移後、左上の「←」ボタンを押す。",
+                expect: "元の写真のモーダルに戻る。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "5.6", cat: "⑤類似画像・ワールド推測", priority: "低",
+                title: "90度回転した写真でも類似が検出される",
+                desc: "カメラロールで回転済みの写真（縦持ちで撮影など）で「類似画像を調べる」を実行する。",
+                expect: "元の写真と向きが違っても類似として検出される。",
+                anxiety: ["search"]
+            },
+
+            // ─── ⑥StellaRecord連携 ───
+            {
+                id: "6.1", cat: "⑥StellaRecord連携", priority: "中",
+                title: "「StellaRecordに連携」が失敗してもクラッシュしない",
+                desc: "StellaRecordが起動していない状態で連携ボタンを押す。",
+                expect: "エラーメッセージがトーストで表示される。アプリが落ちない。",
+                anxiety: ["ux"]
+            },
+            {
+                id: "6.2", cat: "⑥StellaRecord連携", priority: "低",
+                title: "連携成功時にトーストメッセージが表示される",
+                desc: "StellaRecordが起動している状態で連携ボタンを押す。",
+                expect: "「連携しました」のようなトースト通知が表示される。",
+                anxiety: ["ux"]
+            },
+
+            // ─── ⑦セキュリティ・プライバシー ───
+            {
+                id: "7.1", cat: "⑦セキュリティ・プライバシー", priority: "高",
+                title: "外部サーバーへのデータ送信が行われていない",
+                desc: "Wireshark・プロキシ、またはWindows ファイアウォールのログで通信を確認する。\n（簡易確認はタスクマネージャーのネットワーク列でも可）",
+                expect: "VRChat公式URL以外へのアウトバウンド通信が発生していない。",
+                anxiety: ["privacy"],
+                isNew: true
+            },
+            {
+                id: "7.2", cat: "⑦セキュリティ・プライバシー", priority: "高",
+                title: "データベースが写真フォルダ外（AppData）に保存される",
+                desc: "AppData\\Roaming\\alpheratz フォルダを確認する。",
+                expect: "alpheratz.db が AppData 配下に存在する。写真フォルダには何も書き込まれていない。",
+                anxiety: ["privacy", "data"],
+                isNew: true
+            },
+            {
+                id: "7.3", cat: "⑦セキュリティ・プライバシー", priority: "中",
+                title: "使用しているパッケージが信頼できるものだけか確認する",
+                desc: "package.json と Cargo.toml を確認する。\n（npm ls / cargo tree で確認できる）",
+                expect: "lucide-react, react, vite, tailwindcss, tauri公式プラグイン、image_hasher 等の\n定番ライブラリのみ。見覚えのない外部パッケージがない。",
+                anxiety: ["privacy"],
+                isNew: true
+            },
+        ];
+
+        const axMap = {}; AX.forEach(a => axMap[a.id] = a);
+        const PC = {
+            "高": { color: "#ff4757", bg: "#200a0c", border: "#ff4757", label: "🔴 高優先度", desc: "ユーザー不安に直結 — 必ずつぶす" },
+            "中": { color: "#ffa502", bg: "#1e1500", border: "#ffa502", label: "🟡 中優先度", desc: "品質向上 — 時間があれば" },
+            "低": { color: "#57606f", bg: "#141414", border: "#444", label: "⚪ 低優先度", desc: "エッジケース — 余裕があれば" },
+        };
+        let checked = {}, fPri = "全て", fAx = "全て", fCat = "全て", expanded = null;
+        function filtered() {
+            return TESTS.filter(t => {
+                if (fPri !== "全て" && t.priority !== fPri) return false;
+                if (fAx !== "全て" && !t.anxiety.includes(fAx)) return false;
+                if (fCat !== "全て" && t.cat !== fCat) return false;
+                return true;
+            });
+        }
+        function updateStats() {
+            const total = TESTS.length, done = Object.values(checked).filter(Boolean).length;
+            const hT = TESTS.filter(t => t.priority === "高").length, hD = TESTS.filter(t => t.priority === "高" && checked[t.id]).length;
+            document.getElementById("progressBar").style.width = `${(done / total) * 100}%`;
+            document.getElementById("progressLabel").textContent = `全体 ${done}/${total} 完了`;
+            document.getElementById("progressPct").textContent = `${Math.round((done / total) * 100)}%`;
+            const hs = document.getElementById("highScore"); hs.textContent = `${hD} / ${hT}`; hs.style.color = hD === hT ? "#7bed9f" : "#ff4757";
+            document.getElementById("statsRow").innerHTML = [
+                { l: "🔴 高 完了", v: `${hD}/${hT}`, c: "#ff4757" },
+                { l: "🟡 中 完了", v: `${TESTS.filter(t => t.priority === "中" && checked[t.id]).length}/${TESTS.filter(t => t.priority === "中").length}`, c: "#ffa502" },
+                { l: "⚪ 低 完了", v: `${TESTS.filter(t => t.priority === "低" && checked[t.id]).length}/${TESTS.filter(t => t.priority === "低").length}`, c: "#57606f" },
+                { l: "総項目数", v: `${total}`, c: "#888" },
+            ].map(s => `<div class="stat-chip"><span class="sv" style="color:${s.c}">${s.v}</span><span style="font-size:11px;color:#555">${s.l}</span></div>`).join("");
+        }
+        function renderAx() {
+            let h = `<button class="fbtn ${fAx === "全て" ? "aall" : ""}" onclick="setAx('全て')">全て</button>`;
+            AX.forEach(a => { const ac = fAx === a.id; h += `<button class="fbtn" onclick="setAx('${a.id}')" style="background:${ac ? a.color + '20' : 'transparent'};color:${ac ? a.color : '#666'};border-color:${ac ? a.color : '#2a2a2a'}">${a.icon} ${a.label}</button>`; });
+            document.getElementById("axFilters").innerHTML = h;
+        }
+        function renderPFilt() {
+            document.getElementById("pFilters").innerHTML = ["全て", "高", "中", "低"].map(p => {
+                const ac = fPri === p, cfg = PC[p];
+                return `<button class="pbtn" onclick="setPri('${p}')" style="background:${ac ? (p === "全て" ? "#2a2a2a" : cfg.color + "20") : "transparent"};color:${ac ? (p === "全て" ? "#ccc" : cfg.color) : "#555"};border-color:${ac ? (p === "全て" ? "#444" : cfg.color) : "#2a2a2a"}">${p === "全て" ? "全て表示" : cfg.label}</button>`;
+            }).join("");
+        }
+        function renderCatFilt() {
+            const cats = ["全て", ...new Set(TESTS.map(t => t.cat))];
+            document.getElementById("catFilters").innerHTML = cats.map(c => {
+                const ac = fCat === c;
+                return `<button class="fbtn" onclick="setCat('${c}')" style="background:${ac ? "#222" : "transparent"};color:${ac ? "#bbb" : "#555"};border-color:${ac ? "#444" : "#1e1e1e"};border-radius:6px">${c}</button>`;
+            }).join("");
+        }
+        function renderTests() {
+            const fil = filtered(); const el = document.getElementById("testList");
+            if (!fil.length) { el.innerHTML = `<div style="color:#555;text-align:center;padding:40px">該当するテストがありません</div>`; return; }
+            const groups = ["高", "中", "低"].map(p => ({ p, items: fil.filter(t => t.priority === p) })).filter(g => g.items.length);
+            let h = "";
+            groups.forEach(({ p, items }) => {
+                const cfg = PC[p], gd = items.filter(t => checked[t.id]).length;
+                h += `<div class="section"><div class="sec-head" style="background:${cfg.bg};border-color:${cfg.border}28;border-bottom-color:${cfg.color}"><div><span class="sec-title" style="color:${cfg.color}">${cfg.label}</span><span class="sec-desc">${cfg.desc}</span></div><span class="sec-cnt mono" style="color:${gd === items.length ? "#7bed9f" : cfg.color}">${gd}/${items.length}</span></div>`;
+                items.forEach((t, i) => {
+                    const dn = !!checked[t.id], ex = expanded === t.id;
+                    const tags = t.anxiety.map(aid => { const a = axMap[aid]; return a ? `<span class="tmini" style="background:${a.color}18;color:${a.color};border:1px solid ${a.color}38">${a.icon}</span>` : "" }).join("");
+                    const dtags = t.anxiety.map(aid => { const a = axMap[aid]; return a ? `<span class="tmini" style="background:${a.color}12;color:${a.color};border:1px solid ${a.color}28">${a.icon} ${a.label}</span>` : "" }).join("");
+                    const nb = t.isNew ? `<span class="new-badge">NEW</span>` : "";
+                    h += `<div class="trow" style="background:${dn ? "#0d1a0e" : i % 2 === 0 ? "#101013" : "#0d0d10"};${i === items.length - 1 ? "border-radius:0 0 10px 10px" : ""}">
+      <div class="tmain" onclick="toggleEx('${t.id}')">
+        <div class="cb" onclick="event.stopPropagation();toggleCk('${t.id}')" style="border-color:${dn ? "#7bed9f" : cfg.color + "55"};background:${dn ? "#7bed9f18" : "transparent"};color:#7bed9f">${dn ? "✓" : ""}</div>
+        <span class="tid mono" style="color:${cfg.color}">${t.id}</span>
+        <span class="${dn ? "ttitle done" : "ttitle"}">${t.title}${nb}</span>
+        <div style="display:flex;gap:4px;flex-shrink:0">${tags}</div>
+        <span class="arr ${ex ? "open" : ""}">▼</span>
+      </div>
+      <div class="tdetail ${ex ? "open" : ""}">
+        <div class="dgrid">
+          <div class="dcard"><div class="dlabel mono">確認手順</div><div class="dtext">${t.desc.replace(/\n/g, "<br>")}</div></div>
+          <div class="dcard" style="border-color:${cfg.color}28"><div class="dlabel mono" style="color:${cfg.color}">こうなればOK ✓</div><div class="dtext" style="color:#c8c8c8">${t.expect.replace(/\n/g, "<br>")}</div></div>
+        </div>
+        <div class="dtags">${dtags}</div>
+      </div>
+    </div>`;
+                });
+                h += `</div>`;
+            });
+            el.innerHTML = h;
+        }
+        function renderFooter() { document.getElementById("footer").innerHTML = `<span style="font-size:11px;color:#444">不安カテゴリ：</span>` + AX.map(a => `<span style="font-size:11px;color:${a.color}">${a.icon} ${a.label}</span>`).join(""); }
+        function render() { renderAx(); renderCatFilt(); renderTests(); updateStats(); }
+        function toggleCk(id) { checked[id] = !checked[id]; render(); }
+        function toggleEx(id) { expanded = expanded === id ? null : id; render(); }
+        function setAx(v) { fAx = v; expanded = null; render(); }
+        function setPri(v) { fPri = v; expanded = null; renderPFilt(); render(); }
+        function setCat(v) { fCat = v; expanded = null; render(); }
+        renderFooter(); renderPFilt(); render();
+    </script>
+</body>
+
+</html>

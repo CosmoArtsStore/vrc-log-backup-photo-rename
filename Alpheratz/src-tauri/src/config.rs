@@ -23,7 +23,7 @@ pub fn get_setting_path() -> Result<PathBuf, String> {
     if !dir.exists() {
         fs::create_dir_all(&dir).map_err(|e| format!("Failed to create dir: {}", e))?;
     }
-    Ok(dir.join("Alpheratz.json"))
+    Ok(dir.join("alpheratz.json"))
 }
 
 pub fn load_setting() -> AlpheratzSetting {

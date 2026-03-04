@@ -12,14 +12,14 @@ pub fn get_planetarium_db_path() -> PathBuf {
             }
         }
     }
-    Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD\\Planetarium\\planetarium.db")
+    Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD\\database\\planetarium.db")
 }
 
 pub fn get_alpheratz_db_path() -> PathBuf {
     let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
-    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Alpheratz\\db");
+    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Alpheratz\\database");
     let _ = fs::create_dir_all(&dir);
-    dir.join("Alpheratz.db")
+    dir.join("alpheratz.db")
 }
 
 pub fn init_alpheratz_db() -> Result<(), String> {

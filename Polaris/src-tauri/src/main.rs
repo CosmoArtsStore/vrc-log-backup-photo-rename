@@ -17,7 +17,7 @@ fn main() {
     // ---- 二重起動防止 ----
     #[cfg(windows)]
     let _mutex_guard = {
-        let name: Vec<u16> = "Global\\VRCLogSync_SingleInstance\0"
+        let name: Vec<u16> = "Global\\Polaris_SingleInstance\0"
             .encode_utf16()
             .collect();
         
@@ -26,7 +26,7 @@ fn main() {
         };
 
         match handle {
-Ok(h) if !h.is_invalid() => {
+            Ok(h) if !h.is_invalid() => {
                 if unsafe { windows::Win32::Foundation::GetLastError() } == ERROR_ALREADY_EXISTS {
                     // 先行プロセスあり → 即終了
                     unsafe { let _ = CloseHandle(h); };
@@ -34,20 +34,27 @@ Ok(h) if !h.is_invalid() => {
                 }
                 h // スコープを保持（main終了まで解放しない）
             }
-            _ => return, // 取得失敗時も終了
+            Ok(_) => {
+                // ハンドルが無効（取得失敗）→ ログして終了
+                log_startup_error("mutex handle is invalid");
+                return;
+            }
+            Err(e) => {
+                // Win32 API レベルの失敗 → ログして終了
+                log_startup_error(&format!("CreateMutexW failed: {:?}", e));
+                return;
+            }
         }
     };
 
     let mut sys = System::new();
-    
+    // 「直前のチェック時にVRCが動いていたか」を記録するフラグ
+    let mut vrchat_was_running = is_vrchat_running(&mut sys);
+
     // 起動時にVRCが起動していない場合、前回のセッションで未取得のログがある可能性があるため同期を実行
-    if !is_vrchat_running(&mut sys) {
+    if !vrchat_was_running {
         sync_logs();
     }
-
-    // 「直前のチェック時にVRCが動いていたか」を記録するフラグ
-
-    let mut vrchat_was_running = is_vrchat_running(&mut sys);
 
     // 無限ループによる常駐監視
     loop {
@@ -63,15 +70,8 @@ Ok(h) if !h.is_invalid() => {
             vrchat_was_running = true;
         } else if !vrchat_now && vrchat_was_running {
             // 状態変化：起動中 -> 停止した
-            
-            // プロセスが消失した直後はファイルがロックされている可能性があるため3秒待機
-            thread::sleep(Duration::from_millis(3000)); 
-            
-            // 待機後、本当に起動していないことを再確認してから同期を実行
-            if !is_vrchat_running(&mut sys) {
-                // 差分（新規ファイルまたは追記分）のみを取得
-                sync_logs();
-            }
+            // 差分（新規ファイルまたは追記分）のみを取得
+            sync_logs();
             
             // 同期が終わったので、次回「起動」を検知できるようにフラグを降ろす
             vrchat_was_running = false;
@@ -80,12 +80,11 @@ Ok(h) if !h.is_invalid() => {
 }
 
 /// VRChatが起動しているかどうかを確認する
-/// refresh_processes の第2引数を false にすることで
-/// CPU使用率・メモリ等の重いプロパティ更新をスキップし、
-/// プロセスの存在確認のみを最小コストで行う
+/// refresh_processes の第2引数を true に設定し、
+/// 終了したプロセスをキャッシュから削除することで正確な状態を維持する
 fn is_vrchat_running(sys: &mut System) -> bool {
-    // false = CPU/メモリ等の高コスト情報は更新しない（存在確認のみ）
-    sys.refresh_processes(ProcessesToUpdate::All, false);
+    // true = 終了したプロセスをキャッシュから削除する（必須設定）
+    sys.refresh_processes(ProcessesToUpdate::All, true);
     sys.processes().values().any(|p| {
         let n = p.name().to_string_lossy().to_lowercase();
         n == "vrchat.exe" || n == "vrchat"
@@ -94,17 +93,23 @@ fn is_vrchat_running(sys: &mut System) -> bool {
 
 /// ログをバックアップ先へ同期する（新規またはサイズが増加したファイルのみ）
 fn sync_logs() {
-    // ソースディレクトリ: %APPDATA%\..\LocalLow\VRChat\VRChat
-    let Ok(appdata) = std::env::var("APPDATA") else { return };
-    let src_dir = Path::new(&appdata).join("..\\LocalLow\\VRChat\\VRChat");
+    // ソースディレクトリ: %USERPROFILE%\AppData\LocalLow\VRChat\VRChat
+    // APPDATA/../LocalLow は環境によって解決が不安定なため USERPROFILE から組み立てる
+    let Ok(userprofile) = std::env::var("USERPROFILE") else { return };
+    let src_dir = Path::new(&userprofile).join("AppData\\LocalLow\\VRChat\\VRChat");
 
-    // バックアップ先ディレクトリ: %LOCALAPPDATA%\CosmoArtsStore\StellaRecord\Polaris\archive\
     let Ok(local_appdata) = std::env::var("LOCALAPPDATA") else { return };
-    let dest_dir = Path::new(&local_appdata).join("CosmoArtsStore\\StellaRecord\\Polaris\\archive");
+    let dest_dir = Path::new(&local_appdata).join("CosmoArtsStore\\STELLAProject\\Polaris\\archive");
+    let log_path = Path::new(&local_appdata).join("CosmoArtsStore\\STELLAProject\\Polaris\\error_info.log");
 
-    // ディレクトリ作成
-    if !dest_dir.exists() {
-        let _ = fs::create_dir_all(&dest_dir);
+    if fs::create_dir_all(&dest_dir).is_err() {
+        log_error(&log_path, "archive dir creation failed");
+        return;
+    }
+
+    // ソースディレクトリが存在しない（VRChat未インストール等）はサイレントにスキップ
+    if !src_dir.is_dir() {
+        return;
     }
 
     // ログファイルの同期
@@ -132,18 +137,38 @@ fn sync_logs() {
         let src_meta = fs::metadata(&path).ok();
         let dest_meta = fs::metadata(&dest_path).ok();
         let should_copy = match (src_meta, dest_meta) {
-            // 存在する場合、ファイルサイズを比較
             // 元ファイルの方が大きい = 追記されたとみなして上書き同期
             (Some(s), Some(d)) => s.len() > d.len(),
             // バックアップ先に存在しない場合は新規ファイルとしてコピー
             (Some(_), None) => true,
-            // サイズ取得失敗時は安全のため同期対象とする
-            _ => true,
+            // ソースのメタデータが取れない場合はスキップ（コピーしても失敗するため）
+            (None, _) => false,
         };
 
-        if should_copy {
-            // 差分が確認された場合のみ上書き同期を実行
-            let _ = fs::copy(&path, &dest_path);
+        if should_copy && fs::copy(&path, &dest_path).is_err() {
+            log_error(&log_path, &format!("copy failed: {}", name));
         }
+    }
+}
+
+fn log_error(log_path: &Path, msg: &str) {
+    if let Some(parent) = log_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let line = format!("[{}] {}\n", chrono::Local::now(), msg);
+    let _ = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)
+        .map(|mut f| std::io::Write::write_all(&mut f, line.as_bytes()));
+}
+
+/// ミューテックス取得失敗など、log_path が確定する前の致命的エラーをログする
+/// ログ先: %LOCALAPPDATA%\CosmoArtsStore\STELLAProject\Polaris\error_info.log
+fn log_startup_error(msg: &str) {
+    if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+        let log_path = Path::new(&local_appdata)
+            .join("CosmoArtsStore\\STELLAProject\\Polaris\\error_info.log");
+        log_error(&log_path, &format!("[STARTUP] {}", msg));
     }
 }

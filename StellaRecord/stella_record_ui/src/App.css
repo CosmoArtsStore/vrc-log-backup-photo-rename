@@ -58,6 +58,17 @@ body {
 }
 
 /* ─── Layout ─────────────────────────────────────── */
+button,
+.card,
+.launcher-card,
+.file-item,
+.btn-action,
+.nav-item,
+.progress-fill,
+.file-checkbox {
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 .main-wrapper {
   display: flex;
   flex-direction: column;
@@ -563,11 +574,25 @@ body {
 
 /* ─── Warning / Danger zone ───────────────────────── */
 .warning-zone {
-  background: rgba(239, 68, 68, 0.04);
-  border: 1.5px solid rgba(239, 68, 68, 0.18);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.06), rgba(220, 38, 38, 0.04));
+  border: 1.5px solid rgba(239, 68, 68, 0.3);
   border-radius: var(--card-radius);
   padding: 1.5rem;
   margin-bottom: var(--gap-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.warning-zone::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(-45deg,
+      transparent,
+      transparent 18px,
+      rgba(239, 68, 68, 0.025) 18px,
+      rgba(239, 68, 68, 0.025) 36px);
+  pointer-events: none;
 }
 
 .warning-header {
@@ -590,6 +615,32 @@ body {
   fill: var(--danger);
 }
 
+.danger-badge {
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: var(--danger);
+  color: white;
+  animation: dangerPulse 2.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes dangerPulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+}
+
 .danger-text {
   font-size: 0.82rem;
   color: var(--text-dim);
@@ -602,6 +653,121 @@ body {
   flex-wrap: wrap;
   gap: 0.75rem;
 }
+
+/* ─── Sync Grid (2列×2行) ────────────────────────── */
+.sync-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+.sync-card {
+  padding: 1.25rem;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sync-card h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.sync-card p {
+  margin: 0 0 1rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  flex: 1;
+}
+
+/* デンジャーゾーンをスクロール後に見えるようにするスペーサー */
+.danger-zone-spacer {
+  height: 2rem;
+}
+
+.btn-action.danger.wipe {
+  background: rgba(239, 68, 68, 0.14);
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.35);
+  font-weight: 900;
+}
+
+.btn-action.danger.wipe:hover:not(:disabled) {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.35);
+}
+
+/* ─── Danger Confirm Modal ───────────────────────── */
+.danger-modal {
+  border: 1.5px solid rgba(239, 68, 68, 0.4) !important;
+  background: rgba(255, 250, 250, 0.97) !important;
+}
+
+.danger-modal-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.danger-modal-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--danger);
+  color: white;
+  width: fit-content;
+  animation: dangerPulse 2s ease-in-out infinite;
+}
+
+.danger-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #b91c1c;
+}
+
+.danger-modal-body {
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: 14px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: #5c2626;
+}
+
+.danger-modal-body strong {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.btn-action.danger-confirm {
+  background: var(--danger);
+  color: white;
+  border-color: transparent;
+  font-weight: 900;
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.35);
+}
+
+.btn-action.danger-confirm:hover:not(:disabled) {
+  background: #dc2626;
+  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.5);
+  transform: translateY(-2px);
+}
+
 
 /* ─── Launcher grid ───────────────────────────────── */
 .launcher-grid {
@@ -908,4 +1074,299 @@ body {
     --content-max: 1600px;
     --content-pad: 3.5rem;
   }
+}
+
+/* ─── Modal ───────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 18, 30, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+  animation: modalOverlayIn 0.25s ease-out forwards;
+}
+
+/* フルスクリーン variant (アーカイブ選択) */
+.modal-overlay.fullscreen-modal {
+  padding: 1.5rem;
+  align-items: stretch;
+}
+
+.modal-content.archive-selector {
+  max-width: 100%;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 1.75rem 2rem;
+}
+
+.archive-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-shrink: 0;
+}
+
+.archive-modal-header h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.archive-modal-header p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.archive-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.archive-count {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(99, 102, 241, 0.1);
+  padding: 4px 12px;
+  border-radius: 99px;
+}
+
+/* フルスクリーンリスト */
+.file-list-container.fullscreen-list {
+  flex: 1;
+  max-height: none;
+  border-radius: 18px;
+  background: transparent;
+  border: none;
+  margin-bottom: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-auto-rows: max-content;
+  gap: 1rem;
+  padding: 0.5rem;
+}
+
+.fullscreen-list .file-item {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  user-select: none;
+  cursor: pointer;
+}
+
+.fullscreen-list .file-item:hover {
+  transform: translateY(-2px) scale(1.02);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.1);
+}
+
+.fullscreen-list .file-item.selected {
+  background: rgba(99, 102, 241, 0.08);
+  border: 2px solid var(--accent);
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* チェックボックス */
+.file-checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid rgba(99, 102, 241, 0.3);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.file-checkbox.checked {
+  background: var(--accent-gradient);
+  border-color: transparent;
+}
+
+
+
+@keyframes modalOverlayIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+
+  to {
+    opacity: 1;
+    backdrop-filter: blur(12px);
+  }
+}
+
+.modal-content {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-radius: 28px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 540px;
+  box-shadow:
+    0 32px 64px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  animation: modalContentIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  position: relative;
+}
+
+@keyframes modalContentIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-content.file-selector {
+  max-width: 520px;
+}
+
+.modal-content h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+
+.modal-content>p {
+  margin: 0 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* ─── File list (強化同期) ─────────────────────────── */
+.file-list-container {
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: rgba(248, 250, 252, 0.8);
+  margin-bottom: 1.25rem;
+  /* custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
+}
+
+.file-list-container::-webkit-scrollbar {
+  display: block;
+  width: 5px;
+}
+
+.file-list-container::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 99px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background 0.15s, transform 0.15s;
+  border-radius: 0;
+}
+
+.file-item:first-child {
+  border-radius: 14px 14px 0 0;
+}
+
+.file-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 14px 14px;
+}
+
+.file-item:only-child {
+  border-radius: 14px;
+}
+
+.file-item:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.file-item.selected {
+  background: rgba(99, 102, 241, 0.1);
+  border-left: 3px solid var(--accent);
+}
+
+.file-item .icon-svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--text-dim);
+  flex-shrink: 0;
+  transition: fill 0.15s;
+}
+
+.file-item.selected .icon-svg {
+  fill: var(--accent);
+}
+
+.file-name {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-item.selected .file-name {
+  color: var(--accent);
+}
+
+.badge-zst {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: white;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+/* ─── Modal actions row ───────────────────────────── */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.modal-actions .btn-action {
+  min-width: 110px;
 }

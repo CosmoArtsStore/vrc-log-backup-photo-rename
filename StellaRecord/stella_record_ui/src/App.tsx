@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import "./App.css";
@@ -66,8 +66,24 @@ function App() {
   const [currentTable, setCurrentTable] = useState("");
   const [tableData, setTableData] = useState<TableData>({ columns: [], rows: [] });
   const [showEnhancedSyncModal, setShowEnhancedSyncModal] = useState(false);
+  const [decompressMode, setDecompressMode] = useState(false);
   const [archiveFiles, setArchiveFiles] = useState<string[]>([]);
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [lastSelected, setLastSelected] = useState<string | null>(null);
+  const isDraggingSelect = useRef(false);
+  const dragMode = useRef<'select' | 'deselect'>('select');
+
+  useEffect(() => {
+    const handleMouseUp = () => { isDraggingSelect.current = false; };
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => window.removeEventListener('mouseup', handleMouseUp);
+  }, []);
+
+  type DangerAction = "deleteToday" | "wipeDatabase";
+  const [dangerModal, setDangerModal] = useState<{
+    action: DangerAction;
+    step: 1 | 2;
+  } | null>(null);
 
   const addToast = useCallback((msg: string, duration = 3000) => {
     const id = Date.now();
@@ -191,18 +207,77 @@ function App() {
       const files: string[] = await invoke("list_archive_files");
       setArchiveFiles(files);
       setShowEnhancedSyncModal(true);
-      setSelectedFile(null);
+      setSelectedFiles(new Set());
+      setDecompressMode(false);
     } catch (e) {
       addToast(`ファイル一覧取得失敗: ${e}`);
     }
   };
 
+  const handleFileAction = (e: React.MouseEvent, file: string, type: 'down' | 'enter') => {
+    if (type === 'down') {
+      if (e.shiftKey && lastSelected) {
+        // Shift + Click 範囲選択
+        const startIdx = archiveFiles.indexOf(lastSelected);
+        const endIdx = archiveFiles.indexOf(file);
+        if (startIdx !== -1 && endIdx !== -1) {
+          const min = Math.min(startIdx, endIdx);
+          const max = Math.max(startIdx, endIdx);
+          const range = archiveFiles.slice(min, max + 1);
+          setSelectedFiles(prev => {
+            const next = new Set(prev);
+            range.forEach(f => next.add(f));
+            return next;
+          });
+        }
+        return;
+      }
+
+      isDraggingSelect.current = true;
+      if (e.ctrlKey || e.metaKey) {
+        dragMode.current = selectedFiles.has(file) ? 'deselect' : 'select';
+      } else {
+        if (!selectedFiles.has(file)) {
+          setSelectedFiles(new Set([file]));
+          dragMode.current = 'select';
+        } else {
+          dragMode.current = 'select';
+        }
+      }
+
+      setSelectedFiles(prev => {
+        const next = new Set<string>(e.ctrlKey || e.metaKey ? prev : (dragMode.current === 'select' ? prev : new Set<string>()));
+        if (dragMode.current === 'select') next.add(file);
+        else next.delete(file);
+        return next;
+      });
+      setLastSelected(file);
+    } else if (type === 'enter' && isDraggingSelect.current) {
+      // マウスドラッグでなぞって選択/解除
+      setSelectedFiles(prev => {
+        const next = new Set(prev);
+        if (dragMode.current === 'select') next.add(file);
+        else next.delete(file);
+        return next;
+      });
+      setLastSelected(file);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedFiles.size === archiveFiles.length) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(archiveFiles));
+    }
+  };
+
   const handleExecuteEnhancedSync = async () => {
-    if (!selectedFile) return;
+    if (selectedFiles.size === 0) return;
     try {
       setShowEnhancedSyncModal(false);
       setPlanetariumRunning(true);
-      await invoke("launch_enhanced_import", { fileName: selectedFile });
+      await invoke("launch_enhanced_import", { fileNames: Array.from(selectedFiles) });
     } catch (e) {
       setPlanetariumRunning(false);
       addToast(`強化同期エラー: ${e}`);
@@ -218,6 +293,32 @@ function App() {
       addToast(`圧縮エラー: ${e}`);
     } finally {
       pollStorage();
+    }
+  };
+
+  const handleOpenDecompress = async () => {
+    try {
+      const files: string[] = await invoke("list_archive_files");
+      setArchiveFiles(files);
+      setShowEnhancedSyncModal(true);
+      setSelectedFiles(new Set());
+      setDecompressMode(true);
+    } catch (e) {
+      addToast(`ファイル一覧取得失敗: ${e}`);
+    }
+  };
+
+  const handleDecompress = async () => {
+    if (selectedFiles.size === 0) return;
+    try {
+      setShowEnhancedSyncModal(false);
+      const res: string = await invoke("decompress_logs", { fileNames: Array.from(selectedFiles) });
+      addToast(res);
+      pollStorage();
+    } catch (e) {
+      addToast(`展開エラー: ${e}`);
+    } finally {
+      setDecompressMode(false);
     }
   };
 
@@ -244,27 +345,35 @@ function App() {
     }
   };
 
-  const handleDeleteTodayData = async () => {
-    if (!window.confirm("今日分のデータを削除してもよろしいですか？（デバッグ用）")) return;
+  const handleDeleteTodayData = () => {
+    setDangerModal({ action: "deleteToday", step: 1 });
+  };
+
+  const handleWipeDatabase = () => {
+    setDangerModal({ action: "wipeDatabase", step: 1 });
+  };
+
+  const executeDangerAction = async (action: DangerAction) => {
+    setDangerModal(null);
     try {
-      const res: string = await invoke("delete_today_data");
+      let res: string;
+      if (action === "deleteToday") {
+        res = await invoke("delete_today_data");
+      } else {
+        res = await invoke("wipe_database");
+      }
       addToast(res);
     } catch (e) {
       addToast("エラー: " + String(e));
     }
   };
 
-  const handleWipeDatabase = async () => {
-    const confirm1 = window.confirm("【警告】データベースの全記録を完全に消去します。\nこの操作は取り消せません。続行しますか？");
-    if (!confirm1) return;
-    const confirm2 = window.confirm("本当によろしいですか？ログが再解析されるまで、統計や履歴はすべて空になります。");
-    if (!confirm2) return;
-
-    try {
-      const res: string = await invoke("wipe_database");
-      addToast(res);
-    } catch (e) {
-      addToast("エラー: " + String(e));
+  const advanceDangerModal = () => {
+    if (!dangerModal) return;
+    if (dangerModal.action === "wipeDatabase" && dangerModal.step === 1) {
+      setDangerModal({ ...dangerModal, step: 2 });
+    } else {
+      executeDangerAction(dangerModal.action);
     }
   };
 
@@ -382,6 +491,7 @@ function App() {
         </div>
       </div>
 
+      {/* 主操作: 2列×2行グリッド */}
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <div style={{ padding: '10px', background: 'rgba(93, 156, 236, 0.1)', borderRadius: '12px' }}>
@@ -395,43 +505,49 @@ function App() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
-          <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px solid var(--border)' }}>
-            <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>データベース更新 (Planetarium)</h4>
-            <p style={{ margin: '0 0 1rem', color: 'var(--text-dim)', fontSize: '0.8rem', lineHeight: '1.4' }}>
-              Polarisが収集した新しいログのみを解析し、行動履歴データベースを効率的に更新します。
-            </p>
+        <div className="sync-grid">
+          {/* カード1: データベース更新 */}
+          <div className="sync-card">
+            <h4>データベース更新</h4>
+            <p>Polarisが収集した新しいログのみを解析し、行動履歴DBを効率的に更新します。</p>
             <button className="btn-action primary" style={{ width: '100%' }} onClick={() => handleSync()} disabled={planetariumRunning}>
               {planetariumRunning ? '処理中...' : 'インポート開始'}
             </button>
           </div>
 
-          <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px solid var(--border)' }}>
-            <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>ログアーカイブ最適化 (Polaris系)</h4>
-            <p style={{ margin: '0 0 1rem', color: 'var(--text-dim)', fontSize: '0.8rem', lineHeight: '1.4' }}>
-              過去のログを個別に圧縮し、ストレージを節約します。圧縮後も強化同期で読み取可能です。
-            </p>
-            <button
-              className="btn-action"
-              style={{ width: '100%' }}
-              onClick={handleCompressLogs}
-            >
+          {/* カード2: 圧縮 */}
+          <div className="sync-card">
+            <h4>ログアーカイブ最適化</h4>
+            <p>過去のログを tar.zst で圧縮し、zstフォルダへ移動。圧縮後は元ファイルを削除します。</p>
+            <button className="btn-action" style={{ width: '100%' }} onClick={handleCompressLogs}>
               過去ログを圧縮
             </button>
           </div>
 
-          <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: '16px', border: '1px solid var(--border)' }}>
-            <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.9rem' }}>強化同期 (アーカイブ読込)</h4>
-            <p style={{ margin: '0 0 1rem', color: 'var(--text-dim)', fontSize: '0.8rem', lineHeight: '1.4' }}>
-              圧縮済み（.tar.zst）を含むアーカイブファイルを個別に選択してデータベースを更新します。
-            </p>
+          {/* カード3: zipからも読み取る */}
+          <div className="sync-card">
+            <h4>zipからも読み取る</h4>
+            <p>圧縮済み (.tar.zst) を指定してDBを更新。複数選択・ Shift/Ctrl/ドラッグ対応。</p>
             <button
               className="btn-action primary"
               style={{ width: '100%' }}
               onClick={handleOpenEnhancedSync}
               disabled={planetariumRunning}
             >
-              強化同期を開始
+              アーカイブを選択
+            </button>
+          </div>
+
+          {/* カード4: 解凍 */}
+          <div className="sync-card">
+            <h4>アーカイブを解凍</h4>
+            <p>zst フォルダ内の .tar.zst を archive フォルダに .txt として復元。展開確認後に .tar.zst を削除します。</p>
+            <button
+              className="btn-action"
+              style={{ width: '100%' }}
+              onClick={handleOpenDecompress}
+            >
+              解凍する
             </button>
           </div>
         </div>
@@ -461,8 +577,11 @@ function App() {
         )}
       </div>
 
+      {/* デンジャーゾーンはページ下部に配置—スクロールすると出てくる */}
+      <div className="danger-zone-spacer" />
       <div className="warning-zone">
         <div className="warning-header">
+          <div className="danger-badge">DANGER</div>
           <Icons.Alert />
           <h4>デンジャーゾーン</h4>
         </div>
@@ -474,7 +593,7 @@ function App() {
           <button className="btn-action danger" onClick={handleDeleteTodayData}>
             今日分の記録を削除
           </button>
-          <button className="btn-action danger" onClick={handleWipeDatabase} style={{ background: '#ef4444', color: 'white' }}>
+          <button className="btn-action danger wipe" onClick={handleWipeDatabase}>
             データベースを完全に初期化
           </button>
         </div>
@@ -626,44 +745,104 @@ function App() {
       </main>
 
       {showEnhancedSyncModal && (
-        <div className="modal-overlay">
-          <div className="modal-content file-selector">
-            <h3>強化同期：ファイル選択</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '1rem' }}>
-              取り込むログファイル（.txt または .tar.zst）を選択してください。
-            </p>
-            <div className="file-list-container">
+        <div className="modal-overlay fullscreen-modal">
+          <div className="modal-content archive-selector">
+            <div className="archive-modal-header">
+              <div>
+                <h3>{decompressMode ? 'アーカイブを解凍' : 'zipからも読み取る'}</h3>
+                <p>
+                  {decompressMode
+                    ? '解凍する .tar.zst ファイルを選択してください。展開確認後に .tar.zst は削除されます。'
+                    : '取り込む圧縮ログ（.tar.zst）を選択してください。日付新しい順に並んでいます。'}
+                </p>
+              </div>
+              <div className="archive-modal-meta">
+                <span className="archive-count">{selectedFiles.size} / {archiveFiles.length} 件選択中</span>
+                <button className="btn-action" style={{ fontSize: '0.8rem', padding: '0.4rem 1rem' }} onClick={handleSelectAll}>
+                  {selectedFiles.size === archiveFiles.length ? '選択解除' : 'すべて選択'}
+                </button>
+              </div>
+            </div>
+            <div className="file-list-container fullscreen-list">
               {archiveFiles.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-                  アーカイブ内にファイルが見つかりません。
+                <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-dim)' }}>
+                  zst フォルダ内にアーカイブファイルが見つかりません。<br />
+                  先に「過去ログを圧縮」を実行してください。
                 </div>
               ) : (
                 archiveFiles.map(file => (
                   <div
                     key={file}
-                    className={`file-item ${selectedFile === file ? 'selected' : ''}`}
-                    onClick={() => setSelectedFile(file)}
+                    className={`file-item ${selectedFiles.has(file) ? 'selected' : ''}`}
+                    onMouseDown={(e) => handleFileAction(e, file, 'down')}
+                    onMouseEnter={(e) => handleFileAction(e, file, 'enter')}
                   >
+                    <div className={`file-checkbox ${selectedFiles.has(file) ? 'checked' : ''}`}>
+                      {selectedFiles.has(file) && '✓'}
+                    </div>
                     <Icons.Folder />
                     <span className="file-name">{file}</span>
-                    {file.endsWith('.tar.zst') && <span className="badge-zst">ZST</span>}
+                    <span className="badge-zst">ZST</span>
                   </div>
                 ))
               )}
             </div>
             <div className="modal-actions">
-              <button className="btn-action" onClick={() => setShowEnhancedSyncModal(false)}>キャンセル</button>
+              <button className="btn-action" onClick={() => { setShowEnhancedSyncModal(false); setDecompressMode(false); }}>キャンセル</button>
               <button
-                className="btn-action primary"
-                disabled={!selectedFile}
-                onClick={handleExecuteEnhancedSync}
+                className={`btn-action ${decompressMode ? '' : 'primary'}`}
+                disabled={selectedFiles.size === 0}
+                onClick={decompressMode ? handleDecompress : handleExecuteEnhancedSync}
               >
-                取り込み開始
+                {selectedFiles.size > 0
+                  ? decompressMode ? `${selectedFiles.size}件を解凍する` : `${selectedFiles.size}件を取り込み開始`
+                  : decompressMode ? '解凍する' : '取り込み開始'}
               </button>
             </div>
+
           </div>
         </div>
       )}
+
+      {dangerModal && (() => {
+        const isStep2 = dangerModal.step === 2;
+        return (
+          <div className="modal-overlay" onClick={() => setDangerModal(null)}>
+            <div className="modal-content danger-modal" onClick={e => e.stopPropagation()}>
+              <div className="danger-modal-header">
+                <div className="danger-modal-badge">
+                  {isStep2 ? "⚠ FINAL WARNING" : "⚠ DANGER"}
+                </div>
+                <h3>
+                  {dangerModal.action === "deleteToday"
+                    ? "今日分の記録を削除"
+                    : isStep2 ? "本当に初期化しますか？" : "データベースを完全に初期化"}
+                </h3>
+              </div>
+
+              <div className="danger-modal-body">
+                {dangerModal.action === "deleteToday" ? (
+                  <p>今日（ローカル時刻）に記録された<strong>ワールド訪問データをすべて削除</strong>します。<br />この操作は<strong>取り消せません。</strong></p>
+                ) : isStep2 ? (
+                  <p>本当に実行しますか？<br />ログを再解析するまで<strong>統計・履歴・プレイヤー情報がすべて消去</strong>されます。</p>
+                ) : (
+                  <p>データベースの<strong>全記録を完全に消去</strong>します。<br />この操作は<strong>取り消せません。</strong>ログが再解析されるまで空になります。</p>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button className="btn-action" onClick={() => setDangerModal(null)}>キャンセル</button>
+                <button className="btn-action danger-confirm" onClick={advanceDangerModal}>
+                  {dangerModal.action === "deleteToday"
+                    ? "削除する"
+                    : isStep2 ? "完全に初期化する" : "続行する →"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
 
       <div className="toast-container">
         {toasts.map(t => (

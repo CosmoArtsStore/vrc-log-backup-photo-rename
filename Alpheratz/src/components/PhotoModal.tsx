@@ -68,7 +68,6 @@ export const PhotoModal = ({
         setHasSearched(true);
 
         try {
-            // Get all hashes including rotated ones from backend 
             const rotatedHashes: string[] = await invoke("get_rotated_phashes", { path: photo.photo_path });
             const allTargetHashes = rotatedHashes.map(base64ToBytes);
 
@@ -78,15 +77,13 @@ export const PhotoModal = ({
                 if (p.photo_filename === photo.photo_filename || !p.phash) continue;
 
                 const pBytes = base64ToBytes(p.phash);
-
-                // Compare with all 0, 90, 180, 270 degree versions, take the minimum distance
                 let minDist = 64;
                 for (const targetBytes of allTargetHashes) {
                     const dist = hammingDistance(targetBytes, pBytes);
                     if (dist < minDist) minDist = dist;
                 }
-
-                if (minDist <= 10) {
+                // 通常類似標準: 10 / 「もしかして」用緩い標準: 20
+                if (minDist <= 20) {
                     results.push({ item: p, distance: minDist });
                 }
             }
@@ -99,13 +96,24 @@ export const PhotoModal = ({
         }
     };
 
-    // Suggestion logic for unknown worlds
+    // suggestion logic: world_idありの写真から類似ワールドを推測する
     const suggestions = useMemo(() => {
         if (!unknownWorld) return [];
-        // Extract known worlds from the list
         const knowns = similarPhotos.filter(s => s.item.world_id && s.item.world_name);
+        const map = new Map<string, { world_id: string, world_name: string, min_dist: number, photo: Photo }>();
+        for (const s of knowns) {
+            const wid = s.item.world_id!;
+            if (!map.has(wid) || map.get(wid)!.min_dist > s.distance) {
+                map.set(wid, { world_id: wid, world_name: s.item.world_name!, min_dist: s.distance, photo: s.item });
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => a.min_dist - b.min_dist).slice(0, 5);
+    }, [similarPhotos, unknownWorld]);
 
-        // Group by world id
+    // 「もしかして」候補: world_idなしの写真で側だからworld_idありの候補求め
+    const maybeSuggestions = useMemo(() => {
+        if (!unknownWorld || similarPhotos.length === 0) return [];
+        const knowns = similarPhotos.filter(s => s.item.world_id && s.item.world_name && s.distance > 10 && s.distance <= 20);
         const map = new Map<string, { world_id: string, world_name: string, min_dist: number, photo: Photo }>();
         for (const s of knowns) {
             const wid = s.item.world_id!;
@@ -118,6 +126,7 @@ export const PhotoModal = ({
 
     const confident = suggestions.filter(s => s.min_dist <= 6);
     const possible = suggestions.filter(s => s.min_dist > 6 && s.min_dist <= 10);
+
 
     const handleOpenWorldId = async (id: string) => {
         await invoke("open_world_url", { worldId: id });
@@ -197,8 +206,8 @@ export const PhotoModal = ({
                             <div className="suggestions-section" style={{ marginTop: '20px', padding: '12px', background: 'var(--card-bg)', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
                                 {confident.length > 0 ? (
                                     <>
-                                        <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#4ade80' }}>この画像、調べてみたよ！</h3>
-                                        <p style={{ margin: '0 0 10px 0', fontSize: '13px' }}>ほぼ確定（距離: {confident[0].min_dist}）</p>
+                                        <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#4ade80' }}>ワールドが見つかったかも！</h3>
+                                        <p style={{ margin: '0 0 10px 0', fontSize: '13px' }}>高信頼度（距離: {confident[0].min_dist}）</p>
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                             <img src={convertFileSrc(confident[0].photo.photo_path)} alt="" style={{ width: '80px', height: '56px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }} onClick={() => onSelectSimilar(confident[0].photo)} />
                                             <div>
@@ -211,21 +220,45 @@ export const PhotoModal = ({
                                     </>
                                 ) : possible.length > 0 ? (
                                     <>
-                                        <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#fbbf24' }}>もしかしたらこのワールドかも？</h3>
-                                        <p style={{ margin: '0 0 10px 0', fontSize: '13px' }}>雰囲気近いオリジナル画像から推測しました。</p>
+                                        <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#fbbf24' }}>雰囲気が似てるワールド</h3>
+                                        <p style={{ margin: '0 0 10px 0', fontSize: '13px' }}>近い写真から推測しました。</p>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             {possible.map(s => (
                                                 <div key={s.world_id} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                                     <img src={convertFileSrc(s.photo.photo_path)} alt="" style={{ width: '60px', height: '42px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }} onClick={() => onSelectSimilar(s.photo)} />
                                                     <div style={{ flex: 1 }}>
                                                         <div style={{ fontSize: '13px', fontWeight: 'bold' }}>{s.world_name}</div>
-                                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>距離: {s.min_dist} (ID: {s.world_id})</div>
+                                                        <button className="world-link-button" onClick={() => handleOpenWorldId(s.world_id)} style={{ padding: '2px 6px', fontSize: '11px', marginTop: '2px' }}>開く</button>
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
                                     </>
                                 ) : null}
+                            </div>
+                        )}
+
+                        {/* 「もしかして」: 距離 11-20 の緩い類似候補 */}
+                        {unknownWorld && hasSearched && maybeSuggestions.length > 0 && (
+                            <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(251,191,36,0.07)', borderRadius: '8px', border: '1px dashed rgba(251,191,36,0.4)', marginBottom: '20px' }}>
+                                <h3 style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>📍</span> もしかして...
+                                </h3>
+                                <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: 'var(--a-text)', opacity: 0.7 }}>
+                                    雰囲気が少し似ているワールドがあります。ヒント程度にどうぞ。
+                                </p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {maybeSuggestions.map(s => (
+                                        <div key={s.world_id} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            <img src={convertFileSrc(s.photo.photo_path)} alt="" style={{ width: '52px', height: '36px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', opacity: 0.85 }} onClick={() => onSelectSimilar(s.photo)} />
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontSize: '12px', fontWeight: 'bold', opacity: 0.9 }}>{s.world_name}</div>
+                                                <div style={{ fontSize: '10px', color: 'var(--a-text)', opacity: 0.5 }}>部分一致 (dist {s.min_dist})</div>
+                                            </div>
+                                            <button className="world-link-button" onClick={() => handleOpenWorldId(s.world_id)} style={{ padding: '2px 6px', fontSize: '10px', opacity: 0.8 }}>開く</button>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 

@@ -477,17 +477,17 @@ Function .onInit
     !if "${INSTALLMODE}" == "perMachine"
       ${If} ${RunningX64}
         !if "${ARCH}" == "x64"
-          StrCpy $INSTDIR "$PROGRAMFILES64\${PRODUCTNAME}"
+          StrCpy $INSTDIR "$PROGRAMFILES64\CosmoArtsStore\STELLAProject\${PRODUCTNAME}"
         !else if "${ARCH}" == "arm64"
-          StrCpy $INSTDIR "$PROGRAMFILES64\${PRODUCTNAME}"
+          StrCpy $INSTDIR "$PROGRAMFILES64\CosmoArtsStore\STELLAProject\${PRODUCTNAME}"
         !else
-          StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCTNAME}"
+          StrCpy $INSTDIR "$PROGRAMFILES\CosmoArtsStore\STELLAProject\${PRODUCTNAME}"
         !endif
       ${Else}
-        StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCTNAME}"
+        StrCpy $INSTDIR "$PROGRAMFILES\CosmoArtsStore\STELLAProject\${PRODUCTNAME}"
       ${EndIf}
     !else if "${INSTALLMODE}" == "currentUser"
-      StrCpy $INSTDIR "$LOCALAPPDATA\CosmoArtsStore\STELLARECORD\Polaris"
+      StrCpy $INSTDIR "$LOCALAPPDATA\CosmoArtsStore\STELLAProject\Polaris"
     !endif
 
     Call RestorePreviousInstallLocation

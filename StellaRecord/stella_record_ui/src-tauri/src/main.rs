@@ -17,20 +17,21 @@ use std::path::PathBuf;
 // §5: STELLA_RECORD.exe — Polaris設定・Planetarium設定・手動バックアップ
 
 
-/// ログアーカイブ内のファイル一覧を取得 (.txt, .tar.zst)
+/// ログの zst サブフォルダ内の .tar.zst ファイル一覧を取得（日付降順）
 #[tauri::command]
 fn list_archive_files() -> Result<Vec<String>, String> {
     let setting = load_polaris_setting();
     let archive_dir = setting.get_effective_archive_dir()?;
+    let zst_dir = archive_dir.join("zst");
     let mut files = Vec::new();
 
-    if archive_dir.exists() {
-        if let Ok(entries) = std::fs::read_dir(&archive_dir) {
+    if zst_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&zst_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_file() {
                     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                        if (name.starts_with("output_log_") && name.ends_with(".txt")) || name.ends_with(".tar.zst") {
+                        if name.ends_with(".tar.zst") {
                             files.push(name.to_string());
                         }
                     }
@@ -38,12 +39,13 @@ fn list_archive_files() -> Result<Vec<String>, String> {
             }
         }
     }
+    // ファイル名にはタイムスタンプが含まれるので降順ソートで日付新しい順になる
     files.sort();
-    files.reverse(); // 新しいもの順
+    files.reverse();
     Ok(files)
 }
 
-/// 過去ログを圧縮 (レベル3)
+/// 過去ログを圧縮 (レベル3)。完了後に元ファイルを削除し zst/ サブフォルダへ格納。
 #[tauri::command]
 fn compress_logs() -> Result<String, String> {
     let setting = load_polaris_setting();
@@ -52,17 +54,24 @@ fn compress_logs() -> Result<String, String> {
         return Err("アーカイブディレクトリが存在しません。".to_string());
     }
 
+    // zst サブフォルダを作成
+    let zst_dir = archive_dir.join("zst");
+    std::fs::create_dir_all(&zst_dir).map_err(|e| e.to_string())?;
+
     let mut count = 0;
     let entries = std::fs::read_dir(&archive_dir).map_err(|e| e.to_string())?;
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_file() {
             if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                // output_log_*.txt かつ .tar.zst が存在しない場合
                 if name.starts_with("output_log_") && name.ends_with(".txt") {
-                    let zst_path = path.with_extension("txt.tar.zst");
+                    // 保存先: zst/output_log_xxxx.txt.tar.zst
+                    let zst_name = format!("{}.tar.zst", name);
+                    let zst_path = zst_dir.join(&zst_name);
                     if !zst_path.exists() {
+                        // 圧縮成功後のみ元ファイルを削除
                         compress_single_file(&path, &zst_path)?;
+                        std::fs::remove_file(&path).map_err(|e| e.to_string())?;
                         count += 1;
                     }
                 }
@@ -70,7 +79,7 @@ fn compress_logs() -> Result<String, String> {
         }
     }
 
-    Ok(format!("完了しました。{}個のファイルを圧縮しました。", count))
+    Ok(format!("完了しました。{}個のファイルを圧縮・移動しました。", count))
 }
 
 fn compress_single_file(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
@@ -86,47 +95,124 @@ fn compress_single_file(src: &std::path::Path, dst: &std::path::Path) -> Result<
     Ok(())
 }
 
-/// 強化同期を開始
+/// 強化同期：複数ファイルをまとめてインポート
 #[tauri::command]
-fn launch_enhanced_import(handle: tauri::AppHandle, file_name: String) -> Result<String, String> {
+fn launch_enhanced_import(handle: tauri::AppHandle, file_names: Vec<String>) -> Result<String, String> {
     let setting = load_planetarium_setting();
     let db_path = setting.get_effective_db_path()?;
     let archive_dir = setting.get_effective_archive_dir()?;
-    let target_path = archive_dir.join(&file_name);
+    let zst_dir = archive_dir.join("zst");
 
-    if !target_path.exists() {
-        return Err("ファイルが見つかりません。".to_string());
+    // ファイルが全て存在するか事前確認
+    let mut target_paths = Vec::new();
+    for name in &file_names {
+        let path = zst_dir.join(name);
+        if !path.exists() {
+            return Err(format!("ファイルが見つかりません: {}", name));
+        }
+        target_paths.push(path);
     }
+    let total = target_paths.len();
 
     std::thread::spawn(move || {
-        let result = planetarium::run_enhanced_import(db_path, target_path, |status, progress| {
+        for (idx, target_path) in target_paths.into_iter().enumerate() {
+            let file_label = target_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
+
             let _ = handle.emit("planetarium-progress", PlanetariumPayload {
-                status,
-                progress,
+                status: format!("[{}/{}] {}", idx + 1, total, file_label),
+                progress: format!("{}%", (idx * 100) / total.max(1)),
                 is_running: true,
             });
-        });
 
-        match result {
-            Ok(_) => {
-                let _ = handle.emit("planetarium-progress", PlanetariumPayload {
-                    status: "完了".to_string(),
-                    progress: "100%".to_string(),
-                    is_running: false,
-                });
-            }
-            Err(e) => {
+            let result = planetarium::run_enhanced_import(
+                db_path.clone(),
+                target_path,
+                |status, progress| {
+                    let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                        status,
+                        progress,
+                        is_running: true,
+                    });
+                },
+            );
+
+            if let Err(e) = result {
                 let _ = handle.emit("planetarium-progress", PlanetariumPayload {
                     status: format!("エラー: {}", e),
                     progress: "0%".to_string(),
                     is_running: false,
                 });
+                let _ = handle.emit("planetarium-finished", ());
+                return;
             }
         }
+
+        let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+            status: format!("{}件のインポートが完了しました。", total),
+            progress: "100%".to_string(),
+            is_running: false,
+        });
         let _ = handle.emit("planetarium-finished", ());
     });
 
-    Ok("強化同期を開始しました。".to_string())
+    Ok(format!("{}件のアーカイブの同期を開始しました。", total))
+}
+
+/// zst/ 内の .tar.zst を archive フォルダへ展開し、.txt の存在を確認後に .tar.zst を削除
+#[tauri::command]
+fn decompress_logs(file_names: Vec<String>) -> Result<String, String> {
+    let setting = load_polaris_setting();
+    let archive_dir = setting.get_effective_archive_dir()?;
+    let zst_dir = archive_dir.join("zst");
+
+    if !zst_dir.exists() {
+        return Err("zst フォルダが存在しません。".to_string());
+    }
+
+    let mut success_count = 0;
+    let mut skip_count = 0;
+
+    for name in &file_names {
+        let zst_path = zst_dir.join(name);
+        if !zst_path.exists() {
+            return Err(format!("ファイルが見つかりません: {}", name));
+        }
+
+        // 展開先の .txt 名を秺定 (output_log_xxxx.txt.tar.zst -> output_log_xxxx.txt)
+        let txt_name = name.replace(".tar.zst", "");
+        let txt_path = archive_dir.join(&txt_name);
+
+        // 展開先にすでに .txt があればスキップ
+        if txt_path.exists() {
+            skip_count += 1;
+            continue;
+        }
+
+        // zstd ストリーム -> tar アーカイブ -> archive_dir へ要展開
+        let file = std::fs::File::open(&zst_path).map_err(|e| e.to_string())?;
+        let decoder = zstd::stream::Decoder::new(file).map_err(|e| e.to_string())?;
+        let mut archive = tar::Archive::new(decoder);
+        archive.unpack(&archive_dir).map_err(|e| e.to_string())?;
+
+        // .txt が展開されたか確認
+        if !txt_path.exists() {
+            return Err(format!("展開に失敗しました: {}", txt_name));
+        }
+
+        // .txt の存在を確認したうえで .tar.zst を削除
+        std::fs::remove_file(&zst_path).map_err(|e| e.to_string())?;
+        success_count += 1;
+    }
+
+    if skip_count > 0 {
+        Ok(format!("{}個を展開しました。{}個は既に展開済みでスキップしました。", success_count, skip_count))
+    } else {
+        Ok(format!("{}個のアーカイブを展開し、元ファイルを削除しました。", success_count))
+    }
 }
 
 /// §5.2 起動シーケンス / §5.5 Planetarium手動最新化・強制Sync
@@ -396,7 +482,7 @@ fn wipe_database() -> Result<String, String> {
 
 #[tauri::command]
 fn read_launcher_json(section: &str) -> Vec<stella_record_ui::config::AppCard> {
-    let filename = if section == "pleiades" { "PleiadesPath.json" } else { "JewelBoxPath.json" };
+    let filename = if section == "pleiades" { "pleiades.json" } else { "jewelbox.json" };
     stella_record_ui::config::load_launcher_json(filename)
 }
 
@@ -438,6 +524,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             list_archive_files,
             compress_logs,
+            decompress_logs,
             launch_enhanced_import,
             launch_planetarium,
             cancel_planetarium,

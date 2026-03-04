@@ -70,18 +70,20 @@ async fn open_world_url(app: AppHandle, world_id: String) -> Result<(), String> 
 async fn show_in_explorer(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        std::process::Command::new("explorer")
-            .arg("/select,")
-            .arg(&path)
+        use std::os::windows::process::CommandExt;
+        let escaped = path.replace('"', "");
+        let cmdline = format!("explorer.exe /select,\"{}\"", escaped);
+        std::process::Command::new("cmd")
+            .args(["/C", &cmdline])
+            .creation_flags(0x08000000)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
     #[cfg(not(target_os = "windows"))]
     {
-        // Fallback for non-windows
         let path_obj = std::path::Path::new(&path);
         if let Some(parent) = path_obj.parent() {
-            std::process::Command::new("explorer")
+            std::process::Command::new("xdg-open")
                 .arg(parent)
                 .spawn()
                 .map_err(|e| e.to_string())?;

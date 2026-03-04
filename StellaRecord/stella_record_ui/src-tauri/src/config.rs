@@ -114,7 +114,7 @@ impl PolarisSetting {
     /// アーカイブ先ディレクトリ。正規パスは log_archive。
     pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
         let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-        let default = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\log_archive");
+        let default = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\archive");
 
         if self.archivePath.is_empty() {
             Ok(default)
@@ -128,7 +128,7 @@ impl PlanetariumSetting {
     /// アーカイブ先ディレクトリ。正規パスは log_archive。
     pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
         let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-        let default = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\log_archive");
+        let default = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\archive");
 
         if self.archivePath.is_empty() {
             Ok(default)
@@ -142,7 +142,7 @@ impl PlanetariumSetting {
             return Ok(PathBuf::from(&self.dbPath));
         }
         let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-        let db_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD\\Planetarium");
+        let db_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD\\database");
         if !db_dir.exists() {
             fs::create_dir_all(&db_dir).map_err(|e| format!("Failed to create db dir: {}", e))?;
         }
