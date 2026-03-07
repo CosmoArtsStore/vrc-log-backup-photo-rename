@@ -19,98 +19,6 @@ use windows::core::PCWSTR;
 
 const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
 
-// ── パス ──────────────────────────────────────────
-
-fn vrchat_log_dir() -> PathBuf {
-    PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default())
-        .join("AppData").join("LocalLow").join("VRChat").join("VRChat")
-}
-
-fn archive_dir() -> PathBuf {
-    PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
-        .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("archive")
-}
-
-fn error_log_path() -> PathBuf {
-    PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
-        .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("error_info.log")
-}
-
-// ── エラーログ ────────────────────────────────────
-
-fn init_log() {
-    let path = error_log_path();
-    if let Some(p) = path.parent() { let _ = fs::create_dir_all(p); }
-    let _ = OpenOptions::new().create(true).append(true).open(&path);
-}
-
-fn log_err(msg: &str) {
-    let path = error_log_path();
-    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
-        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-        let _ = writeln!(f, "[{}] {}", now, msg);
-    }
-    eprintln!("{}", msg);
-}
-
-// ── 同期 ─────────────────────────────────────────
-
-fn sync_logs() {
-    let dst_dir = archive_dir();
-    if !dst_dir.is_dir() {
-        log_err(&format!("[ERROR] Cannot backup: archive directory is missing ({})", dst_dir.display()));
-        return;
-    }
-
-    let entries = match fs::read_dir(vrchat_log_dir()) {
-        Ok(e) => e,
-        Err(_) => return,
-    };
-
-    for entry in entries.flatten() {
-        let src = entry.path();
-        let name = match src.file_name().and_then(|n| n.to_str()) {
-            Some(n) => n.to_string(),
-            None => continue,
-        };
-        if !name.starts_with("output_log_") || !name.ends_with(".txt") { continue; }
-
-        let dst = dst_dir.join(&name);
-        let src_size = match fs::metadata(&src) {
-            Ok(m) => m.len(),
-            Err(e) => { log_err(&format!("Stat src {}: {}", name, e)); continue; }
-        };
-        if src_size <= fs::metadata(&dst).map(|m| m.len()).unwrap_or(0) { continue; }
-
-        if let Err(e) = copy_shared(&src, &dst) {
-            log_err(&format!("copy {}: {}", name, e));
-        }
-    }
-}
-
-fn copy_shared(src: &std::path::Path, dst: &std::path::Path) -> io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use std::io::Seek;
-    let wide: Vec<u16> = src.as_os_str().encode_wide().chain(Some(0)).collect();
-    let handle = unsafe {
-        CreateFileW(
-            PCWSTR(wide.as_ptr()),
-            FILE_GENERIC_READ.0,
-            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-            None, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, HANDLE::default(),
-        )
-    }.map_err(|e: windows::core::Error| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-
-    let mut src_file = unsafe { <fs::File as std::os::windows::io::FromRawHandle>::from_raw_handle(handle.0 as _) };
-    
-    let dst_size = fs::metadata(dst).map(|m| m.len()).unwrap_or(0);
-    src_file.seek(io::SeekFrom::Start(dst_size))?;
-    
-    let mut dst_file = fs::OpenOptions::new().create(true).append(true).open(dst)?;
-    io::copy(&mut src_file, &mut dst_file)?;
-    dst_file.flush().map_err(|e| { log_err(&format!("flush dst: {}", e)); e })
-}
-
 // ── メイン ────────────────────────────────────────
 
 fn main() {
@@ -121,7 +29,6 @@ fn main() {
         return;
     }
 
-    init_log();
     sync_logs();
 
     // 定期同期（10分間隔）
@@ -151,17 +58,142 @@ fn main() {
         .build()
         .expect("tray build failed");
 
-    // GetMessageベースのメッセージループ
+    // GetMessageベースのメッセージループ（CPUを使わない）
     let mut msg = MSG::default();
     loop {
-        // メニューイベントチェック
         if let Ok(event) = MenuEvent::receiver().try_recv() {
             if event.id == quit_id { break; }
         }
-        // OSメッセージを待機（CPUを使わない）
         unsafe { let _ = GetMessageW(&mut msg, None, 0, 0); };
     }
 
     running.store(false, Ordering::Relaxed);
     sync_logs();
 }
+
+// ── 同期 ─────────────────────────────────────────
+
+fn sync_logs() {
+    let dst_dir = archive_dir();
+    if !dst_dir.is_dir() {
+        log_err(&format!("Cannot backup: archive dir missing ({})", dst_dir.display()));
+        return;
+    }
+
+    let read_result = fs::read_dir(vrchat_log_dir());
+    if read_result.is_err() {
+        log_err(&format!("Cannot read VRChat log dir: {}", read_result.unwrap_err()));
+        return;
+    }
+
+    for entry in read_result.unwrap().flatten() {
+        let src = entry.path();
+
+        // ファイル名を取得。取れなければスキップ
+        let name_os = src.file_name();
+        if name_os.is_none() { continue; }
+        let name = name_os.unwrap().to_str();
+        if name.is_none() { continue; }
+        let name = name.unwrap().to_string();
+
+        // VRChatのログファイル以外はスキップ
+        if !name.starts_with("output_log_") || !name.ends_with(".txt") { continue; }
+
+        let dst = dst_dir.join(&name);
+
+        // srcのサイズ取得
+        let src_meta = fs::metadata(&src);
+        if src_meta.is_err() {
+            log_err(&format!("stat src [{}]: {}", name, src_meta.unwrap_err()));
+            continue;
+        }
+        let src_size = src_meta.unwrap().len();
+
+        // dstのサイズ取得（まだなければ0）
+        let dst_size = fs::metadata(&dst).map(|m| m.len()).unwrap_or(0);
+
+        // srcがdst以下なら差分なし → スキップ
+        if src_size <= dst_size && src_size != 0 { continue; }
+
+        // 差分コピー実行
+        let copy_result = copy_shared_diff(&src, &dst, src_size, dst_size);
+        if copy_result.is_err() {
+            log_err(&format!("copy failed [{}]: {}", name, copy_result.unwrap_err()));
+        }
+        // 成功はサイレント
+    }
+}
+
+fn copy_shared_diff(
+    src: &std::path::Path,
+    dst: &std::path::Path,
+    src_size: u64,
+    dst_size: u64,
+) -> io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use std::io::Seek;
+
+    // FILE_GENERIC : 自アプリの権限[読み取り専用]
+    // FILE_SHARE   : VRChat、および他アプリ側の権限
+    let wide: Vec<u16> = src.as_os_str().encode_wide().chain(Some(0)).collect();
+    let handle_result = unsafe {
+        CreateFileW(
+            PCWSTR(wide.as_ptr()),
+            FILE_GENERIC_READ.0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            None, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, HANDLE::default(),
+        )
+    };
+    if handle_result.is_err() {
+        return Err(io::Error::new(io::ErrorKind::Other, handle_result.unwrap_err().to_string()));
+    }
+
+    let mut src_file = unsafe {
+        <fs::File as std::os::windows::io::FromRawHandle>::from_raw_handle(handle_result.unwrap().0 as _)
+    };
+
+    // 差分なし → 何もしない
+    let offset = dst_size;
+    if offset >= src_size {
+        return Ok(());
+    }
+
+    // dstの末尾バイトからsrcを読んで追記
+    src_file.seek(io::SeekFrom::Start(offset))?;
+    let mut dst_file = fs::OpenOptions::new().create(true).append(true).open(dst)?;
+    io::copy(&mut src_file, &mut dst_file)?;
+    dst_file.flush()?;
+
+    Ok(())
+}
+
+// ── 処理用パス構築 ────────────────────────────────
+
+fn vrchat_log_dir() -> PathBuf {
+    PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default())
+        .join("AppData").join("LocalLow").join("VRChat").join("VRChat")
+}
+
+fn archive_dir() -> PathBuf {
+    PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
+        .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("archive")
+}
+
+fn error_log_path() -> PathBuf {
+    PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
+        .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("error_info.log")
+}
+
+// ── ログ (WARN / ERROR のみ) ──────────────────────
+
+fn log_msg(level: &str, msg: &str) {
+    let path = error_log_path();
+    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+        let _ = writeln!(f, "[{}] [{}] {}", now, level, msg);
+    }
+    eprintln!("[{}] {}", level, msg);
+}
+
+fn log_warn(msg: &str) { log_msg("WARN",  msg); }
+fn log_err (msg: &str) { log_msg("ERROR", msg); }
