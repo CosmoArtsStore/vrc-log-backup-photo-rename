@@ -428,7 +428,7 @@
     <div class="header">
       <div>
         <div class="eyebrow mono">STELLARECORD / POLARIS</div>
-        <h1>ユーザーテスト チェックリスト <span style="font-size:13px;color:#444;font-weight:400">完全版 99項目</span></h1>
+        <h1>ユーザーテスト チェックリスト <span style="font-size:13px;color:#444;font-weight:400">完全版 44項目</span></h1>
       </div>
       <div style="text-align:right">
         <div style="font-size:11px;color:#666;margin-bottom:3px">🔴 高優先度の完了率</div>
@@ -532,68 +532,14 @@
         desc: "Polaris.exe を終了した状態で VRChat を起動・終了 → その後 Polaris.exe を起動",
         expect: "前回分のログもバックアップされている", anxiety: ["backup"]
       },
-      {
-        id: "2.2.1", cat: "②起動時動作", priority: "高",
-        title: "VRChat 起動中に Polaris を起動してもバックアップが走らないこと",
-        desc: "VRChat 起動中に Polaris.exe を起動。バックアップ先フォルダの中身が変化しないことを確認",
-        expect: "バックアップ先のファイルが更新されない", anxiety: ["game", "backup"]
-      },
+
 
       {
-        id: "3.1.1", cat: "③プロセス監視", priority: "高",
-        title: "VRChat プレイ中はコピー処理が走らないこと",
-        desc: "Polaris.exe 起動中に VRChat を起動してゲームをプレイ。その間バックアップ先フォルダを監視",
-        expect: "プレイ中はフォルダの中身が変化しない", anxiety: ["game"]
+        id: "2.3.1", cat: "②起動時動作", priority: "高",
+        title: "VRChat 起動中も3秒ごとにバックアップが走ること（仕様）",
+        desc: "VRChat を起動した状態で Polaris.exe を起動。バックアップ先フォルダを監視",
+        expect: "3秒ごとに差分チェックが走る。差分があればコピーされる", anxiety: ["backup", "game"]
       },
-      {
-        id: "3.1.2", cat: "③プロセス監視", priority: "高",
-        title: "VRChat を終了したらバックアップが実行されること",
-        desc: "VRChat を正常終了し、バックアップ先フォルダを確認",
-        expect: "終了後6秒以内に output_log_YYYY-MM-DD_hh-mm-ss.txt がバックアップ先に出現・更新される", anxiety: ["backup"]
-      },
-      {
-        id: "3.1.3", cat: "③プロセス監視", priority: "中",
-        title: "VRChat をすぐ終了してもバックアップされること",
-        desc: "VRChat を起動して数秒以内に終了",
-        expect: "短時間でも漏れなくバックアップが実行される", anxiety: ["backup"]
-      },
-      {
-        id: "3.2.1", cat: "③プロセス監視", priority: "高",
-        title: "VRChat が落ちた（クラッシュ）場合もバックアップされること",
-        desc: "タスクマネージャーから VRChat.exe を強制終了し、バックアップ先を確認",
-        expect: "クラッシュ終了でも通常終了と同様にログがバックアップされる", anxiety: ["backup"]
-      },
-      {
-        id: "3.2.2", cat: "③プロセス監視", priority: "中",
-        title: "プロセス名の大文字・小文字が違っても検知できること",
-        desc: "VRChat.exe・vrchat.exe など大文字小文字の違いを確認",
-        expect: "正しく起動・終了が検知される", anxiety: ["backup"]
-      },
-      {
-        id: "3.2.3", cat: "③プロセス監視", priority: "低",
-        title: "同じ名前の別アプリがあれば起動中と判定される（仕様）",
-        desc: "ダミーで「vrchat.exe」という名前の別プロセスを動かす",
-        expect: "VRChat として検知される。これは仕様通りの動作（プロセス名のみで判定）", anxiety: ["safe"]
-      },
-      {
-        id: "3.2.4", cat: "③プロセス監視", priority: "高",
-        title: "長時間常駐してもパソコンが重くならないこと",
-        desc: "Polaris.exe を起動したまま1時間以上放置。タスクマネージャーで CPU・メモリ使用率を確認",
-        expect: "CPU 使用率がほぼ 0%。メモリも増え続けない", anxiety: ["game", "resident"]
-      },
-      {
-        id: "3.2.5", cat: "③プロセス監視", priority: "中",
-        title: "終了→即再起動してもバックアップが2回走らないこと",
-        desc: "VRChat を終了 → 1秒後にすぐ再起動",
-        expect: "バックアップは1回だけ実行される。重複して動かない", anxiety: ["resident", "clean"]
-      },
-      {
-        id: "3.2.6", cat: "③プロセス監視", priority: "低",
-        title: "監視周期中に再起動しても正しく動くこと",
-        desc: "VRChat 終了後の3秒監視周期中にすぐ再起動",
-        expect: "バックアップをスキップして正常に監視継続", anxiety: ["resident"]
-      },
-
       {
         id: "4.1.1", cat: "④ログ同期", priority: "高",
         title: "新しいログファイルがバックアップ先に出現すること",
@@ -754,12 +700,6 @@
         expect: "メモリ使用量が 20MB 未満で安定。増え続けない", anxiety: ["resident", "game"]
       },
       {
-        id: "7.2.1", cat: "⑦パフォーマンス", priority: "高",
-        title: "VRChat を10回以上起動・終了しても毎回バックアップが成功すること",
-        desc: "VRChat の起動・終了を10回以上繰り返す。毎回バックアップ先を確認",
-        expect: "10回全てのバックアップが正常に完了。メモリも増えない", anxiety: ["game", "backup", "resident"]
-      },
-      {
         id: "7.2.2", cat: "⑦パフォーマンス", priority: "中",
         title: "PC をスリープ・復帰させてもツールが動き続けること",
         desc: "PC をスリープ → 復帰 → VRChat を起動・終了",
@@ -840,7 +780,8 @@
       const total = TESTS.length, done = Object.values(checked).filter(Boolean).length;
       const hT = TESTS.filter(t => t.priority === "高").length, hD = TESTS.filter(t => t.priority === "高" && checked[t.id]).length;
       document.getElementById("progressBar").style.width = `${(done / total) * 100}%`;
-      document.getElementById("progressLabel").textContent = `全体 ${done}/${total} 完了`; document.getElementById("progressPct").textContent = `${Math.round((done / total) * 100)}%`;
+      document.getElementById("progressLabel").textContent = `全体 ${done}/${total} 完了`;
+      document.getElementById("progressPct").textContent = `${Math.round((done / total) * 100)}%`;
       const hs = document.getElementById("highScore"); hs.textContent = `${hD} / ${hT}`; hs.style.color = hD === hT ? "#7bed9f" : "#ff4757";
       document.getElementById("statsRow").innerHTML = [
         { l: "🔴 高 完了", v: `${hD}/${hT}`, c: "#ff4757" },

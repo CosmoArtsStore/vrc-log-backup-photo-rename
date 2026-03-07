@@ -47,6 +47,18 @@ pub fn init_alpheratz_db() -> Result<(), String> {
     // Migration for existing databases
     let _ = conn.execute("ALTER TABLE photos ADD COLUMN phash TEXT", []);
 
+    // Create table for identical world and avatar matching embeddings
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS photo_embeddings (
+            photo_id       TEXT PRIMARY KEY,
+            world_emb      BLOB,
+            avatar_emb     BLOB,
+            world_cluster  INTEGER,
+            avatar_cluster INTEGER
+        )",
+        [],
+    ).map_err(|e| e.to_string())?;
+
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp)", []).map_err(|e| e.to_string())?;
     conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name)", []).map_err(|e| e.to_string())?;
 
@@ -112,9 +124,12 @@ pub fn get_photos(
 
 pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
     let conn = Connection::open(get_alpheratz_db_path()).map_err(|e| e.to_string())?;
-    conn.execute(
+    let changed = conn.execute(
         "UPDATE photos SET memo = ?1 WHERE photo_filename = ?2",
         rusqlite::params![memo, filename],
     ).map_err(|e| e.to_string())?;
+    if changed == 0 {
+        return Err(format!("写真が見つかりません: {}", filename));
+    }
     Ok(())
 }

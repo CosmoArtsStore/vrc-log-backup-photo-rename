@@ -268,6 +268,12 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
         let chunk_type = [header[4], header[5], header[6], header[7]];
 
         if &chunk_type == b"iTXt" {
+            // 不正なPNGによる過大なメモリ確保(OOM)を防ぐため、4MB超のチャンクはスキップ
+            const MAX_ITXT_SIZE: usize = 4 * 1024 * 1024;
+            if chunk_len > MAX_ITXT_SIZE {
+                let _ = reader.seek(SeekFrom::Current(chunk_len as i64 + 4)); // data + CRC
+                continue;
+            }
             let mut chunk_data = vec![0u8; chunk_len];
             if reader.read_exact(&mut chunk_data).is_err() {
                 println!("[PNG parse] Failed to read iTXt chunk data");
