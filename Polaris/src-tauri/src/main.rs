@@ -52,13 +52,27 @@ fn main() {
     // トレイアイコン構築
     let (quit_id, _tray) = build_tray();
 
-    // 定期同期（1分間隔）
+    // VRChat終了検知→同期
     let running = Arc::new(AtomicBool::new(true));
-    let running_timer = Arc::clone(&running);
+    let running_watcher = Arc::clone(&running);
     thread::spawn(move || {
-        while running_timer.load(Ordering::Relaxed) {
-            thread::sleep(Duration::from_secs(60));
-            if running_timer.load(Ordering::Relaxed) { sync_logs(); }
+        while running_watcher.load(Ordering::Relaxed) {
+            if let Some(pid) = find_vrchat_pid() {
+                if let Ok(handle) = unsafe {
+                    windows::Win32::System::Threading::OpenProcess(
+                        windows::Win32::System::Threading::PROCESS_SYNCHRONIZE,
+                        false, pid,
+                    )
+                } {
+                    // VRChat終了まで待機
+                    unsafe { windows::Win32::System::Threading::WaitForSingleObject(
+                        handle, windows::Win32::System::Threading::INFINITE
+                    ) };
+                    unsafe { windows::Win32::Foundation::CloseHandle(handle).ok() };
+                    sync_logs(); // 終了後に同期
+                }
+            }
+            thread::sleep(Duration::from_secs(5)); // 5秒おきにプロセス探す
         }
     });
 
@@ -94,6 +108,40 @@ fn build_tray() -> (tray_icon::menu::MenuId, tray_icon::TrayIcon) {
         .expect("tray build failed");
 
     (quit_id, tray)
+}
+
+// ── VRChatプロセス検索 ────────────────────────────
+
+fn find_vrchat_pid() -> Option<u32> {
+    use windows::Win32::System::Diagnostics::ToolHelp::*;
+
+    let snapshot = unsafe {
+        CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).ok()?
+    };
+    let mut entry = PROCESSENTRY32W {
+        dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+        ..Default::default()
+    };
+
+    unsafe {
+        if Process32FirstW(snapshot, &mut entry).is_ok() {
+            loop {
+                let name: String = entry.szExeFile
+                    .iter()
+                    .take_while(|&&c| c != 0)
+                    .map(|&c| char::from_u32(c as u32).unwrap_or('?'))
+                    .collect();
+
+                if name.eq_ignore_ascii_case("VRChat.exe") {
+                    windows::Win32::Foundation::CloseHandle(snapshot).ok();
+                    return Some(entry.th32ProcessID);
+                }
+                if Process32NextW(snapshot, &mut entry).is_err() { break; }
+            }
+        }
+        windows::Win32::Foundation::CloseHandle(snapshot).ok();
+    }
+    None
 }
 
 // ── 同期処理 ─────────────────────────────────────────
