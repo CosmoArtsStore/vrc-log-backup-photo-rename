@@ -11,9 +11,15 @@ use tray_icon::{
     TrayIconBuilder,
     menu::{Menu, MenuItem, MenuEvent},
 };
-use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, HANDLE};
+use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, HANDLE, WAIT_OBJECT_0};
 use windows::Win32::Storage::FileSystem::*;
-use windows::Win32::System::Threading::CreateMutexW;
+use windows::Win32::System::Threading::{
+    CreateMutexW, OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE, INFINITE,
+};
+use windows::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW,
+    PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+};
 use windows::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG};
 use windows::core::PCWSTR;
 
@@ -36,7 +42,6 @@ fn error_log_path() -> PathBuf {
         .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("error_info.log")
 }
 
-
 // ── メイン ────────────────────────────────────────
 
 fn main() {
@@ -47,7 +52,11 @@ fn main() {
         return;
     }
 
+    // 起動時初期同期
     sync_logs();
+
+    // トレイアイコン構築（メッセージループ開始前に準備）
+    let (quit_id, _tray) = build_tray();
 
     // 定期同期（1分間隔）
     let running = Arc::new(AtomicBool::new(true));
@@ -59,23 +68,6 @@ fn main() {
         }
     });
 
-    // トレイアイコン
-    let img = image::load_from_memory(ICON_BYTES).expect("icon load failed").into_rgba8();
-    let (w, h) = img.dimensions();
-    let icon = tray_icon::Icon::from_rgba(img.into_raw(), w, h).expect("icon failed");
-
-    let menu = Menu::new();
-    let quit = MenuItem::new("Polaris", true, None);
-    let quit_id = quit.id().clone();
-    menu.append(&quit).unwrap();
-
-    let _tray = TrayIconBuilder::new()
-        .with_icon(icon)
-        .with_tooltip("Polaris")
-        .with_menu(Box::new(menu))
-        .build()
-        .expect("tray build failed");
-
     // GetMessageベースのメッセージループ（CPUを使わない）
     let mut msg = MSG::default();
     loop {
@@ -86,7 +78,31 @@ fn main() {
     }
 
     running.store(false, Ordering::Relaxed);
-    sync_logs();
+
+    // VRChatが生きていれば終了を待ってから最終sync
+    wait_for_vrchat_then_sync();
+}
+
+// ── トレイアイコン構築 ────────────────────────────
+
+fn build_tray() -> (tray_icon::menu::MenuId, tray_icon::TrayIcon) {
+    let img = image::load_from_memory(ICON_BYTES).expect("icon load failed").into_rgba8();
+    let (w, h) = img.dimensions();
+    let icon = tray_icon::Icon::from_rgba(img.into_raw(), w, h).expect("icon failed");
+
+    let menu = Menu::new();
+    let quit = MenuItem::new("Polaris", true, None);
+    let quit_id = quit.id().clone();
+    menu.append(&quit).unwrap();
+
+    let tray = TrayIconBuilder::new()
+        .with_icon(icon)
+        .with_tooltip("Polaris")
+        .with_menu(Box::new(menu))
+        .build()
+        .expect("tray build failed");
+
+    (quit_id, tray)
 }
 
 // ── 同期 ─────────────────────────────────────────
@@ -198,3 +214,75 @@ fn log_msg(level: &str, msg: &str) {
 
 fn log_warn(msg: &str) { log_msg("WARN",  msg); }
 fn log_err (msg: &str) { log_msg("ERROR", msg); }
+
+// ── VRChat終了待機 → 最終sync ─────────────────────
+
+fn wait_for_vrchat_then_sync() {
+    let vrchat_pid = find_process_id("VRChat.exe");
+
+    if vrchat_pid.is_none() {
+        // VRChatが既に死んでいる → そのまま最終sync
+        sync_logs();
+        return;
+    }
+
+    let pid = vrchat_pid.unwrap();
+
+    // VRChatのプロセスハンドルを取得（終了待機用の権限のみ）
+    let handle_result = unsafe {
+        OpenProcess(PROCESS_SYNCHRONIZE, false, pid)
+    };
+
+    if handle_result.is_err() {
+        // ハンドル取得失敗 → 安全のためsyncだけ実行
+        log_warn(&format!("OpenProcess failed for VRChat (pid={}), syncing anyway", pid));
+        sync_logs();
+        return;
+    }
+
+    let handle = handle_result.unwrap();
+
+    // VRChatが終了するまで無期限待機（CPUを使わない）
+    unsafe { WaitForSingleObject(handle, INFINITE) };
+
+    // 終了確認 → 最終sync
+    sync_logs();
+}
+
+// ── プロセスID検索 ────────────────────────────────
+
+fn find_process_id(target: &str) -> Option<u32> {
+    let snapshot = unsafe {
+        CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+    };
+
+    if snapshot.is_err() {
+        return None;
+    }
+
+    let snapshot = snapshot.unwrap();
+    let mut entry = PROCESSENTRY32W {
+        dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+        ..Default::default()
+    };
+
+    if unsafe { Process32FirstW(snapshot, &mut entry) }.is_err() {
+        return None;
+    }
+
+    loop {
+        // プロセス名をUTF-16からStringに変換して比較
+        let name_len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(0);
+        let process_name = String::from_utf16_lossy(&entry.szExeFile[..name_len]);
+
+        if process_name.eq_ignore_ascii_case(target) {
+            return Some(entry.th32ProcessID);
+        }
+
+        if unsafe { Process32NextW(snapshot, &mut entry) }.is_err() {
+            break;
+        }
+    }
+
+    None
+}
