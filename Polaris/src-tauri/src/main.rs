@@ -19,6 +19,24 @@ use windows::core::PCWSTR;
 
 const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
 
+// ── 処理用パス構築 ────────────────────────────────
+
+fn vrchat_log_dir() -> PathBuf {
+    PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default())
+        .join("AppData").join("LocalLow").join("VRChat").join("VRChat")
+}
+
+fn archive_dir() -> PathBuf {
+    PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
+        .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("archive")
+}
+
+fn error_log_path() -> PathBuf {
+    PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
+        .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("error_info.log")
+}
+
+
 // ── メイン ────────────────────────────────────────
 
 fn main() {
@@ -31,12 +49,12 @@ fn main() {
 
     sync_logs();
 
-    // 定期同期（10分間隔）
+    // 定期同期（1分間隔）
     let running = Arc::new(AtomicBool::new(true));
     let running_timer = Arc::clone(&running);
     thread::spawn(move || {
         while running_timer.load(Ordering::Relaxed) {
-            thread::sleep(Duration::from_secs(600));
+            thread::sleep(Duration::from_secs(60));
             if running_timer.load(Ordering::Relaxed) { sync_logs(); }
         }
     });
@@ -165,23 +183,6 @@ fn copy_shared_diff(
     dst_file.flush()?;
 
     Ok(())
-}
-
-// ── 処理用パス構築 ────────────────────────────────
-
-fn vrchat_log_dir() -> PathBuf {
-    PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default())
-        .join("AppData").join("LocalLow").join("VRChat").join("VRChat")
-}
-
-fn archive_dir() -> PathBuf {
-    PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
-        .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("archive")
-}
-
-fn error_log_path() -> PathBuf {
-    PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
-        .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("error_info.log")
 }
 
 // ── ログ (WARN / ERROR のみ) ──────────────────────
