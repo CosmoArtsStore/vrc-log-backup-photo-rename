@@ -11,21 +11,15 @@ use tray_icon::{
     TrayIconBuilder,
     menu::{Menu, MenuItem, MenuEvent},
 };
-use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, HANDLE, WAIT_OBJECT_0};
+use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, HANDLE};
 use windows::Win32::Storage::FileSystem::*;
-use windows::Win32::System::Threading::{
-    CreateMutexW, OpenProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE, INFINITE,
-};
-use windows::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW,
-    PROCESSENTRY32W, TH32CS_SNAPPROCESS,
-};
+use windows::Win32::System::Threading::CreateMutexW;
 use windows::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG};
 use windows::core::PCWSTR;
 
 const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
 
-// ── 処理用パス構築 ────────────────────────────────
+// ── パス構築 ────────────────────────────────
 
 fn vrchat_log_dir() -> PathBuf {
     PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default())
@@ -55,7 +49,7 @@ fn main() {
     // 起動時初期同期
     sync_logs();
 
-    // トレイアイコン構築（メッセージループ開始前に準備）
+    // トレイアイコン構築
     let (quit_id, _tray) = build_tray();
 
     // 定期同期（1分間隔）
@@ -68,7 +62,7 @@ fn main() {
         }
     });
 
-    // GetMessageベースのメッセージループ（CPUを使わない）
+    // GetMessageベースのメッセージループ
     let mut msg = MSG::default();
     loop {
         if let Ok(event) = MenuEvent::receiver().try_recv() {
@@ -78,9 +72,6 @@ fn main() {
     }
 
     running.store(false, Ordering::Relaxed);
-
-    // VRChatが生きていれば終了を待ってから最終sync
-    wait_for_vrchat_then_sync();
 }
 
 // ── トレイアイコン構築 ────────────────────────────
@@ -105,7 +96,7 @@ fn build_tray() -> (tray_icon::menu::MenuId, tray_icon::TrayIcon) {
     (quit_id, tray)
 }
 
-// ── 同期 ─────────────────────────────────────────
+// ── 同期処理 ─────────────────────────────────────────
 
 fn sync_logs() {
     let dst_dir = archive_dir();
@@ -123,12 +114,14 @@ fn sync_logs() {
     for entry in read_result.unwrap().flatten() {
         let src = entry.path();
 
-        // ファイル名を取得。取れなければスキップ
-        let name_os = src.file_name();
-        if name_os.is_none() { continue; }
-        let name = name_os.unwrap().to_str();
-        if name.is_none() { continue; }
-        let name = name.unwrap().to_string();
+        // ファイル名を取得。取れなければスキップ（想定外）
+        let name = match src.file_name().and_then(|n| n.to_str()) {
+            Some(n) => n.to_string(),
+            None    => {
+                log_warn(&format!("unexpected error (line {})", line!()));
+                continue;
+            }
+        };
 
         // VRChatのログファイル以外はスキップ
         if !name.starts_with("output_log_") || !name.ends_with(".txt") { continue; }
@@ -205,84 +198,11 @@ fn copy_shared_diff(
 
 fn log_msg(level: &str, msg: &str) {
     let path = error_log_path();
-    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+    if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(&path) {
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-        let _ = writeln!(f, "[{}] [{}] {}", now, level, msg);
+        let _ = writeln!(log, "[{}] [{}] {}", now, level, msg);
     }
-    eprintln!("[{}] {}", level, msg);
 }
 
 fn log_warn(msg: &str) { log_msg("WARN",  msg); }
 fn log_err (msg: &str) { log_msg("ERROR", msg); }
-
-// ── VRChat終了待機 → 最終sync ─────────────────────
-
-fn wait_for_vrchat_then_sync() {
-    let vrchat_pid = find_process_id("VRChat.exe");
-
-    if vrchat_pid.is_none() {
-        // VRChatが既に死んでいる → そのまま最終sync
-        sync_logs();
-        return;
-    }
-
-    let pid = vrchat_pid.unwrap();
-
-    // VRChatのプロセスハンドルを取得（終了待機用の権限のみ）
-    let handle_result = unsafe {
-        OpenProcess(PROCESS_SYNCHRONIZE, false, pid)
-    };
-
-    if handle_result.is_err() {
-        // ハンドル取得失敗 → 安全のためsyncだけ実行
-        log_warn(&format!("OpenProcess failed for VRChat (pid={}), syncing anyway", pid));
-        sync_logs();
-        return;
-    }
-
-    let handle = handle_result.unwrap();
-
-    // VRChatが終了するまで無期限待機（CPUを使わない）
-    unsafe { WaitForSingleObject(handle, INFINITE) };
-
-    // 終了確認 → 最終sync
-    sync_logs();
-}
-
-// ── プロセスID検索 ────────────────────────────────
-
-fn find_process_id(target: &str) -> Option<u32> {
-    let snapshot = unsafe {
-        CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
-    };
-
-    if snapshot.is_err() {
-        return None;
-    }
-
-    let snapshot = snapshot.unwrap();
-    let mut entry = PROCESSENTRY32W {
-        dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
-        ..Default::default()
-    };
-
-    if unsafe { Process32FirstW(snapshot, &mut entry) }.is_err() {
-        return None;
-    }
-
-    loop {
-        // プロセス名をUTF-16からStringに変換して比較
-        let name_len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(0);
-        let process_name = String::from_utf16_lossy(&entry.szExeFile[..name_len]);
-
-        if process_name.eq_ignore_ascii_case(target) {
-            return Some(entry.th32ProcessID);
-        }
-
-        if unsafe { Process32NextW(snapshot, &mut entry) }.is_err() {
-            break;
-        }
-    }
-
-    None
-}
