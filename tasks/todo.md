@@ -16,17 +16,7 @@
 - [x] SQLite側にカラム(`world_emb`, `avatar_emb`, `world_cluster`, `avatar_cluster`)を追加
 - [x] Python版の基本的なアルゴリズム（DBSCANクラスタリングと類似度検索のモック）の実装スクリプト作成
 
+# アプリケーションビルド
 
-fn copy_shared(src: &Path, dst: &Path) -> io::Result<()> {
-    // ...ハンドル取得は同じ...
-    
-    let dst_size = fs::metadata(dst).map(|m| m.len()).unwrap_or(0);
-    
-    // dst_sizeの位置からsrcを読み始める
-    src_file.seek(io::SeekFrom::Start(dst_size))?;
-    
-    // dstは追記モードで開く
-    let mut dst_file = OpenOptions::new().create(true).append(true).open(dst)?;
-    io::copy(&mut src_file, &mut dst_file)?;
-}
-[x] 上対応完了
+- [x] Polarisのインストーラービルド (完了)
+    - `F:\DEVELOPFOLDER\STELLARECORD\Polaris\src-tauri\target\release\bundle\nsis\Polaris_1.0.0_x64-setup.exe`

@@ -1,20 +1,31 @@
 #![windows_subsystem = "windows"]
 
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
-use std::path::PathBuf;
+use std::env::var;
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, ErrorKind, Seek, SeekFrom, Write};
+use std::os::windows::ffi::OsStrExt;
+use std::os::windows::io::FromRawHandle;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::thread;
 use std::time::Duration;
 
+use chrono::Local;
+use sysinfo::{ProcessesToUpdate, System};
 use tray_icon::{
-    TrayIconBuilder,
-    menu::{Menu, MenuItem, MenuEvent},
+    Icon, TrayIcon, TrayIconBuilder,
+    menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem},
 };
-use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, HANDLE};
+use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE};
 use windows::Win32::Storage::FileSystem::*;
-use windows::Win32::System::Threading::CreateMutexW;
-use windows::Win32::UI::WindowsAndMessaging::{GetMessageW, MSG};
+use windows::Win32::System::Threading::{
+    CreateMutexW, OpenProcess, WaitForSingleObject,
+    INFINITE, PROCESS_SYNCHRONIZE,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
+    DispatchMessageW, MessageBoxW, PeekMessageW, TranslateMessage,
+    IDOK, MB_ICONWARNING, MB_OKCANCEL, MSG, PM_REMOVE,
+};
 use windows::core::PCWSTR;
 
 const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
@@ -22,17 +33,17 @@ const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
 // ── パス構築 ────────────────────────────────
 
 fn vrchat_log_dir() -> PathBuf {
-    PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default())
+    PathBuf::from(var("USERPROFILE").unwrap_or_default())
         .join("AppData").join("LocalLow").join("VRChat").join("VRChat")
 }
 
 fn archive_dir() -> PathBuf {
-    PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
+    PathBuf::from(var("LOCALAPPDATA").unwrap_or_default())
         .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("archive")
 }
 
 fn error_log_path() -> PathBuf {
-    PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default())
+    PathBuf::from(var("LOCALAPPDATA").unwrap_or_default())
         .join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("error_info.log")
 }
 
@@ -42,7 +53,7 @@ fn main() {
     // 二重起動防止
     let mutex_name: Vec<u16> = "Global\\Polaris_SingleInstance\0".encode_utf16().collect();
     let _ = unsafe { CreateMutexW(None, true, PCWSTR(mutex_name.as_ptr())) };
-    if unsafe { windows::Win32::Foundation::GetLastError() } == ERROR_ALREADY_EXISTS {
+    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
         return;
     }
 
@@ -56,19 +67,13 @@ fn main() {
     let running = Arc::new(AtomicBool::new(true));
     let running_watcher = Arc::clone(&running);
     thread::spawn(move || {
+        let mut sys = System::new();
         while running_watcher.load(Ordering::Relaxed) {
-            if let Some(pid) = find_vrchat_pid() {
-                if let Ok(handle) = unsafe {
-                    windows::Win32::System::Threading::OpenProcess(
-                        windows::Win32::System::Threading::PROCESS_SYNCHRONIZE,
-                        false, pid,
-                    )
-                } {
+            if let Some(pid) = find_vrchat_pid(&mut sys) {
+                if let Ok(handle) = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid) } {
                     // VRChat終了まで待機
-                    unsafe { windows::Win32::System::Threading::WaitForSingleObject(
-                        handle, windows::Win32::System::Threading::INFINITE
-                    ) };
-                    unsafe { windows::Win32::Foundation::CloseHandle(handle).ok() };
+                    unsafe { WaitForSingleObject(handle, INFINITE) };
+                    unsafe { CloseHandle(handle).ok() };
                     sync_logs(); // 終了後に同期
                 }
             }
@@ -76,13 +81,26 @@ fn main() {
         }
     });
 
-    // GetMessageベースのメッセージループ
+    // メッセージループ
     let mut msg = MSG::default();
     loop {
         if let Ok(event) = MenuEvent::receiver().try_recv() {
-            if event.id == quit_id { break; }
+            if event.id == quit_id {
+                let text:  Vec<u16> = "Polarisを停止するとVRChatのログバックアップが行われなくなります。\n本当に停止しますか？\0".encode_utf16().collect();
+                let title: Vec<u16> = "Polaris 停止確認\0".encode_utf16().collect();
+                let result = unsafe {
+                    MessageBoxW(None, PCWSTR(text.as_ptr()), PCWSTR(title.as_ptr()), MB_OKCANCEL | MB_ICONWARNING)
+                };
+                if result == IDOK { break; }
+            }
         }
-        unsafe { let _ = GetMessageW(&mut msg, None, 0, 0); };
+        unsafe {
+            if PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
+                let _ = TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+        }
+        thread::sleep(Duration::from_millis(100));
     }
 
     running.store(false, Ordering::Relaxed);
@@ -90,14 +108,17 @@ fn main() {
 
 // ── トレイアイコン構築 ────────────────────────────
 
-fn build_tray() -> (tray_icon::menu::MenuId, tray_icon::TrayIcon) {
+fn build_tray() -> (MenuId, TrayIcon) {
     let img = image::load_from_memory(ICON_BYTES).expect("icon load failed").into_rgba8();
     let (w, h) = img.dimensions();
-    let icon = tray_icon::Icon::from_rgba(img.into_raw(), w, h).expect("icon failed");
+    let icon = Icon::from_rgba(img.into_raw(), w, h).expect("icon failed");
 
     let menu = Menu::new();
-    let quit = MenuItem::new("Polaris", true, None);
+    let status = MenuItem::new("Polaris 起動中", false, None); // 表示のみ（クリック不可）
+    let quit   = MenuItem::new("停止", true, None);
     let quit_id = quit.id().clone();
+    menu.append(&status).unwrap();
+    menu.append(&PredefinedMenuItem::separator()).unwrap();
     menu.append(&quit).unwrap();
 
     let tray = TrayIconBuilder::new()
@@ -112,36 +133,17 @@ fn build_tray() -> (tray_icon::menu::MenuId, tray_icon::TrayIcon) {
 
 // ── VRChatプロセス検索 ────────────────────────────
 
-fn find_vrchat_pid() -> Option<u32> {
-    use windows::Win32::System::Diagnostics::ToolHelp::*;
-
-    let snapshot = unsafe {
-        CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0).ok()?
-    };
-    let mut entry = PROCESSENTRY32W {
-        dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
-        ..Default::default()
-    };
-
-    unsafe {
-        if Process32FirstW(snapshot, &mut entry).is_ok() {
-            loop {
-                let name: String = entry.szExeFile
-                    .iter()
-                    .take_while(|&&c| c != 0)
-                    .map(|&c| char::from_u32(c as u32).unwrap_or('?'))
-                    .collect();
-
-                if name.eq_ignore_ascii_case("VRChat.exe") {
-                    windows::Win32::Foundation::CloseHandle(snapshot).ok();
-                    return Some(entry.th32ProcessID);
-                }
-                if Process32NextW(snapshot, &mut entry).is_err() { break; }
-            }
-        }
-        windows::Win32::Foundation::CloseHandle(snapshot).ok();
-    }
-    None
+/// sysinfoでプロセス一覧を取得しVRChat.exeのPIDを返す
+/// false = CPU/メモリ等の高コスト情報は更新しない（存在確認のみ）
+fn find_vrchat_pid(sys: &mut System) -> Option<u32> {
+    sys.refresh_processes(ProcessesToUpdate::All, false);
+    sys.processes()
+        .values()
+        .find(|p| {
+            let n = p.name().to_string_lossy();
+            n.eq_ignore_ascii_case("vrchat.exe") || n.eq_ignore_ascii_case("vrchat")
+        })
+        .map(|p| p.pid().as_u32())
 }
 
 // ── 同期処理 ─────────────────────────────────────────
@@ -200,46 +202,35 @@ fn sync_logs() {
 }
 
 fn copy_shared_diff(
-    src: &std::path::Path,
-    dst: &std::path::Path,
+    src: &Path,
+    dst: &Path,
     src_size: u64,
     dst_size: u64,
 ) -> io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-    use std::io::Seek;
+    // 差分なし → 何もしない
+    if dst_size >= src_size {
+        return Ok(());
+    }
 
     // FILE_GENERIC : 自アプリの権限[読み取り専用]
     // FILE_SHARE   : VRChat、および他アプリ側の権限
     let wide: Vec<u16> = src.as_os_str().encode_wide().chain(Some(0)).collect();
-    let handle_result = unsafe {
+    let handle = unsafe {
         CreateFileW(
             PCWSTR(wide.as_ptr()),
             FILE_GENERIC_READ.0,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
             None, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, HANDLE::default(),
         )
-    };
-    if handle_result.is_err() {
-        return Err(io::Error::new(io::ErrorKind::Other, handle_result.unwrap_err().to_string()));
-    }
+    }.map_err(|e| io::Error::new(ErrorKind::Other, e.to_string()))?;
 
-    let mut src_file = unsafe {
-        <fs::File as std::os::windows::io::FromRawHandle>::from_raw_handle(handle_result.unwrap().0 as _)
-    };
+    let mut src_file = unsafe { File::from_raw_handle(handle.0 as _) };
 
-    // 差分なし → 何もしない
-    let offset = dst_size;
-    if offset >= src_size {
-        return Ok(());
-    }
-
-    // dstの末尾バイトからsrcを読んで追記
-    src_file.seek(io::SeekFrom::Start(offset))?;
-    let mut dst_file = fs::OpenOptions::new().create(true).append(true).open(dst)?;
+    // dstの末尾からsrcを読んで追記
+    src_file.seek(SeekFrom::Start(dst_size))?;
+    let mut dst_file = OpenOptions::new().create(true).append(true).open(dst)?;
     io::copy(&mut src_file, &mut dst_file)?;
-    dst_file.flush()?;
-
-    Ok(())
+    dst_file.flush()
 }
 
 // ── ログ (WARN / ERROR のみ) ──────────────────────
@@ -247,7 +238,7 @@ fn copy_shared_diff(
 fn log_msg(level: &str, msg: &str) {
     let path = error_log_path();
     if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(&path) {
-        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+        let now = Local::now().format("%Y-%m-%d %H:%M:%S");
         let _ = writeln!(log, "[{}] [{}] {}", now, level, msg);
     }
 }
