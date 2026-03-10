@@ -8,7 +8,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use std::sync::atomic::Ordering;
 
 use crate::models::ScanProgress;
-use crate::db::{get_alpheratz_db_path, get_planetarium_db_path};
+use crate::db::{get_alpheratz_db_path, get_stellarecord_db_path};
 use crate::config::load_setting;
 use crate::ScanCancelStatus;
 
@@ -22,7 +22,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
         return Err("Folder not found".into());
     }
 
-    let conn = Connection::open(get_alpheratz_db_path()).map_err(|e| e.to_string())?;
+    let conn = Connection::open(get_alpheratz_db_path()?).map_err(|e| e.to_string())?;
     let cancel_status = app.state::<ScanCancelStatus>();
 
     // 0. 初期ステータス通知 (数千枚の場合、収集フェーズが数秒かかるため)
@@ -53,8 +53,10 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     println!("Found {} new files to process.", total);
     let _ = app.emit("scan:progress", ScanProgress { processed: 0, total, current_world: format!("{} 件の新規ファイルを検出", total) });
 
-    // 4. Planetarium DB 接続 (読み取り専用)
-    let plan_conn = Connection::open_with_flags(get_planetarium_db_path(), OpenFlags::SQLITE_OPEN_READ_ONLY).ok();
+    // StellaRecord DB 接続 (読み取り専用)
+    let plan_conn = get_stellarecord_db_path()
+        .ok()
+        .and_then(|p| if p.exists() { Connection::open_with_flags(p, OpenFlags::SQLITE_OPEN_READ_ONLY).ok() } else { None });
     let re_parse = Regex::new(r"VRChat_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})\.(\d{3})").unwrap();
 
     if total > 0 {
@@ -102,7 +104,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
 
 /// バックグラウンドで順次pHashを計算してDBを埋める
 pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
-    let conn = Connection::open(get_alpheratz_db_path()).map_err(|e| e.to_string())?;
+    let conn = Connection::open(get_alpheratz_db_path()?).map_err(|e| e.to_string())?;
     
     let mut stmt = conn.prepare("SELECT photo_filename, photo_path FROM photos WHERE phash IS NULL").map_err(|e| e.to_string())?;
     let rows: Vec<(String, String)> = stmt.query_map([], |row| {
@@ -150,8 +152,9 @@ pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
 
 fn resolve_photo_dir(config_path: &str) -> PathBuf {
     if config_path.is_empty() {
-        let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
-        Path::new(&user_profile).join("Pictures\\VRChat")
+        // USERPROFILEが取得できない場合はカレントディレクトリにフォールバック
+        let user_profile = std::env::var("USERPROFILE").unwrap_or_else(|_| ".".to_string());
+        Path::new(&user_profile).join("Pictures").join("VRChat")
     } else {
         PathBuf::from(config_path)
     }

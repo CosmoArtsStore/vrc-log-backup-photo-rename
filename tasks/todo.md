@@ -20,3 +20,16 @@
 
 - [x] Polarisのインストーラービルド (完了)
     - `F:\DEVELOPFOLDER\STELLARECORD\Polaris\src-tauri\target\release\bundle\nsis\Polaris_1.0.0_x64-setup.exe`
+
+# プロジェクト全体調査 (2026-03-10)
+
+- [x] 全プロジェクトの調査開始 🔍
+- [x] 各アプリ (#Polaris, #StellaRecord, #Alpheratz) の設定・ソースコード点検 🧐
+- [x] 問題点・課題の抽出と整理 📋
+- [x] `public\開発予定表G\未対応2.md` への集約 ✍️
+
+## 調査のまとめ
+- パス名の不整合（大文字・小文字、新旧名称）が最大の懸念点
+- 旧名 `Planetarium` の残存が激しい（フォルダ名等）
+- `Alpheratz` のコアロジックが未実装
+- セキュリティ・ビルド設定の細かな揺れがある

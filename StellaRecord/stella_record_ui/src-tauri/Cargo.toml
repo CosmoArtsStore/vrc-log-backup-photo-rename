@@ -16,7 +16,7 @@ tauri-plugin-dialog = { workspace = true }
 tauri-plugin-shell = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-winapi = { workspace = true }
+windows = { workspace = true }
 rusqlite = { workspace = true }
 chrono = { workspace = true }
 regex = { workspace = true }

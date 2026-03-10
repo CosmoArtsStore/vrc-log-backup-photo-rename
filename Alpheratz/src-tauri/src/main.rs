@@ -7,24 +7,21 @@ use std::fs;
 /// Windowsネイティブのメッセージボックスを表示する
 #[cfg(target_os = "windows")]
 fn show_fatal_error(msg: &str) {
-    use std::ffi::OsStr;
-    use std::os::windows::ffi::OsStrExt;
-    use winapi::um::winuser::{MessageBoxW, MB_ICONERROR, MB_OK};
+    use windows::core::PCWSTR;
+    use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-    let title: Vec<u16> = OsStr::new("Alpheratz - Critical Error")
-        .encode_wide()
-        .chain(std::iter::once(0))
+    let title: Vec<u16> = "Alpheratz - Critical Error\0"
+        .encode_utf16()
         .collect();
-    let message: Vec<u16> = OsStr::new(msg)
-        .encode_wide()
-        .chain(std::iter::once(0))
+    let message: Vec<u16> = format!("{msg}\0")
+        .encode_utf16()
         .collect();
 
     unsafe {
-        MessageBoxW(
-            std::ptr::null_mut(),
-            message.as_ptr(),
-            title.as_ptr(),
+        let _ = MessageBoxW(
+            None,
+            PCWSTR(message.as_ptr()),
+            PCWSTR(title.as_ptr()),
             MB_OK | MB_ICONERROR,
         );
     }

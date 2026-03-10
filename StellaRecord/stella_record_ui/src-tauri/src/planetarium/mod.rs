@@ -109,10 +109,10 @@ where
     #[cfg(windows)]
     let file = {
         use std::os::windows::fs::OpenOptionsExt;
-        use winapi::um::winnt::FILE_SHARE_READ;
+        use windows::Win32::Storage::FileSystem::FILE_SHARE_READ;
         fs::OpenOptions::new()
             .read(true)
-            .share_mode(FILE_SHARE_READ)
+            .share_mode(FILE_SHARE_READ.0)
             .open(log_path)
             .map_err(|e| rusqlite::Error::InvalidParameterName(e.to_string()))?
     };

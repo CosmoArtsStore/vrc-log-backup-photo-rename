@@ -33,18 +33,18 @@ impl Default for PolarisSetting {
     }
 }
 
-/// 仕様書 §8.2 PlanetariumSetting.json
+/// StellaRecord設定 (DBパス・アーカイブパス)
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PlanetariumSetting {
+pub struct StellaRecordSetting {
     #[serde(default)]
     pub archivePath: String,
     #[serde(default)]
     pub dbPath: String,
 }
 
-impl Default for PlanetariumSetting {
+impl Default for StellaRecordSetting {
     fn default() -> Self {
-        PlanetariumSetting {
+        StellaRecordSetting {
             archivePath: String::new(),
             dbPath: String::new(),
         }
@@ -53,7 +53,7 @@ impl Default for PlanetariumSetting {
 
 fn get_setting_base() -> Result<PathBuf, String> {
     let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD");
+    let dir = Path::new(&local).join("CosmoArtsStore").join("stellarecord");
     if !dir.exists() {
         fs::create_dir_all(&dir).map_err(|e| format!("Failed to create dir: {}", e))?;
     }
@@ -74,18 +74,18 @@ pub fn load_polaris_setting() -> PolarisSetting {
     PolarisSetting::default()
 }
 
-pub fn load_planetarium_setting() -> PlanetariumSetting {
+pub fn load_stellarecord_setting() -> StellaRecordSetting {
     if let Ok(base) = get_setting_base() {
-        let path = base.join("PlanetariumSetting.json");
+        let path = base.join("StellaRecordSetting.json");
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(s) = serde_json::from_str::<PlanetariumSetting>(&content) {
+                if let Ok(s) = serde_json::from_str::<StellaRecordSetting>(&content) {
                     return s;
                 }
             }
         }
     }
-    PlanetariumSetting::default()
+    StellaRecordSetting::default()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -124,11 +124,11 @@ impl PolarisSetting {
     }
 }
 
-impl PlanetariumSetting {
-    /// アーカイブ先ディレクトリ。正規パスは log_archive。
+impl StellaRecordSetting {
+    /// アーカイブ先ディレクトリ。
     pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
         let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-        let default = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\archive");
+        let default = Path::new(&local).join("CosmoArtsStore").join("polaris").join("archive");
 
         if self.archivePath.is_empty() {
             Ok(default)
@@ -141,11 +141,23 @@ impl PlanetariumSetting {
         if !self.dbPath.is_empty() {
             return Ok(PathBuf::from(&self.dbPath));
         }
+        // cosmos.jsonからDBパスを取得する
         let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-        let db_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD\\database");
+        let cosmos_path = Path::new(&local).join("CosmoArtsStore").join("cosmos.json");
+        if cosmos_path.exists() {
+            if let Ok(content) = fs::read_to_string(&cosmos_path) {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(p) = val["stellarecord_db"].as_str() {
+                        if !p.is_empty() { return Ok(PathBuf::from(p)); }
+                    }
+                }
+            }
+        }
+        // デフォルトパス: %LOCALAPPDATA%\CosmoArtsStore\stellarecord\stellarecord.db
+        let db_dir = Path::new(&local).join("CosmoArtsStore").join("stellarecord");
         if !db_dir.exists() {
             fs::create_dir_all(&db_dir).map_err(|e| format!("Failed to create db dir: {}", e))?;
         }
-        Ok(db_dir.join("planetarium.db"))
+        Ok(db_dir.join("stellarecord.db"))
     }
 }

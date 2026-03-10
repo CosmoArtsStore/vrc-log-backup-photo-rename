@@ -18,13 +18,45 @@ use windows::core::PCWSTR;
 const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
 
 // ── パス構築 ────────────────────────────────
-fn vrchat_log_dir() -> PathBuf { PathBuf::from(var("USERPROFILE").unwrap_or_default()).join("AppData").join("LocalLow").join("VRChat").join("VRChat") }
-fn archive_dir() -> PathBuf { PathBuf::from(var("LOCALAPPDATA").unwrap_or_default()).join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("archive") }
-fn error_log_path() -> PathBuf { PathBuf::from(var("LOCALAPPDATA").unwrap_or_default()).join("CosmoArtsStore").join("STELLAProject").join("Polaris").join("error_info.log") }
+fn vrchat_log_dir() -> Option<PathBuf> {
+    let p = var("USERPROFILE").ok()?;
+    Some(PathBuf::from(p).join("AppData").join("LocalLow").join("VRChat").join("VRChat"))
+}
+fn archive_dir() -> Option<PathBuf> {
+    let p = var("LOCALAPPDATA").ok()?;
+    Some(PathBuf::from(p).join("CosmoArtsStore").join("polaris").join("archive"))
+}
+fn error_log_path() -> Option<PathBuf> {
+    let p = var("LOCALAPPDATA").ok()?;
+    Some(PathBuf::from(p).join("CosmoArtsStore").join("polaris").join("error_info.log"))
+}
 
 // ── メイン ────────────────────────────────────────
 
 fn main() {
+    // #19: Panic Hookの設定 — リリースビルドでのサイレントクラッシュを防止
+    std::panic::set_hook(Box::new(|info| {
+        let location = info.location()
+            .map(|l| format!("at {}:{}", l.file(), l.line()))
+            .unwrap_or_else(|| "unknown location".to_string());
+        let payload = info.payload();
+        let msg = if let Some(s) = payload.downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "No error message".to_string()
+        };
+        let error_text = format!("[PANIC] {} {}", msg, location);
+        if let Some(path) = error_log_path() {
+            if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+                let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+                let _ = writeln!(f, "[{}] [PANIC] {} {}", now, msg, location);
+            }
+        }
+        eprintln!("{}", error_text);
+    }));
+
     // 二重起動防止
     let mutex_name: Vec<u16> = "Global\\Polaris_SingleInstance\0".encode_utf16().collect();
     let _ = unsafe { CreateMutexW(None, true, PCWSTR(mutex_name.as_ptr())) };
@@ -119,13 +151,20 @@ fn find_vrchat_pid(sys: &mut System) -> Option<u32> {
 
 /// VRChatのログファイルをarchiveフォルダへコピーする
 fn sync_logs() {
-    let dst_dir = archive_dir();
+    let dst_dir = match archive_dir() {
+        Some(d) => d,
+        None => { eprintln!("[ERROR] LOCALAPPDATAが取得できません"); return; }
+    };
     if let Err(e) = fs::create_dir_all(&dst_dir) {
         log_err(&format!("Cannot create archive dir ({}): {}", dst_dir.display(), e));
         return;
     }
 
-    let Ok(entries) = fs::read_dir(vrchat_log_dir()) else {
+    let log_dir = match vrchat_log_dir() {
+        Some(d) => d,
+        None => { log_err("USERPROFILEが取得できません"); return; }
+    };
+    let Ok(entries) = fs::read_dir(&log_dir) else {
         log_err("Cannot read VRChat log dir");
         return;
     };
@@ -173,10 +212,11 @@ fn sync_logs() {
 
 /// WARN / ERROR のみ記録（正常な動作はログに残さない）
 fn log_msg(level: &str, msg: &str) {
-    let path = error_log_path();
-    if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(&path) {
-        let now = Local::now().format("%Y-%m-%d %H:%M:%S");
-        let _ = writeln!(log, "[{}] [{}] {}", now, level, msg);
+    if let Some(path) = error_log_path() {
+        if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(&path) {
+            let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+            let _ = writeln!(log, "[{}] [{}] {}", now, level, msg);
+        }
     }
 }
 

@@ -1,7 +1,8 @@
 [package]
 name = "alpheratz"
 version = "0.1.0"
-description = "A Tauri App"
+description = "Alpheratz — Photo manager for STELLARECORD Ecosystem"
+authors = ["CosmoArtsStore"]
 edition = "2021"
 
 [lib]
@@ -23,6 +24,6 @@ tauri-plugin-fs = "2.2.0"
 tauri-plugin-shell = "2.2.0"
 image = "0.25.9"
 tokio = "1.49.0"
-winapi = { version = "0.3.9", features = ["winuser", "synchapi", "sysinfoapi", "reason", "handleapi", "winerror", "winbase"] }
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 image_hasher = "3.1.1"
 base64 = "0.22.1"
