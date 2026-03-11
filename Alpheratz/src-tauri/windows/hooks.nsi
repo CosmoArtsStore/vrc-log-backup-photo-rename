@@ -1,5 +1,5 @@
 !macro NSIS_HOOK_PREINSTALL
-    ExecWait "taskkill /F /IM Alpheratz.exe"
+    nsExec::Exec 'taskkill /F /IM Alpheratz.exe 2>nul'
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
@@ -7,5 +7,5 @@
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-    ExecWait "taskkill /F /IM Alpheratz.exe"
+    nsExec::Exec 'taskkill /F /IM Alpheratz.exe 2>nul'
 !macroend

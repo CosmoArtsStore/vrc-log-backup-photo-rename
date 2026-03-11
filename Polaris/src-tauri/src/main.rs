@@ -14,21 +14,30 @@ use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError
 use windows::Win32::System::Threading::{CreateMutexW, OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE};
 use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageW, MessageBoxW, PeekMessageW, TranslateMessage, IDOK, MB_ICONWARNING, MB_OKCANCEL, MSG, PM_REMOVE};
 use windows::core::PCWSTR;
+use winreg::enums::HKEY_CURRENT_USER;
+use winreg::RegKey;
 
 const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
 
 // ── パス構築 ────────────────────────────────
+
+/// NSISが書き込んだレジストリからインストール先を取得する
+fn install_dir() -> Option<PathBuf> {
+    let key = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Polaris").ok()?;
+    let path: String = key.get_value("InstallLocation").ok()?;
+    Some(PathBuf::from(path))
+}
+
 fn vrchat_log_dir() -> Option<PathBuf> {
     let p = var("USERPROFILE").ok()?;
     Some(PathBuf::from(p).join("AppData").join("LocalLow").join("VRChat").join("VRChat"))
 }
 fn archive_dir() -> Option<PathBuf> {
-    let p = var("LOCALAPPDATA").ok()?;
-    Some(PathBuf::from(p).join("CosmoArtsStore").join("polaris").join("archive"))
+    Some(install_dir()?.join("archive"))
 }
-fn error_log_path() -> Option<PathBuf> {
-    let p = var("LOCALAPPDATA").ok()?;
-    Some(PathBuf::from(p).join("CosmoArtsStore").join("polaris").join("error_info.log"))
+fn log_path() -> Option<PathBuf> {
+    Some(install_dir()?.join("info.log"))
 }
 
 // ── メイン ────────────────────────────────────────
@@ -48,13 +57,13 @@ fn main() {
             "No error message".to_string()
         };
         let error_text = format!("[PANIC] {} {}", msg, location);
-        if let Some(path) = error_log_path() {
+        if let Some(path) = log_path() {
             if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
                 let now = Local::now().format("%Y-%m-%d %H:%M:%S");
                 let _ = writeln!(f, "[{}] [PANIC] {} {}", now, msg, location);
             }
         }
-        eprintln!("{}", error_text);
+        log_err(&error_text);
     }));
 
     // 二重起動防止
@@ -153,7 +162,7 @@ fn find_vrchat_pid(sys: &mut System) -> Option<u32> {
 fn sync_logs() {
     let dst_dir = match archive_dir() {
         Some(d) => d,
-        None => { eprintln!("[ERROR] LOCALAPPDATAが取得できません"); return; }
+        None => { log_err("インストール先をレジストリから取得できません"); return; }
     };
     if let Err(e) = fs::create_dir_all(&dst_dir) {
         log_err(&format!("Cannot create archive dir ({}): {}", dst_dir.display(), e));
@@ -212,7 +221,7 @@ fn sync_logs() {
 
 /// WARN / ERROR のみ記録（正常な動作はログに残さない）
 fn log_msg(level: &str, msg: &str) {
-    if let Some(path) = error_log_path() {
+    if let Some(path) = log_path() {
         if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(&path) {
             let now = Local::now().format("%Y-%m-%d %H:%M:%S");
             let _ = writeln!(log, "[{}] [{}] {}", now, level, msg);

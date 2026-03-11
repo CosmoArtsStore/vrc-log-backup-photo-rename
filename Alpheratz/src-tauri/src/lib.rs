@@ -29,11 +29,11 @@ async fn initialize_scan(app: AppHandle, cancel_status: State<'_, ScanCancelStat
     let app_clone = app.clone();
     tauri::async_runtime::spawn(async move {
         if let Err(e) = scanner::do_scan(app_clone.clone()).await {
-            println!("Scanner Error: {}", e);
+            utils::log_err(&format!("Scanner Error: {}", e));
         }
         
         if let Err(e) = scanner::compute_missing_phashes_bg(app_clone).await {
-            println!("Phash BG Error: {}", e);
+            utils::log_err(&format!("Phash BG Error: {}", e));
         }
     });
     Ok(())

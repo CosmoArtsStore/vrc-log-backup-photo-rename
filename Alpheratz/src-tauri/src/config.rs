@@ -1,6 +1,22 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use winreg::enums::HKEY_CURRENT_USER;
+use winreg::RegKey;
+
+fn get_alpheratz_install_dir() -> Option<PathBuf> {
+    let key = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Alpheratz").ok()?;
+    let path: String = key.get_value("InstallLocation").ok()?;
+    Some(PathBuf::from(path))
+}
+
+fn get_stellarecord_install_dir() -> Option<PathBuf> {
+    let key = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\StellaRecord").ok()?;
+    let path: String = key.get_value("InstallLocation").ok()?;
+    Some(PathBuf::from(path))
+}
 
 /// 仕様書 §8.4 AlpheratzSetting.json
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -17,17 +33,12 @@ impl Default for AlpheratzSetting {
     }
 }
 
-pub fn get_setting_path() -> Result<PathBuf, String> {
-    let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-    let dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Alpheratz");
-    if !dir.exists() {
-        fs::create_dir_all(&dir).map_err(|e| format!("Failed to create dir: {}", e))?;
-    }
-    Ok(dir.join("alpheratz.json"))
+fn get_setting_path() -> Option<PathBuf> {
+    Some(get_alpheratz_install_dir()?.join("alpheratz.json"))
 }
 
 pub fn load_setting() -> AlpheratzSetting {
-    if let Ok(path) = get_setting_path() {
+    if let Some(path) = get_setting_path() {
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
                 if let Ok(s) = serde_json::from_str::<AlpheratzSetting>(&content) {
@@ -40,7 +51,7 @@ pub fn load_setting() -> AlpheratzSetting {
 }
 
 pub fn save_setting(s: &AlpheratzSetting) -> Result<(), String> {
-    let path = get_setting_path()?;
+    let path = get_setting_path().ok_or_else(|| "Failed to get setting path".to_string())?;
     let content = serde_json::to_string_pretty(s)
         .map_err(|e| format!("Serialize error: {}", e))?;
     fs::write(path, content).map_err(|e| format!("Write error: {}", e))?;

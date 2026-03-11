@@ -10,7 +10,7 @@
         "build:Polaris-bin": "cargo build --release -p polaris -q",
         "build:StellaRecord-pkg": "cd stella_record_ui && npx tauri build",
         "dev:StellaRecord": "cd stella_record_ui && npx tauri dev",
-        "build:Alpheratz-pkg": "cd pleiades_alpheratz && npx tauri build"
+        "build:Alpheratz-pkg": "cd ../Alpheratz && npx tauri build"
     },
     "devDependencies": {
         "@tauri-apps/cli": "^2.10.0"

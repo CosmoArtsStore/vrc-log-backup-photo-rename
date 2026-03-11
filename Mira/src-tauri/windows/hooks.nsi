@@ -3,7 +3,7 @@
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Mira" '"$INSTDIR\${MAINBINARYNAME}.exe"'
+    ; Miraはスタートアップ登録不要
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL

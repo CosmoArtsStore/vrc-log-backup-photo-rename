@@ -2,6 +2,11 @@
   "name": "stellarecord-workspace",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "Polaris",
+    "StellaRecord",
+    "Alpheratz"
+  ],
   "scripts": {
     "dev:Polaris": "cd Polaris && npx tauri dev",
     "dev:StellaRecord": "cd StellaRecord/stella_record_ui && npx tauri dev",

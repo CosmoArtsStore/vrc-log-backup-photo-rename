@@ -15,14 +15,21 @@ use crate::ScanCancelStatus;
 /// スキャン処理のメインエントリーポイント
 pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     let setting = load_setting();
-    let photo_dir = resolve_photo_dir(&setting.photo_folder_path);
+    let photo_dir = if setting.photo_folder_path.is_empty() {
+        default_photo_dir()
+    } else {
+        Some(PathBuf::from(&setting.photo_folder_path))
+    };
 
-    if !photo_dir.exists() {
-        let _ = app.emit("scan:error", "写真フォルダが見つかりません。");
-        return Err("Folder not found".into());
-    }
+    let photo_dir = match photo_dir {
+        Some(p) if p.exists() => p,
+        _ => {
+            let _ = app.emit("scan:error", "写真フォルダが見つかりません。設定から写真フォルダを選択してください。");
+            return Err("Folder not found".into());
+        }
+    };
 
-    let conn = Connection::open(get_alpheratz_db_path()?).map_err(|e| e.to_string())?;
+    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
     let cancel_status = app.state::<ScanCancelStatus>();
 
     // 0. 初期ステータス通知 (数千枚の場合、収集フェーズが数秒かかるため)
@@ -34,11 +41,10 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     // 2. ローカルファイルの再帰的収集 (最適化: Regex を事前にコンパイル)
     let re_collect = Regex::new(r"(?i)VRChat_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d{3}.*?\.(png|jpg|jpeg)").unwrap();
     let mut found_files = Vec::new();
-    println!("Scanning directory: {:?}", photo_dir);
     collect_photos_recursive(&photo_dir, &mut found_files, &re_collect, &cancel_status);
     
     if cancel_status.0.load(Ordering::SeqCst) {
-        println!("Scan cancelled during collection.");
+        crate::utils::log_warn("Scan cancelled during collection.");
         let _ = app.emit("scan:error", "スキャンが中断されました。");
         return Ok(());
     }
@@ -50,12 +56,10 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     new_files.sort_by(|a, b| b.0.cmp(&a.0));
 
     let total = new_files.len();
-    println!("Found {} new files to process.", total);
     let _ = app.emit("scan:progress", ScanProgress { processed: 0, total, current_world: format!("{} 件の新規ファイルを検出", total) });
 
     // StellaRecord DB 接続 (読み取り専用)
     let plan_conn = get_stellarecord_db_path()
-        .ok()
         .and_then(|p| if p.exists() { Connection::open_with_flags(p, OpenFlags::SQLITE_OPEN_READ_ONLY).ok() } else { None });
     let re_parse = Regex::new(r"VRChat_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})\.(\d{3})").unwrap();
 
@@ -65,7 +69,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
         // 5. 新規ファイルの同期ループ
         for (i, (filename, path)) in new_files.into_iter().enumerate() {
             if cancel_status.0.load(Ordering::SeqCst) {
-                println!("Scan cancelled by user.");
+                crate::utils::log_warn("Scan cancelled by user.");
                 let _ = app.emit("scan:error", "スキャンが中断されました。");
                 return Ok(());
             }
@@ -80,7 +84,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
                 upsert_photo(&conn, &filename, &path, world_id, world_name.clone(), &timestamp, None)?;
 
                 if i % 10 == 0 || i == total - 1 {
-                    println!("Processed {}/{} - {}", i + 1, total, world_name.as_deref().unwrap_or("Unknown"));
+                    // INFOレベルのログは記録しない
                     let _ = app.emit("scan:progress", ScanProgress { 
                         processed: i + 1, 
                         total, 
@@ -94,17 +98,18 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     // 6. 既存のワールド未特定写真をPNGメタデータで遡及更新
     let updated = backfill_missing_world_info(&conn, &plan_conn, &re_parse)?;
     if updated > 0 {
-        println!("Backfilled world info for {} existing photos.", updated);
+        // INFOレベルのログは記録しない
     }
 
-    println!("Scan finished successfully.");
+    // INFOレベルのログは記録しない
     let _ = app.emit("scan:completed", ());
     Ok(())
 }
 
 /// バックグラウンドで順次pHashを計算してDBを埋める
 pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
-    let conn = Connection::open(get_alpheratz_db_path()?).map_err(|e| e.to_string())?;
+    let db_path = get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?;
+    let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
     
     let mut stmt = conn.prepare("SELECT photo_filename, photo_path FROM photos WHERE phash IS NULL").map_err(|e| e.to_string())?;
     let rows: Vec<(String, String)> = stmt.query_map([], |row| {
@@ -113,7 +118,7 @@ pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
 
     if rows.is_empty() { return Ok(()); }
     
-    println!("Starting background pHash generation for {} photos...", rows.len());
+    // INFOレベルのログは記録しない
 
     // UIにバックグラウンドのpHash解析が始まったことを伝える（控えめに表示するため）
     let _ = app.emit("scan:phash_start", rows.len());
@@ -122,7 +127,7 @@ pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
 
     for (i, (filename, path_str)) in rows.into_iter().enumerate() {
         if app.state::<ScanCancelStatus>().0.load(Ordering::SeqCst) {
-            println!("Background pHash generation cancelled.");
+            crate::utils::log_warn("Background pHash generation cancelled.");
             break;
         }
 
@@ -139,25 +144,17 @@ pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
         }
 
         if i > 0 && i % 25 == 0 {
-            // 25枚ごとにUIの写真をリロードさせてpHashを反映させる
-            let _ = app.emit("scan:completed", ());
-            println!("pHash generator: {} processed", i);
-        }
+            // INFOレベルのログは記録しない
     }
     
-    println!("Background pHash generation completed.");
+    // INFOレベルのログは記録しない
     let _ = app.emit("scan:completed", ()); // 最後にUIに完全リロードさせる
     Ok(())
 }
 
-fn resolve_photo_dir(config_path: &str) -> PathBuf {
-    if config_path.is_empty() {
-        // USERPROFILEが取得できない場合はカレントディレクトリにフォールバック
-        let user_profile = std::env::var("USERPROFILE").unwrap_or_else(|_| ".".to_string());
-        Path::new(&user_profile).join("Pictures").join("VRChat")
-    } else {
-        PathBuf::from(config_path)
-    }
+fn default_photo_dir() -> Option<PathBuf> {
+    let p = std::env::var("USERPROFILE").ok()?;
+    Some(Path::new(&p).join("Pictures").join("VRChat"))
 }
 
 fn get_existing_filenames(conn: &Connection) -> Result<HashSet<String>, String> {
@@ -191,13 +188,7 @@ fn resolve_world_info(filename: &str, path: &Path, plan_conn: &Option<Connection
     if filename.to_lowercase().ends_with(".png") {
         let (name, id) = extract_vrc_metadata_from_png(path);
         if name.is_some() || id.is_some() {
-            println!("[PNG meta] {} → world='{}' id='{}'",
-                filename,
-                name.as_deref().unwrap_or("(none)"),
-                id.as_deref().unwrap_or("(none)"));
-            return (name, id);
-        }
-        println!("[PNG meta] {} → no VRC metadata found, falling back to Planetarium DB", filename);
+        // INFOレベルのログは記録しない
     }
     lookup_world_at_time(plan_conn, timestamp)
 }
@@ -226,7 +217,7 @@ fn backfill_missing_world_info(conn: &Connection, plan_conn: &Option<Connection>
 
     let count = rows.len();
     if count == 0 { return Ok(0); }
-    println!("[backfill] {} photos with missing world info found.", count);
+    if count == 0 { return Ok(0); }
 
     let mut updated = 0usize;
     for (filename, path_str, timestamp) in &rows {
@@ -250,7 +241,7 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
     let file = match fs::File::open(path) {
         Ok(f) => f,
         Err(e) => {
-            println!("[PNG parse] Failed to open {:?}: {}", path, e);
+            crate::utils::log_err(&format!("[PNG parse] Failed to open {:?}: {}", path, e));
             return (None, None);
         }
     };
@@ -258,7 +249,7 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
 
     let mut sig = [0u8; 8];
     if reader.read_exact(&mut sig).is_err() || sig != *b"\x89PNG\r\n\x1a\n" {
-        println!("[PNG parse] Invalid PNG signature for {:?}", path);
+        crate::utils::log_warn(&format!("[PNG parse] Invalid PNG signature for {:?}", path));
         return (None, None);
     }
 
@@ -279,7 +270,7 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
             }
             let mut chunk_data = vec![0u8; chunk_len];
             if reader.read_exact(&mut chunk_data).is_err() {
-                println!("[PNG parse] Failed to read iTXt chunk data");
+                crate::utils::log_err("[PNG parse] Failed to read iTXt chunk data");
                 break;
             }
             if let Some(null_pos) = chunk_data.iter().position(|&b| b == 0) {
@@ -353,7 +344,7 @@ fn collect_photos_recursive(dir: &Path, files: &mut Vec<(String, PathBuf)>, re: 
                         if re.is_match(filename) {
                             files.push((filename.to_string(), path.to_path_buf()));
                             if files.len() % 1000 == 0 {
-                                println!("Collecting files: {} found so far...", files.len());
+                                // INFOレベルのログは記録しない
                             }
                         }
                     }

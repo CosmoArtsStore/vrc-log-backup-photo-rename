@@ -88,7 +88,7 @@ where
                 format!("{}%", ((idx as f32 / total as f32) * 100.0) as u32),
             );
             if let Err(e) = parse_and_import(&mut conn, log_path, &filename, &mut progress_callback) {
-                eprintln!("[Planetarium] エラー ({}): {}", filename, e);
+                crate::log_err(&format!("[Planetarium] エラー ({}): {}", filename, e));
             }
         }
     }

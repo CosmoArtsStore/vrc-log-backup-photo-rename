@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "StellaRecord",
+  "productName": "STELLA RECORD",
   "version": "1.0.0",
   "identifier": "com.cosmoartsstore.stellarecord",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "STELLA_RECORD",
+        "title": "STELLA RECORD",
         "width": 1280,
         "height": 800,
         "maximized": true

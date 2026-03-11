@@ -1,6 +1,19 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use winreg::enums::HKEY_CURRENT_USER;
+use winreg::RegKey;
+
+fn get_stellarecord_install_dir() -> Option<PathBuf> {
+    let key = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\StellaRecord").ok()?;
+    let path: String = key.get_value("InstallLocation").ok()?;
+    Some(PathBuf::from(path))
+}
+
+fn get_pleiades_json_path() -> Option<PathBuf> {
+    Some(get_stellarecord_install_dir()?.join("pleiades.json"))
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StellaRecordAppInfo {
@@ -16,15 +29,9 @@ pub fn register_self(name: &str, description: &str) -> Result<String, String> {
         .map_err(|e| format!("実行ファイルの取得に失敗しました: {}", e))?;
     let current_exe_str = current_exe.to_string_lossy().to_string();
 
-    // 2. StellaRecord の設定フォルダを取得
-    let local = std::env::var("LOCALAPPDATA")
-        .map_err(|_| "LOCALAPPDATA が見つかりません。")?;
-    let setting_dir = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\STELLA_RECORD");
-    let target_file = setting_dir.join("pleiades.json");
-
-    if !setting_dir.exists() {
-        return Err("StellaRecord の設定フォルダが見つかりません。StellaRecord を一度起動してください。".to_string());
-    }
+    // 2. StellaRecord の pleiades.json パスを取得
+    let target_file = get_pleiades_json_path()
+        .ok_or_else(|| "StellaRecord のインストール先が見つかりません。".to_string())?;
 
     // 3. 既存のリストを読み込み
     let mut apps: Vec<StellaRecordAppInfo> = if target_file.exists() {

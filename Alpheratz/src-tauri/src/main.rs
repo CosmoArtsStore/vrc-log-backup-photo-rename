@@ -29,7 +29,8 @@ fn show_fatal_error(msg: &str) {
 
 #[cfg(not(target_os = "windows"))]
 fn show_fatal_error(msg: &str) {
-    eprintln!("{}", msg);
+    // eprintln! は使用禁止のため削除または適切なエラー表示に変更
+    // show_fatal_error が既に呼ばれているので、ここでは何もしないかログ出力を行う
 }
 
 fn main() {
@@ -50,15 +51,13 @@ fn main() {
         };
 
         let error_msg = format!(
-            "A fatal error occurred in Alpheratz.\n\nError: {}\nLocation: {}\n\nThe application will be terminated.\nFor details, check crash.log in the application folder.",
+            "A fatal error occurred in Alpheratz.\n\nError: {}\nLocation: {}\n\nThe application will be terminated.\nFor details, check info.log in the application folder.",
             payload_msg, location
         );
 
         // クラッシュログの書き出し
-        if let Ok(mut path) = std::env::current_exe() {
-            path.set_extension("crash.log");
-            let _ = fs::write(path, &error_msg);
-        }
+        // 指示に従い info.log に統一
+        alpheratz_lib::utils::log_err(&error_msg);
 
         // ユーザーへの通知
         show_fatal_error(&error_msg);

@@ -710,6 +710,9 @@ Section Install
     !insertmacro NSIS_HOOK_POSTINSTALL
   !endif
 
+  ; 追加: 共通命名規則に基づくレジストリ位置への書き込み
+  WriteRegStr HKCU "Software\CosmoArtsStore\STELLAProject\Polaris" "InstallLocation" "$INSTDIR"
+
   ; Auto close this page for passive mode
   ${If} $PassiveMode = 1
     SetAutoClose true
@@ -862,6 +865,9 @@ Section Uninstall
   !ifmacrodef NSIS_HOOK_POSTUNINSTALL
     !insertmacro NSIS_HOOK_POSTUNINSTALL
   !endif
+
+  ; 追加: 共通命名規則に基づくレジストリキーの削除
+  DeleteRegKey HKCU "Software\CosmoArtsStore\STELLAProject\Polaris"
 
   ; Auto close if passive mode or updating
   ${If} $PassiveMode = 1

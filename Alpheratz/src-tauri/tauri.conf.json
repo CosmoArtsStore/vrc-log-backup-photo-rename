@@ -23,7 +23,15 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "**"
+          "**/*.png",
+          "**/*.jpg",
+          "**/*.jpeg",
+          "**/*.webp",
+          "**/*.psd",
+          "**/*.tiff",
+          "**/*.tif",
+          "**/*.bmp",
+          "**/*.gif"
         ]
       }
     }

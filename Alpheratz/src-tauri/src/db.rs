@@ -1,34 +1,33 @@
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 use std::fs;
+use winreg::enums::HKEY_CURRENT_USER;
+use winreg::RegKey;
 
-pub fn get_stellarecord_db_path() -> Result<PathBuf, String> {
-    let local = std::env::var("LOCALAPPDATA")
-        .map_err(|_| "LOCALAPPDATA environment variable not found".to_string())?;
-    let cosmos_path = std::path::Path::new(&local)
-        .join("CosmoArtsStore")
-        .join("cosmos.json");
-    if let Ok(content) = fs::read_to_string(&cosmos_path) {
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-            if let Some(p) = val["stellarecord_db"].as_str() {
-                if !p.is_empty() { return Ok(PathBuf::from(p)); }
-            }
-        }
-    }
-    // フォールバック: デフォルトパス
-    Ok(Path::new(&local).join("CosmoArtsStore").join("stellarecord").join("stellarecord.db"))
+fn get_alpheratz_install_dir() -> Option<PathBuf> {
+    let key = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Alpheratz").ok()?;
+    let path: String = key.get_value("InstallLocation").ok()?;
+    Some(PathBuf::from(path))
 }
 
-pub fn get_alpheratz_db_path() -> Result<PathBuf, String> {
-    let local = std::env::var("LOCALAPPDATA")
-        .map_err(|_| "LOCALAPPDATA environment variable not found".to_string())?;
-    let dir = Path::new(&local).join("CosmoArtsStore").join("alpheratz");
-    let _ = fs::create_dir_all(&dir);
-    Ok(dir.join("alpheratz.db"))
+fn get_stellarecord_install_dir() -> Option<PathBuf> {
+    let key = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\StellaRecord").ok()?;
+    let path: String = key.get_value("InstallLocation").ok()?;
+    Some(PathBuf::from(path))
+}
+
+pub fn get_stellarecord_db_path() -> Option<PathBuf> {
+    Some(get_stellarecord_install_dir()?.join("stellarecord.db"))
+}
+
+pub fn get_alpheratz_db_path() -> Option<PathBuf> {
+    Some(get_alpheratz_install_dir()?.join("alpheratz.db"))
 }
 
 pub fn init_alpheratz_db() -> Result<(), String> {
-    let conn = Connection::open(get_alpheratz_db_path()?).map_err(|e| e.to_string())?;
+    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
     
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
@@ -77,7 +76,7 @@ pub fn get_photos(
     world_query: Option<String>,
     world_exact: Option<String>
 ) -> Result<Vec<PhotoRecord>, String> {
-    let conn = Connection::open(get_alpheratz_db_path()?).map_err(|e| e.to_string())?;
+    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
     
     let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo, phash FROM photos WHERE 1=1".to_string();
     
@@ -128,7 +127,7 @@ pub fn get_photos(
 }
 
 pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
-    let conn = Connection::open(get_alpheratz_db_path()?).map_err(|e| e.to_string())?;
+    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
     let changed = conn.execute(
         "UPDATE photos SET memo = ?1 WHERE photo_filename = ?2",
         rusqlite::params![memo, filename],

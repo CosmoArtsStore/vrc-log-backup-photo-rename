@@ -27,3 +27,5 @@ tokio = "1.49.0"
 windows = { version = "0.58", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 image_hasher = "3.1.1"
 base64 = "0.22.1"
+winreg = "0.52"
+
