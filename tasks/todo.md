@@ -1,35 +1,88 @@
-# Polaris Build Check
+# STELLAProject Revision Instructions (2nd Edition)
 
-- [x] Polaris Rust 再構成 🚀
-    - [x] `f:\DEVELOPFOLDER\STELLARECORD\Polaris` プロジェクト作成
-    - [x] `Cargo.toml` 設定 (依存関係: windows, tray-icon, image, chrono)
-    - [x] `icon.ico` の配置 (F:\DEVELOPFOLDER\Polaris からコピー)
-    - [x] `src/main.rs` の配置 (提供されたソース)
-    - [x] `cargo check` でビルド確認
-- [x] Run `cargo clean; cargo check` to verify Rust build
-- [x] Fix any compile errors if present
-- [x] Verify if frontend builds via `npm run build` (N/A: Polaris has no frontend)
+## Instruction 1: Log Standardization & `println!` Replacement
+- [ ] Step 1: Survey `println!`, `eprintln!`, `print!` in all Rust files.
+    - [ ] Polaris
+    - [ ] StellaRecord
+    - [ ] Alpheratz
+- [ ] Step 2: Implement common log functions (`log_msg`, `log_warn`, `log_err`) using `info.log` in `InstallLocation`.
+    - [ ] Polaris (Update existing functions)
+    - [ ] StellaRecord
+    - [ ] Alpheratz
+- [ ] Step 3: Replace `println!`/`eprintln!` with log functions.
+    - [ ] Polaris
+    - [ ] StellaRecord
+    - [ ] Alpheratz
+- [ ] Step 4: Unify all log file references (e.g., `error_info.log`, `crash.log`) to `info.log`.
+- [ ] Step 5: Verify no `println!`/`eprintln!` remains using grep.
 
-# Alpheratz: 同一ワールド 同一衣装判定機能
+## Instruction 2: NSIS `taskkill` Suppression
+- [ ] Update `StellaRecord/stella_record_ui/src-tauri/windows/hooks.nsi` to use `nsExec::Exec` and `2>nul`.
+- [ ] Update `Alpheratz/src-tauri/windows/hooks.nsi` to use `nsExec::Exec` and `2>nul`.
 
-- [x] `db.rs` の `init_alpheratz_db` に `photo_embeddings` テーブル作成処理を追加
-- [x] SQLite側にカラム(`world_emb`, `avatar_emb`, `world_cluster`, `avatar_cluster`)を追加
-- [x] Python版の基本的なアルゴリズム（DBSCANクラスタリングと類似度検索のモック）の実装スクリプト作成
+## Instruction 3: NSIS Asset Images (.bmp)
+- [ ] Generate 150x57 px BMP (24bit) header images.
+- [ ] Update `Alpheratz/src-tauri/windows/installer.nsi` to use `header.bmp`.
+- [ ] Update `StellaRecord/stella_record_ui/src-tauri/windows/installer.nsi` to use `header.bmp`.
+- [ ] Check/Update Polaris NSIS for the same.
 
-# アプリケーションビルド
+## Instruction 4: Window Title (StellaRecord)
+- [ ] Change `STELLA_RECORD` to `STELLA RECORD` in `tauri.conf.json`.
+- [ ] Change `STELLA_RECORD` to `STELLA RECORD` in `installer.nsi`.
+- [ ] Check other locations for window title strings.
 
-- [x] Polarisのインストーラービルド (完了)
-    - `F:\DEVELOPFOLDER\STELLARECORD\Polaris\src-tauri\target\release\bundle\nsis\Polaris_1.0.0_x64-setup.exe`
+## Instruction 5: `rust-toolchain.toml` Version Lock
+- [ ] Check current `stable` Rust version (`rustup show`).
+- [ ] Fix version in `Polaris/src-tauri/rust-toolchain.toml`.
+- [ ] Fix version in `StellaRecord/stella_record_ui/src-tauri/rust-toolchain.toml`.
+- [ ] Fix version in `Alpheratz/src-tauri/rust-toolchain.toml`.
 
-# プロジェクト全体調査 (2026-03-10)
+## Instruction 6: Asset Protocol & Capabilities (Alpheratz)
+- [ ] Restrict `assetProtocol.scope` to specific image extensions in `tauri.conf.json`.
+- [ ] Explicitly disable network permissions in all apps' `capabilities/`.
+- [ ] Unify all log file names to `info.log` (already in Instruction 1 but confirming).
 
-- [x] 全プロジェクトの調査開始 🔍
-- [x] 各アプリ (#Polaris, #StellaRecord, #Alpheratz) の設定・ソースコード点検 🧐
-- [x] 問題点・課題の抽出と整理 📋
-- [x] `public\開発予定表G\未対応2.md` への集約 ✍️
+## Instruction 7: Startup Registration Removal
+- [ ] Remove `WriteRegStr` for Run key in `StellaRecord/stella_record_ui/src-tauri/windows/hooks.nsi`.
+- [ ] Remove `WriteRegStr` for Run key in `Alpheratz/src-tauri/windows/hooks.nsi`.
 
-## 調査のまとめ
-- パス名の不整合（大文字・小文字、新旧名称）が最大の懸念点
-- 旧名 `Planetarium` の残存が激しい（フォルダ名等）
-- `Alpheratz` のコアロジックが未実装
-- セキュリティ・ビルド設定の細かな揺れがある
+## Instruction 8: Workspace Definition Fix
+- [ ] Fix `workspaces` in root `package.json`.
+- [ ] Fix `workspaces` in `StellaRecord/package.json`.
+- [ ] Verify `npm install` works.
+
+## Instruction 8-B: JSON Path Standardization
+- [ ] Investigate/Report locations and usage of `pleiades.json` and `jewelBox.json`.
+- [ ] Fix paths to use registry-based `InstallLocation`.
+
+## Instruction 9: Vite config Sync Style
+- [ ] Convert `StellaRecord/stella_record_ui/vite.config.ts` to sync style.
+- [ ] Convert `Alpheratz/vite.config.ts` to sync style.
+
+## Instruction 10: `authors` in `Cargo.toml`
+- [ ] Change `authors` to `["CosmoArtsStore"]` in all apps.
+
+## Instruction 11: Env Var Fallback Fix
+- [ ] Survey `unwrap_or_default`, `unwrap_or_else`, `unwrap_or("")` on env vars.
+- [ ] Replace with `.ok()?` or proper error handling.
+
+## Instruction 12: plugin.json Integration (Pending 8-B)
+- [ ] Draft `plugin.json` structure and report.
+- [ ] (After approval) Integrate `pleiades.json` and `jewelBox.json` into `plugin.json`.
+
+---
+## Verification Checklist
+- [ ] No `println!`/`eprintln!` (grep)
+- [ ] All logs unified to `info.log` in `InstallLocation`
+- [ ] NSIS `taskkill` hidden/suppressed
+- [ ] NSIS header images are .bmp (150x57)
+- [ ] StellaRecord title is "STELLA RECORD"
+- [ ] `rust-toolchain.toml` versions fixed
+- [ ] Alpheratz `assetProtocol.scope` restricted
+- [ ] No network permissions in Capabilities
+- [ ] Startup entries removed for StellaRecord/Alpheratz
+- [ ] Workspaces definition correct
+- [ ] Vite configs improved to sync style
+- [ ] `authors` is "CosmoArtsStore"
+- [ ] Env var lookups are safe
+- [ ] `pleiades.json` / `jewelBox.json` standardized

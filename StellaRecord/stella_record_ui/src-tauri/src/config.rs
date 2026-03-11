@@ -1,6 +1,22 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use winreg::enums::HKEY_CURRENT_USER;
+use winreg::RegKey;
+
+fn get_polaris_install_dir() -> Option<PathBuf> {
+    let key = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Polaris").ok()?;
+    let path: String = key.get_value("InstallLocation").ok()?;
+    Some(PathBuf::from(path))
+}
+
+fn get_stellarecord_install_dir() -> Option<PathBuf> {
+    let key = RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\StellaRecord").ok()?;
+    let path: String = key.get_value("InstallLocation").ok()?;
+    Some(PathBuf::from(path))
+}
 
 /// 仕様書 §8.1 PolarisSetting.json
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -51,17 +67,12 @@ impl Default for StellaRecordSetting {
     }
 }
 
-fn get_setting_base() -> Result<PathBuf, String> {
-    let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-    let dir = Path::new(&local).join("CosmoArtsStore").join("stellarecord");
-    if !dir.exists() {
-        fs::create_dir_all(&dir).map_err(|e| format!("Failed to create dir: {}", e))?;
-    }
-    Ok(dir)
+fn get_setting_base() -> Option<PathBuf> {
+    get_stellarecord_install_dir()
 }
 
 pub fn load_polaris_setting() -> PolarisSetting {
-    if let Ok(base) = get_setting_base() {
+    if let Some(base) = get_setting_base() {
         let path = base.join("PolarisSetting.json");
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
@@ -75,7 +86,7 @@ pub fn load_polaris_setting() -> PolarisSetting {
 }
 
 pub fn load_stellarecord_setting() -> StellaRecordSetting {
-    if let Ok(base) = get_setting_base() {
+    if let Some(base) = get_setting_base() {
         let path = base.join("StellaRecordSetting.json");
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
@@ -97,7 +108,7 @@ pub struct AppCard {
 }
 
 pub fn load_launcher_json(filename: &str) -> Vec<AppCard> {
-    if let Ok(base) = get_setting_base() {
+    if let Some(base) = get_setting_base() {
         let path = base.join(filename);
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
@@ -111,53 +122,28 @@ pub fn load_launcher_json(filename: &str) -> Vec<AppCard> {
 }
 
 impl PolarisSetting {
-    /// アーカイブ先ディレクトリ。正規パスは log_archive。
-    pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
-        let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-        let default = Path::new(&local).join("CosmoArtsStore\\STELLARECORD\\Polaris\\archive");
-
-        if self.archivePath.is_empty() {
-            Ok(default)
-        } else {
-            Ok(PathBuf::from(&self.archivePath))
+    /// アーカイブ先ディレクトリ。
+    pub fn get_effective_archive_dir(&self) -> Option<PathBuf> {
+        if !self.archivePath.is_empty() {
+            return Some(PathBuf::from(&self.archivePath));
         }
+        Some(get_polaris_install_dir()?.join("archive"))
     }
 }
 
 impl StellaRecordSetting {
     /// アーカイブ先ディレクトリ。
-    pub fn get_effective_archive_dir(&self) -> Result<PathBuf, String> {
-        let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-        let default = Path::new(&local).join("CosmoArtsStore").join("polaris").join("archive");
-
-        if self.archivePath.is_empty() {
-            Ok(default)
-        } else {
-            Ok(PathBuf::from(&self.archivePath))
+    pub fn get_effective_archive_dir(&self) -> Option<PathBuf> {
+        if !self.archivePath.is_empty() {
+            return Some(PathBuf::from(&self.archivePath));
         }
+        Some(get_polaris_install_dir()?.join("archive"))
     }
 
-    pub fn get_effective_db_path(&self) -> Result<PathBuf, String> {
+    pub fn get_effective_db_path(&self) -> Option<PathBuf> {
         if !self.dbPath.is_empty() {
-            return Ok(PathBuf::from(&self.dbPath));
+            return Some(PathBuf::from(&self.dbPath));
         }
-        // cosmos.jsonからDBパスを取得する
-        let local = std::env::var("LOCALAPPDATA").map_err(|_| "Failed to get LOCALAPPDATA")?;
-        let cosmos_path = Path::new(&local).join("CosmoArtsStore").join("cosmos.json");
-        if cosmos_path.exists() {
-            if let Ok(content) = fs::read_to_string(&cosmos_path) {
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                    if let Some(p) = val["stellarecord_db"].as_str() {
-                        if !p.is_empty() { return Ok(PathBuf::from(p)); }
-                    }
-                }
-            }
-        }
-        // デフォルトパス: %LOCALAPPDATA%\CosmoArtsStore\stellarecord\stellarecord.db
-        let db_dir = Path::new(&local).join("CosmoArtsStore").join("stellarecord");
-        if !db_dir.exists() {
-            fs::create_dir_all(&db_dir).map_err(|e| format!("Failed to create db dir: {}", e))?;
-        }
-        Ok(db_dir.join("stellarecord.db"))
+        Some(get_stellarecord_install_dir()?.join("stellarecord.db"))
     }
 }

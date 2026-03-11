@@ -51,8 +51,8 @@
         "template": "windows/installer.nsi",
         "installerHooks": "windows/hooks.nsi",
         "installerIcon": "icons/icon.ico",
-        "headerImage": "icons/icon.png",
-        "sidebarImage": "icons/icon.png",
+        "headerImage": "icons/icon.bmp",
+        "sidebarImage": "icons/icon.bmp",
         "languages": [
           "Japanese"
         ]

@@ -145,6 +145,7 @@ pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
 
         if i > 0 && i % 25 == 0 {
             // INFOレベルのログは記録しない
+        }
     }
     
     // INFOレベルのログは記録しない
@@ -188,7 +189,8 @@ fn resolve_world_info(filename: &str, path: &Path, plan_conn: &Option<Connection
     if filename.to_lowercase().ends_with(".png") {
         let (name, id) = extract_vrc_metadata_from_png(path);
         if name.is_some() || id.is_some() {
-        // INFOレベルのログは記録しない
+            return (name, id);
+        }
     }
     lookup_world_at_time(plan_conn, timestamp)
 }

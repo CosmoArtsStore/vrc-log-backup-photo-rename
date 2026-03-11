@@ -9,6 +9,7 @@ use sysinfo::{System, ProcessesToUpdate};
 use stella_record_ui::config::{
     load_polaris_setting, load_stellarecord_setting,
 };
+use stella_record_ui::{log_warn, log_err};
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use tauri::Emitter;
@@ -36,19 +37,7 @@ fn get_polaris_exe_path() -> Option<PathBuf> {
     Some(get_polaris_install_dir()?.join("Polaris.exe"))
 }
 
-// ── ログ ──────────────────────────────────────────
-
-fn log_msg(level: &str, msg: &str) {
-    if let Some(path) = get_stellarecord_install_dir().map(|p| p.join("info.log")) {
-        if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
-            let now = Local::now().format("%Y-%m-%d %H:%M:%S");
-            let _ = writeln!(f, "[{}] [{}] {}", now, level, msg);
-        }
-    }
-}
-
-pub fn log_warn(msg: &str) { log_msg("WARN",  msg); }
-pub fn log_err (msg: &str) { log_msg("ERROR", msg); }
+// ログ関数は lib.rs に移動
 
 #[tauri::command]
 fn list_archive_files() -> Result<Vec<String>, String> {
