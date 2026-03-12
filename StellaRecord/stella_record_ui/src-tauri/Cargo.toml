@@ -29,4 +29,4 @@ once_cell = "1.19"
 tar = "0.4"
 zstd = "0.13"
 winreg = "0.52"
-
+opener = { workspace = true }

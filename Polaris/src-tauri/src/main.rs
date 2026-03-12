@@ -21,17 +21,27 @@ const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
 
 // ── パス構築 ────────────────────────────────
 
-/// NSISが書き込んだレジストリからインストール先を取得する
-fn install_dir() -> Option<PathBuf> {
+fn get_component_install_dir(name: &str) -> Option<PathBuf> {
+    let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
     let key = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Polaris").ok()?;
+        .open_subkey(&key_path).ok()?;
     let path: String = key.get_value("InstallLocation").ok()?;
     Some(PathBuf::from(path))
 }
 
+fn get_vrchat_log_dir() -> Option<PathBuf> {
+    let local = dirs::data_local_dir()?;
+    let appdata = local.parent()?;
+    Some(appdata.join("LocalLow").join("VRChat").join("VRChat"))
+}
+
+/// NSISが書き込んだレジストリからインストール先を取得する
+fn install_dir() -> Option<PathBuf> {
+    get_component_install_dir("Polaris")
+}
+
 fn vrchat_log_dir() -> Option<PathBuf> {
-    let p = var("USERPROFILE").ok()?;
-    Some(PathBuf::from(p).join("AppData").join("LocalLow").join("VRChat").join("VRChat"))
+    get_vrchat_log_dir()
 }
 fn archive_dir() -> Option<PathBuf> {
     Some(install_dir()?.join("archive"))
@@ -50,20 +60,22 @@ fn main() {
             .unwrap_or_else(|| "unknown location".to_string());
         let payload = info.payload();
         let msg = if let Some(s) = payload.downcast_ref::<&str>() {
-            s.to_string()
-        } else if let Some(s) = payload.downcast_ref::<String>() {
-            s.clone()
+            "Alpheratz"
         } else {
-            "No error message".to_string()
+            "致命的なエラーが発生しました。"
         };
-        let error_text = format!("[PANIC] {} {}", msg, location);
+        
+        let error_msg = format!(
+            "STELLARECORD (Polaris) で致命的なエラーが発生しました。\n\nエラー内容: {}\n発生場所: {}\n\nアプリケーションを終了します。\n詳細はインストール先の info.log を確認してください。",
+            msg, location
+        );
         if let Some(path) = log_path() {
             if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
                 let now = Local::now().format("%Y-%m-%d %H:%M:%S");
                 let _ = writeln!(f, "[{}] [PANIC] {} {}", now, msg, location);
             }
         }
-        log_err(&error_text);
+        log_err(&error_msg);
     }));
 
     // 二重起動防止
@@ -134,7 +146,7 @@ fn build_tray() -> (MenuId, TrayIcon) {
 
     let tray = TrayIconBuilder::new()
         .with_icon(icon)
-        .with_tooltip("Polaris")
+        .with_tooltip("STELLA RECORD - Polaris")
         .with_menu(Box::new(menu))
         .build()
         .expect("tray build failed");
@@ -171,14 +183,21 @@ fn sync_logs() {
 
     let log_dir = match vrchat_log_dir() {
         Some(d) => d,
-        None => { log_err("USERPROFILEが取得できません"); return; }
+        None => { log_err("AppDataが取得できません"); return; }
     };
     let Ok(entries) = fs::read_dir(&log_dir) else {
         log_err("Cannot read VRChat log dir");
         return;
     };
 
-    for entry in entries.flatten() {
+    for entry_res in entries {
+        let entry = match entry_res {
+            Ok(e) => e,
+            Err(e) => {
+                log_err(&format!("Entry read error: {}", e));
+                continue;
+            }
+        };
         let src = entry.path();
 
         // パスからファイル名抽出。撮れない場合、警告ログ出力し、スキップする。
@@ -186,33 +205,73 @@ fn sync_logs() {
             log_warn(&format!("unexpected error (line {})", line!()));
             continue;
         };
+        let dst = dst_dir.join(&name);
 
         // output_log_*.txt 以外はスキップ
         if !name.starts_with("output_log_") || !name.ends_with(".txt") { continue; }
-
-        let dst = dst_dir.join(&name);
 
         let Ok(src_meta) = fs::metadata(&src) else {
             log_err(&format!("stat src [{}]: failed", name));
             continue;
         };
         let src_size = src_meta.len();
-        let dst_size = fs::metadata(&dst).map(|m| m.len()).unwrap_or(0);
+        let src_mtime = src_meta.modified().ok();
+        
+        let dst_meta = fs::metadata(&dst).ok();
+        let dst_size = dst_meta.as_ref().map(|m| m.len()).unwrap_or(0);
+        let dst_mtime = dst_meta.and_then(|m| m.modified().ok());
 
-        if src_size == dst_size && dst_size != 0 {
-            // ファイルサイズが同じ場合同期済みとし、スキップする。
-            continue; 
-        } else if src_size < dst_size {
-            // コピー元のファイルサイズが小さい場合、想定外。エラーとしスキップする。
+        // 同期が必要かどうかの判断
+        let needs_copy = if dst_size == 0 {
+            true
+        } else if src_size > dst_size {
+            true
+        } else if src_size == dst_size {
+            // サイズ同じでも、更新日時が進んでいれば（中身が書き換わっている可能性）念のため
+            match (src_mtime, dst_mtime) {
+                (Some(sm), Some(dm)) => sm > dm,
+                _ => false,
+            }
+        } else {
+            // src_size < dst_size: 想定外
             log_err(&format!("src smaller than dst [{}]: src={} dst={}", name, src_size, dst_size));
+            false
+        };
+
+        if !needs_copy {
             continue;
-        } else if dst_size > 0 {
-            // コピー元のファイルサイズが大きい場合、警告を記録しつつ一応コピー
-            log_warn(&format!("src larger than dst [{}]: src={} dst={}", name, src_size, dst_size));
+        }
+
+        if src_size == dst_size {
+            log_warn(&format!("src size same as dst but mtime is newer [{}]: re-copying", name));
+        } else if dst_size > 0 && src_size > dst_size {
+            // 追記された場合など
         }
 
         if let Err(e) = fs::copy(&src, &dst) {
-            log_err(&format!("copy failed [{}]: {}", name, e));
+            // EAC等の競合で標準の copy が失敗した場合のフォールバック
+            #[cfg(windows)]
+            {
+                use std::os::windows::fs::OpenOptionsExt;
+                use windows::Win32::Storage::FileSystem::FILE_SHARE_READ;
+                
+                let res = fs::OpenOptions::new()
+                    .read(true)
+                    .share_mode(FILE_SHARE_READ.0)
+                    .open(&src)
+                    .and_then(|mut s_file| {
+                        let mut d_file = fs::File::create(&dst)?;
+                        std::io::copy(&mut s_file, &mut d_file)
+                    });
+                
+                if let Err(e2) = res {
+                    log_err(&format!("copy failed (share mode fallback also failed) [{}]: {} / {}", name, e, e2));
+                }
+            }
+            #[cfg(not(windows))]
+            {
+                log_err(&format!("copy failed [{}]: {}", name, e));
+            }
         }
     }
 }
@@ -222,7 +281,7 @@ fn sync_logs() {
 /// WARN / ERROR のみ記録（正常な動作はログに残さない）
 fn log_msg(level: &str, msg: &str) {
     if let Some(path) = log_path() {
-        if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(&path) {
+        if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(path) {
             let now = Local::now().format("%Y-%m-%d %H:%M:%S");
             let _ = writeln!(log, "[{}] [{}] {}", now, level, msg);
         }

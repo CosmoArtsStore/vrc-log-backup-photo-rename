@@ -13,7 +13,7 @@ interface AppCard {
 }
 
 const Icons = {
-  Planetarium: () => (
+  Analyze: () => (
     <svg viewBox="0 0 24 24" className="icon-svg"><path d="M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z" /></svg>
   ),
   Alert: () => (
@@ -45,7 +45,7 @@ const Icons = {
   )
 };
 
-type Section = "dashboard" | "planetarium" | "pleiades" | "jewelbox" | "database";
+type Section = "dashboard" | "analyze" | "pleiades" | "jewelbox" | "database";
 
 interface TableData {
   columns: string[];
@@ -57,9 +57,9 @@ function App() {
   const [pleiadesApps, setPleiadesApps] = useState<AppCard[]>([]);
   const [jewelBoxApps, setJewelBoxApps] = useState<AppCard[]>([]);
   const [toasts, setToasts] = useState<{ id: number, msg: string }[]>([]);
-  const [planetariumRunning, setPlanetariumRunning] = useState(false);
-  const [planetariumProgress, setPlanetariumProgress] = useState("");
-  const [planetariumStatus, setPlanetariumStatus] = useState("");
+  const [analyzeRunning, setAnalyzeRunning] = useState(false);
+  const [analyzeProgress, setAnalyzeProgress] = useState("");
+  const [analyzeStatus, setAnalyzeStatus] = useState("");
   const [polarisRunning, setPolarisRunning] = useState(false);
   const [storageStatus, setStorageStatus] = useState({ current: 0, limit: 0, percent: 0 });
   const [dbTables, setDbTables] = useState<string[]>([]);
@@ -136,20 +136,20 @@ function App() {
   }, [loadAll, pollStorage, pollStatus]);
 
   useEffect(() => {
-    const unlistenPlanetarium = listen("planetarium-progress", (event) => {
+    const unlistenAnalyze = listen("analyze-progress", (event) => {
       const payload = event.payload as { status: string, progress: string, is_running: boolean };
-      setPlanetariumStatus(payload.status);
-      setPlanetariumProgress(payload.progress);
-      setPlanetariumRunning(payload.is_running);
+      setAnalyzeStatus(payload.status);
+      setAnalyzeProgress(payload.progress);
+      setAnalyzeRunning(payload.is_running);
       if (!payload.is_running) {
         pollStorage();
       }
     });
 
-    const unlistenFinished = listen("planetarium-finished", () => {
-      setPlanetariumRunning(false);
-      setPlanetariumStatus("待機中");
-      setPlanetariumProgress("");
+    const unlistenFinished = listen("analyze-finished", () => {
+      setAnalyzeRunning(false);
+      setAnalyzeStatus("待機中");
+      setAnalyzeProgress("");
       pollStorage();
     });
 
@@ -158,7 +158,7 @@ function App() {
     });
 
     return () => {
-      unlistenPlanetarium.then(f => f());
+      unlistenAnalyze.then(f => f());
       unlistenFinished.then(f => f());
       unlistenPolaris.then(f => f());
     };
@@ -184,10 +184,10 @@ function App() {
 
   const handleSync = async () => {
     try {
-      setPlanetariumRunning(true);
-      await invoke("launch_planetarium", { mode: "import" });
+      setAnalyzeRunning(true);
+      await invoke("launch_analyze", { mode: "import" });
     } catch (e) {
-      setPlanetariumRunning(false);
+      setAnalyzeRunning(false);
       addToast(`解析エラー: ${e}`);
     }
   };
@@ -276,10 +276,10 @@ function App() {
     if (selectedFiles.size === 0) return;
     try {
       setShowEnhancedSyncModal(false);
-      setPlanetariumRunning(true);
+      setAnalyzeRunning(true);
       await invoke("launch_enhanced_import", { fileNames: Array.from(selectedFiles) });
     } catch (e) {
-      setPlanetariumRunning(false);
+      setAnalyzeRunning(false);
       addToast(`強化同期エラー: ${e}`);
     }
   };
@@ -391,7 +391,7 @@ function App() {
 
   const handleCancelSync = async () => {
     try {
-      await invoke("cancel_planetarium");
+      await invoke("cancel_analyze");
       addToast("解析を停止しました");
     } catch (e) {
       addToast(`停止エラー: ${e}`);
@@ -427,11 +427,11 @@ function App() {
       </div>
 
       <div className="dashboard-grid">
-        {/* PLANETARIUM (TOP WIDE) */}
-        <div className="feature-card wide" onClick={() => setActiveSection("planetarium")}>
+        {/* ANALYZE (TOP WIDE) */}
+        <div className="feature-card wide" onClick={() => setActiveSection("analyze")}>
           <div className="feature-header">
-            <div className="feature-icon"><Icons.Planetarium /></div>
-            <div className="feature-title">Planetarium</div>
+            <div className="feature-icon"><Icons.Analyze /></div>
+            <div className="feature-title">Analyze</div>
           </div>
           <p className="feature-desc">
             VRChatのログを精密に構成・解析し、あなたの足跡をデータベース化します。
@@ -466,17 +466,17 @@ function App() {
         <Icons.ArrowBack /> Dashboardに戻る
       </div>
       <div className="section-header">
-        <h2>Planetarium Control</h2>
+        <h2>Analyze Control</h2>
         <p>VRChatの活動ログを解析し、精密なデータベースを構築します</p>
       </div>
 
       <div className="planetarium-grid">
         <div className="status-card">
           <div className="status-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: planetariumRunning ? '#10b981' : '#86868b' }} />
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: analyzeRunning ? '#10b981' : '#86868b' }} />
             エンジン ステータス
           </div>
-          <div className="status-value">{planetariumRunning ? 'システム稼働中' : '待機中'}</div>
+          <div className="status-value">{analyzeRunning ? 'システム稼働中' : '待機中'}</div>
         </div>
         <div className="status-card">
           <div className="status-label">管理</div>
@@ -495,7 +495,7 @@ function App() {
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <div style={{ padding: '10px', background: 'rgba(93, 156, 236, 0.1)', borderRadius: '12px' }}>
-            <Icons.Planetarium />
+            <Icons.Analyze />
           </div>
           <div>
             <h3 style={{ margin: 0 }}>Log Synchronization</h3>
@@ -510,8 +510,8 @@ function App() {
           <div className="sync-card">
             <h4>データベース更新</h4>
             <p>Polarisが収集した新しいログのみを解析し、行動履歴DBを効率的に更新します。</p>
-            <button className="btn-action primary" style={{ width: '100%' }} onClick={() => handleSync()} disabled={planetariumRunning}>
-              {planetariumRunning ? '処理中...' : 'インポート開始'}
+            <button className="btn-action primary" style={{ width: '100%' }} onClick={() => handleSync()} disabled={analyzeRunning}>
+              {analyzeRunning ? '処理中...' : 'インポート開始'}
             </button>
           </div>
 
@@ -532,7 +532,7 @@ function App() {
               className="btn-action primary"
               style={{ width: '100%' }}
               onClick={handleOpenEnhancedSync}
-              disabled={planetariumRunning}
+              disabled={analyzeRunning}
             >
               アーカイブを選択
             </button>
@@ -552,20 +552,20 @@ function App() {
           </div>
         </div>
 
-        {planetariumRunning && (
+        {analyzeRunning && (
           <div className="progress-container" style={{ marginTop: '2rem' }}>
             <div className="progress-info">
               <span>インポート進捗</span>
-              <span>{planetariumProgress}</span>
+              <span>{analyzeProgress}</span>
             </div>
             <div className="progress-track" style={{ height: '8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
               <div
                 className="progress-fill"
-                style={{ height: '100%', background: 'var(--accent-gradient)', width: planetariumProgress.includes('%') ? planetariumProgress.split(' ').pop() : '0%', transition: 'width 0.3s' }}
+                style={{ height: '100%', background: 'var(--accent-gradient)', width: analyzeProgress.includes('%') ? analyzeProgress.split(' ').pop() : '0%', transition: 'width 0.3s' }}
               />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{planetariumStatus}</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{analyzeStatus}</p>
               <span
                 style={{ color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
                 onClick={handleCancelSync}
@@ -608,8 +608,8 @@ function App() {
 
   const renderDatabase = () => (
     <div className="view-container" style={{ maxWidth: '100%', padding: '0' }}>
-      <div className="back-link" onClick={() => setActiveSection("planetarium")}>
-        <Icons.ArrowBack /> Planetariumに戻る
+      <div className="back-link" onClick={() => setActiveSection("analyze")}>
+        <Icons.ArrowBack /> Analyzeに戻る
       </div>
       <div className="section-header">
         <h2>Database Browser</h2>
@@ -675,7 +675,7 @@ function App() {
   const renderSection = () => {
     switch (activeSection) {
       case "dashboard": return renderDashboard();
-      case "planetarium": return renderPlanetarium();
+      case "analyze": return renderPlanetarium();
       case "pleiades": return (
         <div className="view-container">
           <div className="back-link" onClick={() => setActiveSection("dashboard")}>

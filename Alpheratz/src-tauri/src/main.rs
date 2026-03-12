@@ -10,7 +10,7 @@ fn show_fatal_error(msg: &str) {
     use windows::core::PCWSTR;
     use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-    let title: Vec<u16> = "Alpheratz - Critical Error\0"
+    let title: Vec<u16> = "Alpheratz 致命的エラー\0"
         .encode_utf16()
         .collect();
     let message: Vec<u16> = format!("{msg}\0")
@@ -42,21 +42,20 @@ fn main() {
             .unwrap_or_else(|| "unknown location".to_string());
         
         let payload = info.payload();
-        let payload_msg = if let Some(s) = payload.downcast_ref::<&str>() {
+        let payload_msg = if let Some(s) = payload.downcast_ref::<&'static str>() {
             s.to_string()
         } else if let Some(s) = payload.downcast_ref::<String>() {
             s.clone()
         } else {
-            "No error message provided".to_string()
+            "致命的なエラーが発生しました。".to_string()
         };
 
         let error_msg = format!(
-            "A fatal error occurred in Alpheratz.\n\nError: {}\nLocation: {}\n\nThe application will be terminated.\nFor details, check info.log in the application folder.",
+            "STELLARECORD (Alpheratz) で致命的なエラーが発生しました。\n\nエラー内容: {}\n発生場所: {}\n\nアプリケーションを終了します。\n詳細はインストール先の info.log を確認してください。",
             payload_msg, location
         );
 
         // クラッシュログの書き出し
-        // 指示に従い info.log に統一
         alpheratz_lib::utils::log_err(&error_msg);
 
         // ユーザーへの通知

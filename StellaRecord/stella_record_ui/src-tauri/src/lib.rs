@@ -1,5 +1,5 @@
 pub mod config;
-pub mod planetarium;
+pub mod analyze;
 
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -25,7 +25,7 @@ fn log_msg(level: &str, msg: &str) {
 }
 
 pub fn log_warn(msg: &str) { log_msg("WARN",  msg); }
-pub fn log_err (msg: &str) { log_msg("ERROR", msg); }
+pub fn log_err_lib (msg: &str) { log_msg("ERROR", msg); }
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]

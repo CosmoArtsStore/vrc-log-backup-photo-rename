@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "STELLA RECORD",
+  "productName": "StellaRecord",
   "version": "1.0.0",
   "identifier": "com.cosmoartsstore.stellarecord",
   "build": {
@@ -36,6 +36,8 @@
       "nsis": {
         "template": "windows/installer.nsi",
         "installerHooks": "windows/hooks.nsi",
+        "headerImage": "icons/headerUI.bmp",
+        "sidebarImage": "icons/wizardUI.bmp",
         "languages": [
           "Japanese"
         ]

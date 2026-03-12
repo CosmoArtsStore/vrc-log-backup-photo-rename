@@ -11,12 +11,10 @@
     "dev:Polaris": "cd Polaris && npx tauri dev",
     "dev:StellaRecord": "cd StellaRecord/stella_record_ui && npx tauri dev",
     "dev:Alpheratz": "cd Alpheratz && npx tauri dev",
-    "dev:Mira": "echo \"Mira is not implemented yet!\"",
     "build:Polaris-bin": "cd Polaris/src-tauri && cargo build --release -p polaris -q",
     "build:Polaris-pkg": "npm run build:Polaris-bin && cd Polaris && npx tauri build",
     "build:StellaRecord-pkg": "cd StellaRecord/stella_record_ui && npx tauri build",
-    "build:Alpheratz-pkg": "cd Alpheratz && npx tauri build",
-    "build:Mira-pkg": "echo \"Mira is not implemented yet!\""
+    "build:Alpheratz-pkg": "cd Alpheratz && npx tauri build"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0"

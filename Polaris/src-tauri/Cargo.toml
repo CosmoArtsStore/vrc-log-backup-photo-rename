@@ -25,4 +25,5 @@ chrono = "0.4.44"
 tray-icon = "0.19.2"
 image = "0.25"
 winreg = "0.52"
+dirs = "6.0"
 

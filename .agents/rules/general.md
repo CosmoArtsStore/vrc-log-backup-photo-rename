@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # STELLA RECORD プロジェクト：エージェント動作極則
 
 本プロジェクトに従事する AI エージェントは、以下のプロセスを「思考の 0 段階目」として必ず実行すること。
@@ -55,15 +59,12 @@
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
 
-## 1. 指導原理（Design-First）
-- **設計なしの実装禁止**: どのような小規模な修正であっても、まず `public\docs_rule\INTERNAL_DESIGN_RULE.md` を読み、現在の `public\STELLA_RECORD_統合仕様書.md` または各詳細設計書との整合性を確認すること。
-- **施工図の更新**: 実装前に必ず設計（md ファイル）を更新し、ユーザーに「設計の変更内容」を提示して承認を得てからコードを触ること。
-- **事後報告の禁止**: 「直しておきました」ではなく「このように設計を直したので、実装します」という順序を徹底すること。
-
+#
 ## 2. 視覚的・構造的ルール
 - **Stargazer UI 準拠**: すべてのアプリ UI、ドキュメント HTML は Stargazer デザイン言語（深宇宙、グラスモーフィズム、Whitneyフォント）を継承すること。
 - **フルパスの徹底**: ユーザーが即座に確認できるよう、パスは常に `F:\...` から始まるフルパスで記載すること。
 - **製品の独立性**: Polaris, StellaRecord, Alpheratz は独立した製品であり、インストーラー単位で構成を考えること。
+- 各アプリは独立したアプリ。アプリ間の連携はあるが、ソースコードレベルでの依存関係はNG。疎結合とすること。
 
 ## 3. 確認プロセス
 - **ユーザー環境での検証**: 最終確認は必ず NSIS インストーラーをビルドし、インストール後の状態で挙動を検証すること。
@@ -99,6 +100,8 @@ npm run build:Alpheratz-pkg
 npm run build:Polaris-pkg && npm run build:StellaRecord-pkg && npm run build:Alpheratz-pkg
 ```
 
+
+
 ### 重要事項
 - **planetarium は stella_record_ui に統合済み**。独立したビルドは不要
 - **Polaris は STELLA_RECORD とは完全に独立**したインストーラー
@@ -110,9 +113,8 @@ npm run build:Polaris-pkg && npm run build:StellaRecord-pkg && npm run build:Alp
 - **エビデンスの提示**: 検証時のスクリーンショットや録画を `walkthrough.md` に添付し、ユーザーが「確かに直っている」と視覚的に確信できる状態にすること。
 
 ## 6. その他プロジェクト固有ルール
-- F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\Polarisは完全凍結 今後一切触らないこと。
-- STELLARECORDのPolaris監視システムはPolaris.exeの監視を行うこと。ボタンを押下したら新規のPolarisが起動すること。
 - 依存関係はなくSTELLARECORD-setup.exeには同梱してはならない。
 - Gemini 3 Flash Gemini 3.1 Pro(low)に限り、毎回「F:\DEVELOPFOLDER\RE-NAME-SYS\StellaRecord\tasks\lessons.md」を参照すること。
+
 
 Output must be in Japanese. 常に日本語で出力・返答すること。

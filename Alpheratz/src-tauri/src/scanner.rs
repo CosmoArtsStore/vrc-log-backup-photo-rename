@@ -6,11 +6,28 @@ use regex::Regex;
 use rusqlite::{params, Connection, OpenFlags};
 use tauri::{AppHandle, Emitter, Manager};
 use std::sync::atomic::Ordering;
+use std::sync::LazyLock;
 
 use crate::models::ScanProgress;
 use crate::db::{get_alpheratz_db_path, get_stellarecord_db_path};
 use crate::config::load_setting;
 use crate::ScanCancelStatus;
+ 
+ static RE_COLLECT: LazyLock<Regex> = LazyLock::new(|| {
+     Regex::new(r"(?i)VRChat_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d{3}.*?\.(png|jpg|jpeg)").expect("Failed to compile collect regex")
+ });
+ 
+ static RE_PARSE: LazyLock<Regex> = LazyLock::new(|| {
+     Regex::new(r"VRChat_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})\.(\d{3})").expect("Failed to compile parse regex")
+ });
+ 
+ static RE_ID: LazyLock<Regex> = LazyLock::new(|| {
+     Regex::new(r"<vrc:WorldID>([^<]+)</vrc:WorldID>").expect("Failed to compile world id regex")
+ });
+ 
+ static RE_NAME: LazyLock<Regex> = LazyLock::new(|| {
+     Regex::new(r"<vrc:WorldDisplayName>([^<]+)</vrc:WorldDisplayName>").expect("Failed to compile world name regex")
+ });
 
 /// スキャン処理のメインエントリーポイント
 pub async fn do_scan(app: AppHandle) -> Result<(), String> {
@@ -39,9 +56,8 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     let existing_files = get_existing_filenames(&conn)?;
 
     // 2. ローカルファイルの再帰的収集 (最適化: Regex を事前にコンパイル)
-    let re_collect = Regex::new(r"(?i)VRChat_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d{3}.*?\.(png|jpg|jpeg)").unwrap();
     let mut found_files = Vec::new();
-    collect_photos_recursive(&photo_dir, &mut found_files, &re_collect, &cancel_status);
+    collect_photos_recursive(&photo_dir, &mut found_files, &RE_COLLECT, &cancel_status);
     
     if cancel_status.0.load(Ordering::SeqCst) {
         crate::utils::log_warn("Scan cancelled during collection.");
@@ -61,7 +77,6 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     // StellaRecord DB 接続 (読み取り専用)
     let plan_conn = get_stellarecord_db_path()
         .and_then(|p| if p.exists() { Connection::open_with_flags(p, OpenFlags::SQLITE_OPEN_READ_ONLY).ok() } else { None });
-    let re_parse = Regex::new(r"VRChat_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})\.(\d{3})").unwrap();
 
     if total > 0 {
         let _ = app.emit("scan:progress", ScanProgress { processed: 0, total, current_world: "".into() });
@@ -74,7 +89,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
                 return Ok(());
             }
 
-            if let Some(caps) = re_parse.captures(&filename) {
+            if let Some(caps) = RE_PARSE.captures(&filename) {
                 let timestamp = format!("{} {}", &caps[1], caps[2].replace("-", ":"));
                 
                 // ワールド情報の特定: PNG XMPメタデータ → Planetarium DB の優先順
@@ -96,7 +111,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     }
 
     // 6. 既存のワールド未特定写真をPNGメタデータで遡及更新
-    let updated = backfill_missing_world_info(&conn, &plan_conn, &re_parse)?;
+    let updated = backfill_missing_world_info(&conn, &plan_conn, &RE_PARSE)?;
     if updated > 0 {
         // INFOレベルのログは記録しない
     }
@@ -304,11 +319,9 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
 }
 
 fn parse_vrc_from_xmp(xmp: &str) -> (Option<String>, Option<String>) {
-    let re_id = Regex::new(r"<vrc:WorldID>([^<]+)</vrc:WorldID>").unwrap();
-    let re_name = Regex::new(r"<vrc:WorldDisplayName>([^<]+)</vrc:WorldDisplayName>").unwrap();
+    let world_id = RE_ID.captures(xmp).and_then(|c| c.get(1)).map(|m| m.as_str().to_string());
+    let world_name = RE_NAME.captures(xmp).and_then(|c| c.get(1)).map(|m| m.as_str().to_string());
 
-    let world_id = re_id.captures(xmp).map(|c| c[1].to_string());
-    let world_name = re_name.captures(xmp).map(|c| c[1].to_string());
 
     (world_name, world_id)
 }

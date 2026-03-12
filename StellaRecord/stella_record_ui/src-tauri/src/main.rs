@@ -1,6 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod planetarium;
 
 use std::process::Command;
 #[cfg(windows)]
@@ -9,35 +8,46 @@ use sysinfo::{System, ProcessesToUpdate};
 use stella_record_ui::config::{
     load_polaris_setting, load_stellarecord_setting,
 };
-use stella_record_ui::{log_warn, log_err};
+use stella_record_ui::{log_warn, log_err_lib, analyze};
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use tauri::Emitter;
 use std::path::PathBuf;
 use winreg::enums::HKEY_CURRENT_USER;
 use winreg::RegKey;
-use chrono::Local;
-use std::fs::OpenOptions;
 
-fn get_polaris_install_dir() -> Option<PathBuf> {
+// ── パス取得 ────────────────────────────────
+
+fn get_component_install_dir(name: &str) -> Option<PathBuf> {
+    let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
     let key = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Polaris").ok()?;
+        .open_subkey(&key_path).ok()?;
     let path: String = key.get_value("InstallLocation").ok()?;
     Some(PathBuf::from(path))
 }
 
 fn get_stellarecord_install_dir() -> Option<PathBuf> {
-    let key = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\StellaRecord").ok()?;
-    let path: String = key.get_value("InstallLocation").ok()?;
-    Some(PathBuf::from(path))
+    get_component_install_dir("StellaRecord")
+}
+
+fn get_polaris_install_dir() -> Option<PathBuf> {
+    get_component_install_dir("Polaris")
 }
 
 fn get_polaris_exe_path() -> Option<PathBuf> {
     Some(get_polaris_install_dir()?.join("Polaris.exe"))
 }
 
-// ログ関数は lib.rs に移動
+fn log_err(msg: &str) {
+    if let Some(path) = get_stellarecord_install_dir().map(|p| p.join("info.log")) {
+        if let Ok(mut log) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+            let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+            let _ = std::io::Write::write_fmt(&mut log, format_args!("[{}] [ERROR] {}\n", now, msg));
+        }
+    }
+}
+
+// ── Commands ────────────────────────────────────────
 
 #[tauri::command]
 fn list_archive_files() -> Result<Vec<String>, String> {
@@ -136,17 +146,17 @@ fn launch_enhanced_import(handle: tauri::AppHandle, file_names: Vec<String>) -> 
                 .unwrap_or("")
                 .to_string();
 
-            let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+            let _ = handle.emit("analyze-progress", AnalyzePayload {
                 status: format!("[{}/{}] {}", idx + 1, total, file_label),
                 progress: format!("{}%", (idx * 100) / total.max(1)),
                 is_running: true,
             });
 
-            let result = planetarium::run_enhanced_import(
+            let result = analyze::run_enhanced_import(
                 db_path.clone(),
                 target_path,
                 |status, progress| {
-                    let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                    let _ = handle.emit("analyze-progress", AnalyzePayload {
                         status,
                         progress,
                         is_running: true,
@@ -155,22 +165,22 @@ fn launch_enhanced_import(handle: tauri::AppHandle, file_names: Vec<String>) -> 
             );
 
             if let Err(e) = result {
-                let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                let _ = handle.emit("analyze-progress", AnalyzePayload {
                     status: format!("エラー: {}", e),
                     progress: "0%".to_string(),
                     is_running: false,
                 });
-                let _ = handle.emit("planetarium-finished", ());
+                let _ = handle.emit("analyze-finished", ());
                 return;
             }
         }
 
-        let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+        let _ = handle.emit("analyze-progress", AnalyzePayload {
             status: format!("{}件のインポートが完了しました。", total),
             progress: "100%".to_string(),
             is_running: false,
         });
-        let _ = handle.emit("planetarium-finished", ());
+        let _ = handle.emit("analyze-finished", ());
     });
 
     Ok(format!("{}件のアーカイブ同期を開始しました。", total))
@@ -246,24 +256,13 @@ fn get_polaris_status() -> bool {
 
 #[tauri::command]
 fn open_folder(path: &str) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        Command::new("explorer")
-            .arg(path)
-            .spawn()
-            .map_err(|e| e.to_string())?;
-        Ok(())
-    }
-    #[cfg(not(windows))]
-    {
-        Err("Unsupported platform".to_string())
-    }
+    opener::open(path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn get_polaris_logs() -> Result<Vec<String>, String> {
     let log_path = get_polaris_install_dir()
-        .map(|p| p.join("error_info.log"))
+        .map(|p| p.join("info.log"))
         .ok_or_else(|| "Polaris installation not found".to_string())?;
     
     if !log_path.exists() {
@@ -278,31 +277,35 @@ fn get_polaris_logs() -> Result<Vec<String>, String> {
             .read(true)
             .share_mode(FILE_SHARE_READ.0)
             .open(log_path).map_err(|e| e.to_string())?;
-        let reader = BufReader::new(file);
+        let reader = std::io::BufReader::new(file);
         let mut lines: Vec<String> = reader.lines().filter_map(|l| l.ok()).collect();
         if lines.len() > 100 {
             lines = lines.split_off(lines.len() - 100);
         }
         Ok(lines)
     }
+    #[cfg(not(windows))]
+    {
+        Ok(vec!["Unsupported platform".to_string()])
+    }
 }
 
 #[derive(Clone, serde::Serialize)]
-struct PlanetariumPayload {
+struct AnalyzePayload {
     status: String,
     progress: String,
     is_running: bool,
 }
 
 #[tauri::command]
-fn launch_planetarium(handle: tauri::AppHandle, _mode: String) -> Result<String, String> {
+async fn launch_analyze(handle: tauri::AppHandle, _mode: String) -> Result<String, String> {
     let setting = load_stellarecord_setting();
     let db_path = setting.get_effective_db_path().ok_or_else(|| "データベースパスが見つかりません。".to_string())?;
     let archive_dir = setting.get_effective_archive_dir().ok_or_else(|| "アーカイブディレクトリが見つかりません。".to_string())?;
     
     std::thread::spawn(move || {
-        let result = planetarium::run_diff_import(db_path, archive_dir, |status, progress| {
-            let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+        let result = analyze::run_diff_import(db_path, archive_dir, |status, progress| {
+            let _ = handle.emit("analyze-progress", AnalyzePayload {
                 status: status.clone(),
                 progress: progress.clone(),
                 is_running: true,
@@ -311,24 +314,24 @@ fn launch_planetarium(handle: tauri::AppHandle, _mode: String) -> Result<String,
         
         match result {
             Ok(_) => {
-                let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                let _ = handle.emit("analyze-progress", AnalyzePayload {
                     status: "完了".to_string(),
                     progress: "100%".to_string(),
                     is_running: false,
                 });
             }
             Err(e) => {
-                let _ = handle.emit("planetarium-progress", PlanetariumPayload {
+                let _ = handle.emit("analyze-progress", AnalyzePayload {
                     status: format!("エラー: {}", e),
                     progress: "0%".to_string(),
                     is_running: false,
                 });
             }
         }
-        let _ = handle.emit("planetarium-finished", ());
+        let _ = handle.emit("analyze-finished", ());
     });
     
-    Ok("Planetarium を開始しました。".to_string())
+    Ok("Analyze を開始しました。".to_string())
 }
 
 #[tauri::command]
@@ -353,7 +356,7 @@ fn get_storage_status() -> Result<(u64, u64), String> {
 }
 
 #[tauri::command]
-fn cancel_planetarium() -> Result<(), String> {
+async fn cancel_analyze() -> Result<(), String> {
     Ok(())
 }
 
@@ -473,13 +476,7 @@ fn read_launcher_json(section: &str) -> Vec<stella_record_ui::config::AppCard> {
 
 #[tauri::command]
 async fn start_polaris() -> Result<String, String> {
-    let mut sys = System::new_all();
-    sys.refresh_processes(ProcessesToUpdate::All, true);
-    let is_running = sys.processes().values().any(|p| {
-        let n = p.name().to_string_lossy().to_lowercase();
-        n == "polaris.exe" || n == "polaris"
-    });
-    
+    let is_running = get_polaris_status();
     if is_running {
         return Ok("Polaris は既に起動しています。".to_string());
     }
@@ -499,6 +496,8 @@ async fn start_polaris() -> Result<String, String> {
     Ok("Polaris を起動しました。".to_string())
 }
 
+// ── メイン ────────────────────────────────────────
+
 fn main() {
     std::panic::set_hook(Box::new(|info| {
         let location = info.location()
@@ -513,15 +512,12 @@ fn main() {
             "No error message".to_string()
         };
         if let Some(log_path) = get_stellarecord_install_dir().map(|p| p.join("info.log")) {
-            if let Some(parent) = log_path.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
-            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log_path) {
-                let _ = std::io::Write::write_fmt(&mut f, format_args!("[{}] [PANIC] {} {}\n", now, msg, location));
+            if let Ok(mut log) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+                let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+                let _ = std::io::Write::write_fmt(&mut log, format_args!("[{}] [PANIC] {} {}\n", now, msg, location));
             }
         }
-        log_err(&format!("[PANIC] {} {}", msg, location));
+        log_err_lib(&format!("[PANIC] {} {}", msg, location));
     }));
 
     #[cfg(windows)]
@@ -546,8 +542,8 @@ fn main() {
             compress_logs,
             decompress_logs,
             launch_enhanced_import,
-            launch_planetarium,
-            cancel_planetarium,
+            launch_analyze,
+            cancel_analyze,
             read_launcher_json,
             launch_external_app,
             get_polaris_logs,
@@ -558,24 +554,8 @@ fn main() {
             delete_today_data,
             wipe_database,
             open_folder,
+            get_polaris_status,
         ])
-        .setup(|app| {
-            let handle = app.handle().clone();
-            std::thread::spawn(move || {
-                let mut sys = System::new_all();
-                loop {
-                    sys.refresh_processes(ProcessesToUpdate::All, true);
-                    let is_running = sys.processes().values().any(|p| {
-                        let n = p.name().to_string_lossy().to_lowercase();
-                        n == "polaris.exe" || n == "polaris"
-                    });
-                    let _ = handle.emit("polaris-status", is_running);
-                    std::thread::sleep(std::time::Duration::from_secs(3));
-                }
-            });
-
-            Ok(())
-        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

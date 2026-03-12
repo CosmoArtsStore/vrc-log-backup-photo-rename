@@ -29,11 +29,11 @@ async fn initialize_scan(app: AppHandle, cancel_status: State<'_, ScanCancelStat
     let app_clone = app.clone();
     tauri::async_runtime::spawn(async move {
         if let Err(e) = scanner::do_scan(app_clone.clone()).await {
-            utils::log_err(&format!("Scanner Error: {}", e));
+            crate::utils::log_err(&format!("Scanner Error: {}", e));
         }
         
         if let Err(e) = scanner::compute_missing_phashes_bg(app_clone).await {
-            utils::log_err(&format!("Phash BG Error: {}", e));
+            crate::utils::log_err(&format!("Phash BG Error: {}", e));
         }
     });
     Ok(())
@@ -68,28 +68,7 @@ async fn open_world_url(app: AppHandle, world_id: String) -> Result<(), String> 
 
 #[tauri::command]
 async fn show_in_explorer(path: String) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        let escaped = path.replace('"', "");
-        let cmdline = format!("explorer.exe /select,\"{}\"", escaped);
-        std::process::Command::new("cmd")
-            .args(["/C", &cmdline])
-            .creation_flags(0x08000000)
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let path_obj = std::path::Path::new(&path);
-        if let Some(parent) = path_obj.parent() {
-            std::process::Command::new("xdg-open")
-                .arg(parent)
-                .spawn()
-                .map_err(|e| e.to_string())?;
-        }
-    }
-    Ok(())
+    opener::reveal(path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

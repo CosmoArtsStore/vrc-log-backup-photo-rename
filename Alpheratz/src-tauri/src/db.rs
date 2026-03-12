@@ -4,18 +4,20 @@ use std::fs;
 use winreg::enums::HKEY_CURRENT_USER;
 use winreg::RegKey;
 
-fn get_alpheratz_install_dir() -> Option<PathBuf> {
+fn get_component_install_dir(name: &str) -> Option<PathBuf> {
+    let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
     let key = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Alpheratz").ok()?;
+        .open_subkey(&key_path).ok()?;
     let path: String = key.get_value("InstallLocation").ok()?;
     Some(PathBuf::from(path))
 }
 
+fn get_alpheratz_install_dir() -> Option<PathBuf> {
+    get_component_install_dir("Alpheratz")
+}
+
 fn get_stellarecord_install_dir() -> Option<PathBuf> {
-    let key = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\StellaRecord").ok()?;
-    let path: String = key.get_value("InstallLocation").ok()?;
-    Some(PathBuf::from(path))
+    get_component_install_dir("StellaRecord")
 }
 
 pub fn get_stellarecord_db_path() -> Option<PathBuf> {
@@ -32,39 +34,29 @@ pub fn init_alpheratz_db() -> Result<(), String> {
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
-         PRAGMA foreign_keys = ON;"
+         PRAGMA foreign_keys = ON;
+         
+         CREATE TABLE IF NOT EXISTS photos (
+             photo_filename  TEXT PRIMARY KEY,
+             photo_path      TEXT NOT NULL,
+             world_id        TEXT,
+             world_name      TEXT,
+             timestamp       TEXT NOT NULL,
+             memo            TEXT DEFAULT '',
+             phash           TEXT
+         );
+         
+         CREATE TABLE IF NOT EXISTS photo_embeddings (
+             photo_id       TEXT PRIMARY KEY,
+             world_emb      BLOB,
+             avatar_emb     BLOB,
+             world_cluster  INTEGER,
+             avatar_cluster INTEGER
+         );
+         
+         CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp);
+         CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name);"
     ).map_err(|e| e.to_string())?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS photos (
-            photo_filename  TEXT PRIMARY KEY,
-            photo_path      TEXT NOT NULL,
-            world_id        TEXT,
-            world_name      TEXT,
-            timestamp       TEXT NOT NULL,
-            memo            TEXT DEFAULT '',
-            phash           TEXT
-        )",
-        [],
-    ).map_err(|e| e.to_string())?;
-
-    // Migration for existing databases
-    let _ = conn.execute("ALTER TABLE photos ADD COLUMN phash TEXT", []);
-
-    // Create table for identical world and avatar matching embeddings
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS photo_embeddings (
-            photo_id       TEXT PRIMARY KEY,
-            world_emb      BLOB,
-            avatar_emb     BLOB,
-            world_cluster  INTEGER,
-            avatar_cluster INTEGER
-        )",
-        [],
-    ).map_err(|e| e.to_string())?;
-
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp)", []).map_err(|e| e.to_string())?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name)", []).map_err(|e| e.to_string())?;
 
     Ok(())
 }
