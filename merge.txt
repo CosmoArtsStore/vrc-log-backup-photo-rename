@@ -1,0 +1,2486 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/Alpheratz/src-tauri/src/db.rs b/Alpheratz/src-tauri/src/db.rs
+index 62957daf224bf178987b1b8b39dab74f74f31082..556dbcf82fa29767fead724e5c10b7e109703960 100644
+--- a/Alpheratz/src-tauri/src/db.rs
++++ b/Alpheratz/src-tauri/src/db.rs
+@@ -1,131 +1,162 @@
+-use rusqlite::Connection;
+-use std::path::{Path, PathBuf};
+-use std::fs;
+-use winreg::enums::HKEY_CURRENT_USER;
+-use winreg::RegKey;
+-
+-fn get_component_install_dir(name: &str) -> Option<PathBuf> {
+-    let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
+-    let key = RegKey::predef(HKEY_CURRENT_USER)
+-        .open_subkey(&key_path).ok()?;
+-    let path: String = key.get_value("InstallLocation").ok()?;
+-    Some(PathBuf::from(path))
+-}
+-
+-fn get_alpheratz_install_dir() -> Option<PathBuf> {
+-    get_component_install_dir("Alpheratz")
+-}
+-
+-fn get_stellarecord_install_dir() -> Option<PathBuf> {
+-    get_component_install_dir("StellaRecord")
+-}
+-
+-pub fn get_stellarecord_db_path() -> Option<PathBuf> {
+-    Some(get_stellarecord_install_dir()?.join("stellarecord.db"))
+-}
+-
+-pub fn get_alpheratz_db_path() -> Option<PathBuf> {
+-    Some(get_alpheratz_install_dir()?.join("alpheratz.db"))
+-}
+-
+-pub fn init_alpheratz_db() -> Result<(), String> {
+-    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
+-    
+-    conn.execute_batch(
+-        "PRAGMA journal_mode = WAL;
+-         PRAGMA synchronous = NORMAL;
+-         PRAGMA foreign_keys = ON;
+-         
+-         CREATE TABLE IF NOT EXISTS photos (
+-             photo_filename  TEXT PRIMARY KEY,
+-             photo_path      TEXT NOT NULL,
+-             world_id        TEXT,
+-             world_name      TEXT,
+-             timestamp       TEXT NOT NULL,
+-             memo            TEXT DEFAULT '',
+-             phash           TEXT
+-         );
+-         
+-         CREATE TABLE IF NOT EXISTS photo_embeddings (
+-             photo_id       TEXT PRIMARY KEY,
+-             world_emb      BLOB,
+-             avatar_emb     BLOB,
+-             world_cluster  INTEGER,
+-             avatar_cluster INTEGER
+-         );
+-         
+-         CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp);
+-         CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name);"
+-    ).map_err(|e| e.to_string())?;
+-
+-    Ok(())
+-}
+-use crate::models::PhotoRecord;
+-
+-pub fn get_photos(
+-    start_date: Option<String>,
+-    end_date: Option<String>,
+-    world_query: Option<String>,
+-    world_exact: Option<String>
+-) -> Result<Vec<PhotoRecord>, String> {
+-    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
+-    
+-    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo, phash FROM photos WHERE 1=1".to_string();
+-    
+-    if start_date.is_some() { sql.push_str(" AND timestamp >= :start"); }
+-    if end_date.is_some() { sql.push_str(" AND timestamp <= :end"); }
+-    if world_query.is_some() { sql.push_str(" AND world_name LIKE :query"); }
+-    if world_exact.is_some() {
+-        if world_exact.as_ref().map(|s| s.as_str()) == Some("unknown") {
+-            sql.push_str(" AND world_name IS NULL");
+-        } else {
+-            sql.push_str(" AND world_name = :exact");
+-        }
+-    }
+-
+-    sql.push_str(" ORDER BY timestamp DESC");
+-    
+-    let mut results = Vec::new();
+-    let query_val = world_query.as_ref().map(|w| format!("%{}%", w));
+-    
+-    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+-    
+-    let mut params = Vec::new();
+-    if let Some(ref s) = start_date { params.push((":start", s as &dyn rusqlite::ToSql)); }
+-    if let Some(ref e) = end_date { params.push((":end", e as &dyn rusqlite::ToSql)); }
+-    if let Some(ref q) = query_val { params.push((":query", q as &dyn rusqlite::ToSql)); }
+-    if let Some(ref x) = world_exact {
+-        if x != "unknown" {
+-            params.push((":exact", x as &dyn rusqlite::ToSql));
+-        }
+-    }
+-
+-    let rows = stmt.query_map(params.as_slice(), |row| {
+-        Ok(PhotoRecord {
+-            photo_filename: row.get(0)?,
+-            photo_path: row.get(1)?,
+-            world_id: row.get(2)?,
+-            world_name: row.get(3)?,
+-            timestamp: row.get(4)?,
+-            memo: row.get(5)?,
+-            phash: row.get(6)?,
+-        })
+-    }).map_err(|e| e.to_string())?;
+-
+-    for r in rows {
+-        if let Ok(rec) = r { results.push(rec); }
+-    }
+-    Ok(results)
+-}
+-
+-pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
+-    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
+-    let changed = conn.execute(
+-        "UPDATE photos SET memo = ?1 WHERE photo_filename = ?2",
+-        rusqlite::params![memo, filename],
+-    ).map_err(|e| e.to_string())?;
+-    if changed == 0 {
+-        return Err(format!("写真が見つかりません: {}", filename));
+-    }
+-    Ok(())
+-}
++use rusqlite::Connection;
++use std::path::{Path, PathBuf};
++use std::fs;
++use winreg::enums::HKEY_CURRENT_USER;
++use winreg::RegKey;
++
++fn get_component_install_dir(name: &str) -> Option<PathBuf> {
++    let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
++    let key = RegKey::predef(HKEY_CURRENT_USER)
++        .open_subkey(&key_path).ok()?;
++    let path: String = key.get_value("InstallLocation").ok()?;
++    Some(PathBuf::from(path))
++}
++
++fn get_alpheratz_install_dir() -> Option<PathBuf> {
++    get_component_install_dir("Alpheratz")
++}
++
++fn get_stellarecord_install_dir() -> Option<PathBuf> {
++    get_component_install_dir("StellaRecord")
++}
++
++pub fn get_stellarecord_db_path() -> Option<PathBuf> {
++    Some(get_stellarecord_install_dir()?.join("stellarecord.db"))
++}
++
++pub fn get_alpheratz_db_path() -> Option<PathBuf> {
++    Some(get_alpheratz_install_dir()?.join("alpheratz.db"))
++}
++
++fn add_column_if_missing(conn: &Connection, sql: &str) -> Result<(), String> {
++    match conn.execute(sql, []) {
++        Ok(_) => Ok(()),
++        Err(e) => {
++            let msg = e.to_string();
++            if msg.contains("duplicate column name") {
++                Ok(())
++            } else {
++                Err(msg)
++            }
++        }
++    }
++}
++
++pub fn init_alpheratz_db() -> Result<(), String> {
++    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
++
++    conn.execute_batch(
++        "PRAGMA journal_mode = WAL;
++         PRAGMA synchronous = NORMAL;
++         PRAGMA foreign_keys = ON;
++
++         CREATE TABLE IF NOT EXISTS photos (
++             photo_filename  TEXT PRIMARY KEY,
++             photo_path      TEXT NOT NULL,
++             world_id        TEXT,
++             world_name      TEXT,
++             timestamp       TEXT NOT NULL,
++             width           INTEGER,
++             height          INTEGER,
++             orientation     TEXT,
++             memo            TEXT DEFAULT '',
++             phash           TEXT,
++             histogram       BLOB,
++             is_favorite     INTEGER DEFAULT 0
++         );
++
++         CREATE TABLE IF NOT EXISTS tags (
++             id    INTEGER PRIMARY KEY AUTOINCREMENT,
++             name  TEXT NOT NULL UNIQUE
++         );
++
++         CREATE TABLE IF NOT EXISTS photo_tags (
++             photo_filename  TEXT REFERENCES photos(photo_filename),
++             tag_id          INTEGER REFERENCES tags(id),
++             PRIMARY KEY (photo_filename, tag_id)
++         );
++
++         DROP TABLE IF EXISTS photo_embeddings;
++
++         CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp);
++         CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name);"
++    ).map_err(|e| e.to_string())?;
++
++    // 既存DB向けの後方互換マイグレーション
++    add_column_if_missing(&conn, "ALTER TABLE photos ADD COLUMN width INTEGER")?;
++    add_column_if_missing(&conn, "ALTER TABLE photos ADD COLUMN height INTEGER")?;
++    add_column_if_missing(&conn, "ALTER TABLE photos ADD COLUMN orientation TEXT")?;
++    add_column_if_missing(&conn, "ALTER TABLE photos ADD COLUMN histogram BLOB")?;
++    add_column_if_missing(&conn, "ALTER TABLE photos ADD COLUMN is_favorite INTEGER DEFAULT 0")?;
++
++    Ok(())
++}
++use crate::models::PhotoRecord;
++
++pub fn get_photos(
++    start_date: Option<String>,
++    end_date: Option<String>,
++    world_query: Option<String>,
++    world_exact: Option<String>
++) -> Result<Vec<PhotoRecord>, String> {
++    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
++
++    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo, phash FROM photos WHERE 1=1".to_string();
++
++    if start_date.is_some() { sql.push_str(" AND timestamp >= :start"); }
++    if end_date.is_some() { sql.push_str(" AND timestamp <= :end"); }
++    if world_query.is_some() { sql.push_str(" AND world_name LIKE :query"); }
++    if world_exact.is_some() {
++        if world_exact.as_ref().map(|s| s.as_str()) == Some("unknown") {
++            sql.push_str(" AND world_name IS NULL");
++        } else {
++            sql.push_str(" AND world_name = :exact");
++        }
++    }
++
++    sql.push_str(" ORDER BY timestamp DESC");
++
++    let mut results = Vec::new();
++    let query_val = world_query.as_ref().map(|w| format!("%{}%", w));
++
++    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
++
++    let mut params = Vec::new();
++    if let Some(ref s) = start_date { params.push((":start", s as &dyn rusqlite::ToSql)); }
++    if let Some(ref e) = end_date { params.push((":end", e as &dyn rusqlite::ToSql)); }
++    if let Some(ref q) = query_val { params.push((":query", q as &dyn rusqlite::ToSql)); }
++    if let Some(ref x) = world_exact {
++        if x != "unknown" {
++            params.push((":exact", x as &dyn rusqlite::ToSql));
++        }
++    }
++
++    let rows = stmt.query_map(params.as_slice(), |row| {
++        Ok(PhotoRecord {
++            photo_filename: row.get(0)?,
++            photo_path: row.get(1)?,
++            world_id: row.get(2)?,
++            world_name: row.get(3)?,
++            timestamp: row.get(4)?,
++            memo: row.get(5)?,
++            phash: row.get(6)?,
++        })
++    }).map_err(|e| e.to_string())?;
++
++    for r in rows {
++        if let Ok(rec) = r { results.push(rec); }
++    }
++    Ok(results)
++}
++
++pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
++    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
++    let changed = conn.execute(
++        "UPDATE photos SET memo = ?1 WHERE photo_filename = ?2",
++        rusqlite::params![memo, filename],
++    ).map_err(|e| e.to_string())?;
++    if changed == 0 {
++        return Err(format!("写真が見つかりません: {}", filename));
++    }
++    Ok(())
++}
+ 
+EOF
+)
+
+
+
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/Alpheratz/src-tauri/migrations/V1__initial_schema.sql b/Alpheratz/src-tauri/migrations/V1__initial_schema.sql
+index b40188f53b76652505c7ded936703049c583468b..814d191068328da170b1dbd8e246e94e90572a51 100644
+--- a/Alpheratz/src-tauri/migrations/V1__initial_schema.sql
++++ b/Alpheratz/src-tauri/migrations/V1__initial_schema.sql
+@@ -1,21 +1,29 @@
+--- V1: Initial schema for Alpheratz (Legacy Compatible)
++-- V1: Initial schema for Alpheratz
+ CREATE TABLE IF NOT EXISTS photos (
+     photo_filename  TEXT PRIMARY KEY,
+     photo_path      TEXT NOT NULL,
+     world_id        TEXT,
+     world_name      TEXT,
+     timestamp       TEXT NOT NULL,
++    width           INTEGER,
++    height          INTEGER,
++    orientation     TEXT,
+     memo            TEXT DEFAULT '',
+-    phash           TEXT
++    phash           TEXT,
++    histogram       BLOB,
++    is_favorite     INTEGER DEFAULT 0
+ );
+ 
+-CREATE TABLE IF NOT EXISTS photo_embeddings (
+-    photo_id       TEXT PRIMARY KEY,
+-    world_emb      BLOB,
+-    avatar_emb     BLOB,
+-    world_cluster  INTEGER,
+-    avatar_cluster INTEGER
++CREATE TABLE IF NOT EXISTS tags (
++    id    INTEGER PRIMARY KEY AUTOINCREMENT,
++    name  TEXT NOT NULL UNIQUE
++);
++
++CREATE TABLE IF NOT EXISTS photo_tags (
++    photo_filename  TEXT REFERENCES photos(photo_filename),
++    tag_id          INTEGER REFERENCES tags(id),
++    PRIMARY KEY (photo_filename, tag_id)
+ );
+ 
+ CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp);
+ CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name);
+ 
+EOF
+)
+
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/Alpheratz/docs/ALPHERATZ_DB_SCHEMA_UPDATE_IMPACT.md b/Alpheratz/docs/ALPHERATZ_DB_SCHEMA_UPDATE_IMPACT.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ceea1c6c701d5b899e2800db9ad8f9f50c2a6e8b
+--- /dev/null
++++ b/Alpheratz/docs/ALPHERATZ_DB_SCHEMA_UPDATE_IMPACT.md
+@@ -0,0 +1,34 @@
++# Alpheratz.db テーブル更新に伴う修正箇所（必要最小限）
++
++本ドキュメントは、`photos`拡張・`tags`/`photo_tags`追加・`photo_embeddings`削除に伴い、**必須となる修正箇所のみ**を列挙します。
++
++## 1. DB初期化／マイグレーション
++
++- 対象: `Alpheratz/src-tauri/src/db.rs`
++- 必須修正:
++  - `photos`定義へ `width`, `height`, `orientation`, `histogram`, `is_favorite` を追加。
++  - `tags`, `photo_tags` を作成。
++  - `photo_embeddings` を削除（`DROP TABLE IF EXISTS`）。
++  - 既存DB向けに `ALTER TABLE` で不足カラムを補完。
++
++## 2. SQLマイグレーションファイル
++
++- 対象: `Alpheratz/src-tauri/migrations/V1__initial_schema.sql`
++- 必須修正:
++  - 初期スキーマを新設計へ更新（`photos`拡張、`tags`/`photo_tags`追加、不要テーブル除去）。
++
++## 3. 機能実装側の追従（今後着手）
++
++以下はスキーマ更新後に機能として使う場合に必要になるが、今回のスキーマ反映だけでは未着手でも動作影響は限定的。
++
++- `scanner.rs`
++  - 画像読み込み時に `width`/`height`/`orientation` を算出して保存する処理。
++  - 必要なら `histogram` 生成・保存。
++- `models.rs` / Frontend型定義
++  - `PhotoRecord`へ新規カラムを反映（表示やフィルタで利用する場合）。
++- API/コマンド
++  - お気に入り操作（`is_favorite`更新）・タグ付与（`tags`/`photo_tags`更新）エンドポイント。
++- 検索SQL
++  - orientation / favorite / tags 条件追加。
++
++> 注: 3は機能拡張のための追従であり、DB初期化エラー回避の観点での必須修正は1〜2です。
+ 
+EOF
+)
+
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/Alpheratz/docs/ALPHERATZ_DB_SCHEMA_DESIGN.md b/Alpheratz/docs/ALPHERATZ_DB_SCHEMA_DESIGN.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..bba91a221125bb6c2baf79c2ad254725d2401251
+--- /dev/null
++++ b/Alpheratz/docs/ALPHERATZ_DB_SCHEMA_DESIGN.md
+@@ -0,0 +1,100 @@
++# Alpheratz.db スキーマ設計ドキュメント
++
++## 設計思想
++
++AlpheratzはVRChat写真をローカルで管理するアプリです。**フォルダの中にある写真だけが正**という原則のもと、DBはフォルダの現状を反映するキャッシュとして機能します。外部API・ネットワーク通信・ログ連携は行わず、写真ファイルとアプリ内データのみで完結します。
++
++## カラム命名規則
++
++- PKは`id`ではなく**ドメイン上の自然なキー**（`photo_filename`）を使う。
++- FKは**参照先テーブル単数形_カラム名**（`photo_filename`・`tag_id`）で統一。
++- 日時カラムは原則`_at`サフィックスを使うが、`timestamp`は既存互換のため維持。
++
++| カラム名 | 命名の理由 |
++|---|---|
++| `photo_filename` | PKがUUIDではなくファイル名そのもの。「フォルダが正」の設計を反映 |
++| `photo_path` | ファイルの絶対パス。テーブルのドメイン（photo）を明示 |
++| `world_id` | VRChatの`wrld_xxx...`形式IDに合わせる |
++| `world_name` | VRChat側の概念名をそのまま使用 |
++| `timestamp` | ファイル名パース由来の既存カラムとして維持 |
++| `width` / `height` | 画像の幅・高さ(px) |
++| `orientation` | `portrait` / `landscape`の計算済みキャッシュ |
++| `memo` | ユーザー自由記述のメモ欄 |
++| `phash` | perceptual hashの略称 |
++| `histogram` | HSV色特徴量のBLOB |
++| `is_favorite` | お気に入りフラグ（SQLiteではINTEGER） |
++| `tag_id` | tagsテーブルへのFKであることを明示 |
++
++## テーブル一覧と設計理由
++
++### `photos`（更新）
++
++```sql
++CREATE TABLE photos (
++    photo_filename  TEXT PRIMARY KEY,
++    photo_path      TEXT NOT NULL,
++    world_id        TEXT,
++    world_name      TEXT,
++    timestamp       TEXT NOT NULL,
++    width           INTEGER,
++    height          INTEGER,
++    orientation     TEXT,
++    memo            TEXT DEFAULT '',
++    phash           TEXT,
++    histogram       BLOB,
++    is_favorite     INTEGER DEFAULT 0
++);
++```
++
++- PKを`photo_filename`にすることで、フォルダ状態とDB状態を直接対応させる。
++- `world_id`/`world_name`は任意メタデータとしてphotosに直持ちする（非正規化）。
++- `width`/`height`/`orientation`はフィルタ高速化のためのキャッシュ。
++- `histogram`は色特徴量検索用BLOB。
++- `is_favorite`は日時ではなく単純フラグで管理。
++
++### `tags`（新規）
++
++```sql
++CREATE TABLE tags (
++    id    INTEGER PRIMARY KEY AUTOINCREMENT,
++    name  TEXT NOT NULL UNIQUE
++);
++```
++
++- タグ名の重複をUNIQUEで防ぎ、タグ辞書として利用。
++
++### `photo_tags`（新規）
++
++```sql
++CREATE TABLE photo_tags (
++    photo_filename  TEXT REFERENCES photos(photo_filename),
++    tag_id          INTEGER REFERENCES tags(id),
++    PRIMARY KEY (photo_filename, tag_id)
++);
++```
++
++- photosとtagsの多対多を解決する中間テーブル。
++- 複合PKで同一タグの重複付与を防止。
++
++### `photo_embeddings`（削除）
++
++- CLIPベースの自動グルーピング機能を非採用にしたため、関連テーブルも削除。
++
++## インデックス
++
++```sql
++CREATE INDEX idx_photos_timestamp  ON photos(timestamp);
++CREATE INDEX idx_photos_world_name ON photos(world_name);
++```
++
++- 日時検索・ワールド名検索の主要導線を維持。
++
++## PRAGMA
++
++```sql
++PRAGMA journal_mode = WAL;
++PRAGMA synchronous = NORMAL;
++PRAGMA foreign_keys = ON;
++```
++
++- WALは将来的な複数アプリ同時アクセスに備えて維持。
+ 
+EOF
+)
+
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/codex_現課題001.md b/codex_現課題001.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ac87589f30cdb2320f7cc0566155b095ae8bd689
+--- /dev/null
++++ b/codex_現課題001.md
+@@ -0,0 +1,165 @@
++# codex_現課題001
++
++## 対象範囲
++- 本メモは **Alpheratz プロジェクトのみ**（`Alpheratz/src-tauri/src`）を対象にした現課題整理。
++- Polaris / StellaRecord 側の課題は含めない。
++
++## 現在の課題（Alpheratz）
++
++### 1) 同種処理のエラーハンドリング方針が一部で混在
++- `db.rs` は `Result` を返すAPIとして、行変換失敗も `Err` で返す実装になっている。
++- 一方 `scanner.rs` には、`query_map` の結果を `filter_map(|r| r.ok())` で握りつぶして継続する箇所が残っている。
++- 処理特性上の意図がある可能性はあるが、**「即時失敗」vs「黙ってスキップ」**の方針差がコード上から読み取りづらい。
++
++### 2) 設定読み込み失敗時の原因可視化が弱い
++- `load_setting()` は、ファイル不存在・JSON不正・読み込み失敗をすべて既定値フォールバックで吸収する。
++- 利用者視点では復旧性が高い一方、開発・運用時には「なぜ既定値になったか」が分かりづらい。
++
++### 3) ログ出力ポリシーがコメント依存で、設計意図がコード化されていない
++- `scanner.rs` には「INFOレベルのログは記録しない」というコメントが複数あるが、
++  それを担保する型/関数境界がなく、将来変更時に揺れやすい。
++- `utils.rs` 側は文字列レベル指定の `log_msg(level, msg)` で柔軟だが、許容レベルや運用ルールはコードからは分からない。
++
++### 4) 文字列リテラルの散在（メッセージ/イベント名/SQL）
++- `scanner.rs` ではイベント名（`scan:progress` など）やユーザー向け文言が散在している。
++- `db.rs` ではSQL文字列が関数内に直接埋め込まれている。
++- 現状でも動作に問題はないが、将来の変更でメンテ箇所の見落としが発生しやすい。
++
++### 5) StellaRecord依存点の責務境界が暗黙
++- Alpheratz は `stellarecord.db` や `pleiades.json` を直接参照して連携している。
++- 連携自体は仕様上必要だが、失敗時挙動（無視/警告/停止）や責務境界がコードコメント中心で、
++  モジュール境界（インターフェース）としては弱め。
++
++## 優先度の目安
++- 高: 1, 2（障害解析性・不具合検知性に直結）
++- 中: 3, 4（可読性・将来保守）
++- 中: 5（連携仕様の明確化）
++
++## 補足
++- 本整理は「無理やり追加課題を作る」方針ではなく、現コードから確認可能な範囲に限定。
++- 既に進んでいる共通化（インストール先取得、DB接続ヘルパー化）は改善済みとして除外。
++
++---
++
++## エラーハンドリング調査（Alpheratz 全体）
++
++本節は `Alpheratz/src-tauri/src` のエラーハンドリング実装を読み解き、
++「実際の対応」と「なぜそうしているか（推定意図）」を整理したもの。
++
++### A. 設定系（config.rs）
++
++#### `load_setting()`
++- 実対応:
++  - 設定ファイルパス取得失敗、ファイル不存在、読み込み失敗、JSONパース失敗をすべて吸収し、`Default` を返す。
++- 理由（読み解き）:
++  - アプリ起動時に設定破損で落ちるより、最低限起動を優先するための「フェイルオープン」設計。
++  - 初回起動・手動編集ミス時の復旧性を優先している。
++
++#### `save_setting()`
++- 実対応:
++  - `Result<(), String>` で呼び出し元へ失敗を明示返却（パス取得失敗/serialize失敗/write失敗）。
++- 理由（読み解き）:
++  - 保存操作はユーザー明示アクションであり、失敗を検知してUIへ返す必要があるため。
++
++### B. DBアクセス系（db.rs）
++
++#### `open_alpheratz_connection()`
++- 実対応:
++  - DBパス未解決は `Err`。
++  - `Connection::open` 失敗も `Err` へ変換。
++- 理由（読み解き）:
++  - DB層の入口で失敗理由を統一し、上位層の分岐を単純化するため。
++
++#### `init_alpheratz_db()` / `get_photos()` / `save_photo_memo()`
++- 実対応:
++  - SQL準備/実行失敗は原則 `Err` 伝播。
++  - `save_photo_memo` は更新件数0件を業務エラーとして `Err("写真が見つかりません")` 返却。
++- 理由（読み解き）:
++  - DB層は「失敗を隠さない」責務を持たせ、呼び出し元で通知判断できるようにしている。
++  - 0件更新も仕様上は異常ケースとして明示化している。
++
++### C. スキャン主処理（scanner.rs）
++
++#### `do_scan()`
++- 実対応:
++  - 写真フォルダ未解決/不存在は `scan:error` を emit 後に `Err`。
++  - DB操作失敗等は `?` で `Err` 伝播。
++  - キャンセルは `log_warn` + `scan:error` emit 後に `Ok(())` で正常終了扱い。
++  - 進捗通知 `emit` 失敗は `let _ = ...` で握りつぶし。
++- 理由（読み解き）:
++  - 「スキャン不能」はユーザー通知すべき致命として扱う。
++  - 一方「キャンセル」は異常ではなく操作結果なので `Err` にしない。
++  - UIイベント送信失敗で重処理全体を止めない方針（UI疎結合優先）。
++
++#### `compute_missing_phashes_bg()`
++- 実対応:
++  - DB準備失敗は `Err`。
++  - 一部行の変換失敗は `filter_map(|r| r.ok())` でスキップ継続。
++  - 画像読み込み失敗はそのファイルのみスキップ（ログなし）。
++  - `UPDATE` 実行結果は `let _ = conn.execute(...)` で握りつぶし。
++- 理由（読み解き）:
++  - バックグラウンド最適化処理であり、全体停止より「進められるだけ進める」方針。
++  - pHash欠損は再試行可能という前提で、部分失敗を許容している。
++
++#### `get_existing_filenames()` / `backfill_missing_world_info()`
++- 実対応:
++  - `query_map` の行単位失敗は `if let Ok(...)` / `filter_map(|r| r.ok())` でスキップ。
++  - クエリ準備や実行開始失敗は `Err`。
++- 理由（読み解き）:
++  - 一部不整合行があっても処理全体は継続し、利用可能データを優先するため。
++
++### D. PNG解析（scanner.rs 内）
++
++#### `extract_vrc_metadata_from_png()`
++- 実対応:
++  - ファイルopen失敗、シグネチャ不正、チャンク読取失敗は `log_err/log_warn` して `(None, None)` を返す。
++  - iTXtチャンク過大時はスキップ継続（OOM回避）。
++- 理由（読み解き）:
++  - メタデータ取得は補助情報であり、失敗してもスキャン継続を優先する設計。
++  - 入力ファイルの不正/巨大化に対して安全側に倒す実装。
++
++### E. 連携系（stellarecord_ext.rs）
++
++#### `register_self()`
++- 実対応:
++  - `current_exe` 取得、連携先パス解決、読み込み、保存は `Err` 返却。
++  - 既存JSONのパース失敗のみ `unwrap_or_else(|_| Vec::new())` で空配列にフォールバック。
++- 理由（読み解き）:
++  - 外部連携の成否はユーザー操作結果として返す必要がある。
++  - ただし既存ファイル破損時は登録不能にせず、自己修復的に再生成する運用意図。
++
++### F. ユーティリティ/エントリ（utils.rs, lib.rs, main.rs）
++
++#### `utils::log_msg()`
++- 実対応:
++  - ログファイルopen失敗は黙って無視。
++- 理由（読み解き）:
++  - ログ失敗で主処理を落とさないため（副作用処理として低優先）。
++
++#### `create_thumbnail_file()`
++- 実対応:
++  - キャッシュディレクトリ取得不能は `log_err` + `Err`。
++  - 画像open/save失敗は `Err`。
++- 理由（読み解き）:
++  - ユーザー操作に対する直接機能のため、失敗は明示返却。
++
++#### `lib.rs` の command 層
++- 実対応:
++  - 多くの command は下位 `Err` をそのまま返す。
++  - `initialize_scan` はバックグラウンドタスク内 `Err` をログ記録し、command自体は `Ok(())`。
++- 理由（読み解き）:
++  - 非同期開始APIとしては起動成功/失敗のみを返し、処理本体失敗はログ経由で扱う設計。
++
++#### `main.rs` の panic hook
++- 実対応:
++  - パニック時に `log_err` で記録し、致命メッセージを出す。
++- 理由（読み解き）:
++  - リリース時のサイレントクラッシュ回避と、最低限の事後解析情報確保。
++
++## まとめ（現状方針の全体像）
++
++- Alpheratz のエラーハンドリングは概ね次の2系統で構成されている。
++  1. **ユーザー操作の主経路（設定保存・DB更新・連携登録）**: `Err` を明示返却。
++  2. **長時間/補助処理（スキャン進捗通知・pHash・メタデータ抽出）**: 部分失敗を許容して継続。
++- つまり「厳密性」より「停止回避と継続性」を重視する場面が明確に存在する。
++- 次の方針決定では、どこまでを“厳密失敗”に寄せるか（特に scanner 内）を決めると整理しやすい。
+ 
+EOF
+)
+
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/Polaris/src-tauri/src/main.rs b/Polaris/src-tauri/src/main.rs
+index d905602c72c3ba75786d27c69d04682125eba42d..3a3d891d048f2300f9a7b65d5e0dc010f51e45a7 100644
+--- a/Polaris/src-tauri/src/main.rs
++++ b/Polaris/src-tauri/src/main.rs
+@@ -1,292 +1,290 @@
+-#![windows_subsystem = "windows"] // コンソールウィンドウを非表示にする
+-
+-use std::env::var;
+-use std::fs::{self, OpenOptions};
+-use std::io::Write;
+-use std::path::PathBuf;
+-use std::thread;
+-use std::time::Duration;
+-
+-use chrono::Local;
+-use sysinfo::{ProcessesToUpdate, System};
+-use tray_icon::{Icon, TrayIcon, TrayIconBuilder, menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem}};
+-use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError};
+-use windows::Win32::System::Threading::{CreateMutexW, OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE};
+-use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageW, MessageBoxW, PeekMessageW, TranslateMessage, IDOK, MB_ICONWARNING, MB_OKCANCEL, MSG, PM_REMOVE};
+-use windows::core::PCWSTR;
+-use winreg::enums::HKEY_CURRENT_USER;
+-use winreg::RegKey;
+-
+-const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
+-
+-// ── パス構築 ────────────────────────────────
+-
+-fn get_component_install_dir(name: &str) -> Option<PathBuf> {
+-    let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
+-    let key = RegKey::predef(HKEY_CURRENT_USER)
+-        .open_subkey(&key_path).ok()?;
+-    let path: String = key.get_value("InstallLocation").ok()?;
+-    Some(PathBuf::from(path))
+-}
+-
+-fn get_vrchat_log_dir() -> Option<PathBuf> {
+-    let local = dirs::data_local_dir()?;
+-    let appdata = local.parent()?;
+-    Some(appdata.join("LocalLow").join("VRChat").join("VRChat"))
+-}
+-
+-/// NSISが書き込んだレジストリからインストール先を取得する
+-fn install_dir() -> Option<PathBuf> {
+-    get_component_install_dir("Polaris")
+-}
+-
+-fn vrchat_log_dir() -> Option<PathBuf> {
+-    get_vrchat_log_dir()
+-}
+-fn archive_dir() -> Option<PathBuf> {
+-    Some(install_dir()?.join("archive"))
+-}
+-fn log_path() -> Option<PathBuf> {
+-    Some(install_dir()?.join("info.log"))
+-}
+-
+-// ── メイン ────────────────────────────────────────
+-
+-fn main() {
+-    // #19: Panic Hookの設定 — リリースビルドでのサイレントクラッシュを防止
+-    std::panic::set_hook(Box::new(|info| {
+-        let location = info.location()
+-            .map(|l| format!("at {}:{}", l.file(), l.line()))
+-            .unwrap_or_else(|| "unknown location".to_string());
+-        let payload = info.payload();
+-        let msg = if let Some(s) = payload.downcast_ref::<&str>() {
+-            "Alpheratz"
+-        } else {
+-            "致命的なエラーが発生しました。"
+-        };
+-        
+-        let error_msg = format!(
+-            "STELLARECORD (Polaris) で致命的なエラーが発生しました。\n\nエラー内容: {}\n発生場所: {}\n\nアプリケーションを終了します。\n詳細はインストール先の info.log を確認してください。",
+-            msg, location
+-        );
+-        if let Some(path) = log_path() {
+-            if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+-                let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+-                let _ = writeln!(f, "[{}] [PANIC] {} {}", now, msg, location);
+-            }
+-        }
+-        log_err(&error_msg);
+-    }));
+-
+-    // 二重起動防止
+-    let mutex_name: Vec<u16> = "Global\\Polaris_SingleInstance\0".encode_utf16().collect();
+-    let _ = unsafe { CreateMutexW(None, true, PCWSTR(mutex_name.as_ptr())) };
+-    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+-        return;
+-    }
+-
+-    // 起動時同期。VRChat起動中はスキップ。
+-    if find_vrchat_pid(&mut System::new()).is_none() {
+-        sync_logs();
+-    }
+-
+-    // トレイアイコン構築
+-    let (quit_id, _tray) = build_tray();
+-
+-    // 10秒ごとにVRChatをチェックし、確認出来たら終了まで待機、終了後ログをバックアップする。
+-    thread::spawn(move || {
+-        let mut sys = System::new();
+-        loop {
+-            if let Some(pid) = find_vrchat_pid(&mut sys) {
+-                if let Ok(handle) = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid) } {
+-                    unsafe { WaitForSingleObject(handle, INFINITE) }; 
+-                    unsafe { CloseHandle(handle).ok() };
+-                    sync_logs();
+-                }
+-            }
+-            thread::sleep(Duration::from_secs(10));
+-        }
+-    });
+-
+-    // トレイアイコン処理。
+-    let mut msg = MSG::default();
+-    loop {
+-        if let Ok(event) = MenuEvent::receiver().try_recv() {
+-            if event.id == quit_id {
+-                let text:  Vec<u16> = "Polarisを停止すると、以降のログバックアップは行われません。\0".encode_utf16().collect();
+-                let title: Vec<u16> = "Polaris 停止確認\0".encode_utf16().collect();
+-                let result = unsafe { MessageBoxW(None, PCWSTR(text.as_ptr()), PCWSTR(title.as_ptr()), MB_OKCANCEL | MB_ICONWARNING) };
+-                if result == IDOK { break; }
+-            }
+-        }
+-        unsafe {
+-            if PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
+-                let _ = TranslateMessage(&msg);
+-                DispatchMessageW(&msg);
+-            }
+-        }
+-        thread::sleep(Duration::from_millis(100));
+-    }
+-}
+-
+-// ── トレイアイコン構築 ────────────────────────────
+-
+-fn build_tray() -> (MenuId, TrayIcon) {
+-    let img = image::load_from_memory(ICON_BYTES).expect("icon load failed").into_rgba8();
+-    let (w, h) = img.dimensions();
+-    let icon = Icon::from_rgba(img.into_raw(), w, h).expect("icon failed");
+-
+-    let menu = Menu::new();
+-    let status = MenuItem::new("Polaris 起動中", false, None); 
+-    let quit   = MenuItem::new("停止", true, None);
+-    let quit_id = quit.id().clone();
+-    menu.append(&status).expect("menu append failed");
+-    menu.append(&PredefinedMenuItem::separator()).expect("menu append failed");
+-    menu.append(&quit).expect("menu append failed");
+-
+-    let tray = TrayIconBuilder::new()
+-        .with_icon(icon)
+-        .with_tooltip("STELLA RECORD - Polaris")
+-        .with_menu(Box::new(menu))
+-        .build()
+-        .expect("tray build failed");
+-
+-    (quit_id, tray)
+-}
+-
+-// ── VRChatプロセス検索 ────────────────────────────
+-
+-/// 起動中のVRChatのプロセスIDを返す。見つからない場合はNoneを返す
+-fn find_vrchat_pid(sys: &mut System) -> Option<u32> {
+-    sys.refresh_processes(ProcessesToUpdate::All, false);
+-    sys.processes()
+-        .values()
+-        .find(|p| {
+-            let n = p.name().to_string_lossy();
+-            n.eq_ignore_ascii_case("vrchat.exe") || n.eq_ignore_ascii_case("vrchat")
+-        })
+-        .map(|p| p.pid().as_u32())
+-}
+-
+-// ── 同期処理 ─────────────────────────────────────────
+-
+-/// VRChatのログファイルをarchiveフォルダへコピーする
+-fn sync_logs() {
+-    let dst_dir = match archive_dir() {
+-        Some(d) => d,
+-        None => { log_err("インストール先をレジストリから取得できません"); return; }
+-    };
+-    if let Err(e) = fs::create_dir_all(&dst_dir) {
+-        log_err(&format!("Cannot create archive dir ({}): {}", dst_dir.display(), e));
+-        return;
+-    }
+-
+-    let log_dir = match vrchat_log_dir() {
+-        Some(d) => d,
+-        None => { log_err("AppDataが取得できません"); return; }
+-    };
+-    let Ok(entries) = fs::read_dir(&log_dir) else {
+-        log_err("Cannot read VRChat log dir");
+-        return;
+-    };
+-
+-    for entry_res in entries {
+-        let entry = match entry_res {
+-            Ok(e) => e,
+-            Err(e) => {
+-                log_err(&format!("Entry read error: {}", e));
+-                continue;
+-            }
+-        };
+-        let src = entry.path();
+-
+-        // パスからファイル名抽出。撮れない場合、警告ログ出力し、スキップする。
+-        let Some(name) = src.file_name().and_then(|n| n.to_str()).map(str::to_string) else {
+-            log_warn(&format!("unexpected error (line {})", line!()));
+-            continue;
+-        };
+-        let dst = dst_dir.join(&name);
+-
+-        // output_log_*.txt 以外はスキップ
+-        if !name.starts_with("output_log_") || !name.ends_with(".txt") { continue; }
+-
+-        let Ok(src_meta) = fs::metadata(&src) else {
+-            log_err(&format!("stat src [{}]: failed", name));
+-            continue;
+-        };
+-        let src_size = src_meta.len();
+-        let src_mtime = src_meta.modified().ok();
+-        
+-        let dst_meta = fs::metadata(&dst).ok();
+-        let dst_size = dst_meta.as_ref().map(|m| m.len()).unwrap_or(0);
+-        let dst_mtime = dst_meta.and_then(|m| m.modified().ok());
+-
+-        // 同期が必要かどうかの判断
+-        let needs_copy = if dst_size == 0 {
+-            true
+-        } else if src_size > dst_size {
+-            true
+-        } else if src_size == dst_size {
+-            // サイズ同じでも、更新日時が進んでいれば（中身が書き換わっている可能性）念のため
+-            match (src_mtime, dst_mtime) {
+-                (Some(sm), Some(dm)) => sm > dm,
+-                _ => false,
+-            }
+-        } else {
+-            // src_size < dst_size: 想定外
+-            log_err(&format!("src smaller than dst [{}]: src={} dst={}", name, src_size, dst_size));
+-            false
+-        };
+-
+-        if !needs_copy {
+-            continue;
+-        }
+-
+-        if src_size == dst_size {
+-            log_warn(&format!("src size same as dst but mtime is newer [{}]: re-copying", name));
+-        } else if dst_size > 0 && src_size > dst_size {
+-            // 追記された場合など
+-        }
+-
+-        if let Err(e) = fs::copy(&src, &dst) {
+-            // EAC等の競合で標準の copy が失敗した場合のフォールバック
+-            #[cfg(windows)]
+-            {
+-                use std::os::windows::fs::OpenOptionsExt;
+-                use windows::Win32::Storage::FileSystem::FILE_SHARE_READ;
+-                
+-                let res = fs::OpenOptions::new()
+-                    .read(true)
+-                    .share_mode(FILE_SHARE_READ.0)
+-                    .open(&src)
+-                    .and_then(|mut s_file| {
+-                        let mut d_file = fs::File::create(&dst)?;
+-                        std::io::copy(&mut s_file, &mut d_file)
+-                    });
+-                
+-                if let Err(e2) = res {
+-                    log_err(&format!("copy failed (share mode fallback also failed) [{}]: {} / {}", name, e, e2));
+-                }
+-            }
+-            #[cfg(not(windows))]
+-            {
+-                log_err(&format!("copy failed [{}]: {}", name, e));
+-            }
+-        }
+-    }
+-}
+-
+-// ── エラーログ ──────────────────────────────────────
+-
+-/// WARN / ERROR のみ記録（正常な動作はログに残さない）
+-fn log_msg(level: &str, msg: &str) {
+-    if let Some(path) = log_path() {
+-        if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(path) {
+-            let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+-            let _ = writeln!(log, "[{}] [{}] {}", now, level, msg);
+-        }
+-    }
+-}
+-
+-fn log_warn(msg: &str) { log_msg("WARN",  msg); }
+-fn log_err (msg: &str) { log_msg("ERROR", msg); }
+\ No newline at end of file
++#![windows_subsystem = "windows"] // コンソールウィンドウを非表示にする
++
++use std::env::var;
++use std::fs::{self, OpenOptions};
++use std::io::Write;
++use std::path::PathBuf;
++use std::thread;
++use std::time::Duration;
++
++use chrono::Local;
++use sysinfo::{ProcessesToUpdate, System};
++use tray_icon::{Icon, TrayIcon, TrayIconBuilder, menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem}};
++use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError};
++use windows::Win32::System::Threading::{CreateMutexW, OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE};
++use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageW, MessageBoxW, PeekMessageW, TranslateMessage, IDOK, MB_ICONWARNING, MB_OKCANCEL, MSG, PM_REMOVE};
++use windows::core::PCWSTR;
++use winreg::enums::HKEY_CURRENT_USER;
++use winreg::RegKey;
++
++const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
++
++// ── パス構築 ────────────────────────────────
++
++fn get_component_install_dir(name: &str) -> Option<PathBuf> {
++    let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
++    let key = RegKey::predef(HKEY_CURRENT_USER)
++        .open_subkey(&key_path).ok()?;
++    let path: String = key.get_value("InstallLocation").ok()?;
++    Some(PathBuf::from(path))
++}
++
++fn get_vrchat_log_dir() -> Option<PathBuf> {
++    let local = dirs::data_local_dir()?;
++    let appdata = local.parent()?;
++    Some(appdata.join("LocalLow").join("VRChat").join("VRChat"))
++}
++
++/// NSISが書き込んだレジストリからインストール先を取得する
++fn install_dir() -> Option<PathBuf> {
++    get_component_install_dir("Polaris")
++}
++
++fn vrchat_log_dir() -> Option<PathBuf> {
++    get_vrchat_log_dir()
++}
++fn archive_dir() -> Option<PathBuf> {
++    Some(install_dir()?.join("archive"))
++}
++fn log_path() -> Option<PathBuf> {
++    Some(install_dir()?.join("info.log"))
++}
++
++// ── メイン ────────────────────────────────────────
++
++fn main() {
++    // #19: Panic Hookの設定 — リリースビルドでのサイレントクラッシュを防止
++    std::panic::set_hook(Box::new(|info| {
++        let location = info.location()
++            .map(|l| format!("at {}:{}", l.file(), l.line()))
++            .unwrap_or_else(|| "unknown location".to_string());
++        let payload = info.payload();
++        let msg = if let Some(s) = payload.downcast_ref::<&str>() {
++            "Alpheratz"
++        } else {
++            "致命的なエラーが発生しました。"
++        };
++        
++        let error_msg = format!(
++            "STELLARECORD (Polaris) で致命的なエラーが発生しました。\n\nエラー内容: {}\n発生場所: {}\n\nアプリケーションを終了します。\n詳細はインストール先の info.log を確認してください。",
++            msg, location
++        );
++        log_msg("PANIC", &format!("{} {}", msg, location));
++        log_err(&error_msg);
++    }));
++
++    // 二重起動防止
++    let mutex_name: Vec<u16> = "Global\\Polaris_SingleInstance\0".encode_utf16().collect();
++    let _ = unsafe { CreateMutexW(None, true, PCWSTR(mutex_name.as_ptr())) };
++    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
++        return;
++    }
++
++    // 起動時同期。VRChat起動中はスキップ。
++    if find_vrchat_pid(&mut System::new()).is_none() {
++        sync_logs();
++    }
++
++    // トレイアイコン構築
++    let (quit_id, _tray) = build_tray();
++
++    // 10秒ごとにVRChatをチェックし、確認出来たら終了まで待機、終了後ログをバックアップする。
++    thread::spawn(move || {
++        let mut sys = System::new();
++        loop {
++            if let Some(pid) = find_vrchat_pid(&mut sys) {
++                if let Ok(handle) = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid) } {
++                    unsafe { WaitForSingleObject(handle, INFINITE) }; 
++                    unsafe { CloseHandle(handle).ok() };
++                    sync_logs();
++                }
++            }
++            thread::sleep(Duration::from_secs(10));
++        }
++    });
++
++    // トレイアイコン処理。
++    let mut msg = MSG::default();
++    loop {
++        if let Ok(event) = MenuEvent::receiver().try_recv() {
++            if event.id == quit_id {
++                let text:  Vec<u16> = "Polarisを停止すると、以降のログバックアップは行われません。\0".encode_utf16().collect();
++                let title: Vec<u16> = "Polaris 停止確認\0".encode_utf16().collect();
++                let result = unsafe { MessageBoxW(None, PCWSTR(text.as_ptr()), PCWSTR(title.as_ptr()), MB_OKCANCEL | MB_ICONWARNING) };
++                if result == IDOK { break; }
++            }
++        }
++        unsafe {
++            if PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
++                let _ = TranslateMessage(&msg);
++                DispatchMessageW(&msg);
++            }
++        }
++        thread::sleep(Duration::from_millis(100));
++    }
++}
++
++// ── トレイアイコン構築 ────────────────────────────
++
++fn build_tray() -> (MenuId, TrayIcon) {
++    let img = image::load_from_memory(ICON_BYTES).expect("icon load failed").into_rgba8();
++    let (w, h) = img.dimensions();
++    let icon = Icon::from_rgba(img.into_raw(), w, h).expect("icon failed");
++
++    let menu = Menu::new();
++    let status = MenuItem::new("Polaris 起動中", false, None); 
++    let quit   = MenuItem::new("停止", true, None);
++    let quit_id = quit.id().clone();
++    menu.append(&status).expect("menu append failed");
++    menu.append(&PredefinedMenuItem::separator()).expect("menu append failed");
++    menu.append(&quit).expect("menu append failed");
++
++    let tray = TrayIconBuilder::new()
++        .with_icon(icon)
++        .with_tooltip("STELLA RECORD - Polaris")
++        .with_menu(Box::new(menu))
++        .build()
++        .expect("tray build failed");
++
++    (quit_id, tray)
++}
++
++// ── VRChatプロセス検索 ────────────────────────────
++
++/// 起動中のVRChatのプロセスIDを返す。見つからない場合はNoneを返す
++fn find_vrchat_pid(sys: &mut System) -> Option<u32> {
++    sys.refresh_processes(ProcessesToUpdate::All, false);
++    sys.processes()
++        .values()
++        .find(|p| {
++            let n = p.name().to_string_lossy();
++            n.eq_ignore_ascii_case("vrchat.exe") || n.eq_ignore_ascii_case("vrchat")
++        })
++        .map(|p| p.pid().as_u32())
++}
++
++// ── 同期処理 ─────────────────────────────────────────
++
++/// VRChatのログファイルをarchiveフォルダへコピーする
++fn sync_logs() {
++    let dst_dir = match archive_dir() {
++        Some(d) => d,
++        None => { log_err("インストール先をレジストリから取得できません"); return; }
++    };
++    if let Err(e) = fs::create_dir_all(&dst_dir) {
++        log_err(&format!("Cannot create archive dir ({}): {}", dst_dir.display(), e));
++        return;
++    }
++
++    let log_dir = match vrchat_log_dir() {
++        Some(d) => d,
++        None => { log_err("AppDataが取得できません"); return; }
++    };
++    let Ok(entries) = fs::read_dir(&log_dir) else {
++        log_err("Cannot read VRChat log dir");
++        return;
++    };
++
++    for entry_res in entries {
++        let entry = match entry_res {
++            Ok(e) => e,
++            Err(e) => {
++                log_err(&format!("Entry read error: {}", e));
++                continue;
++            }
++        };
++        let src = entry.path();
++
++        // パスからファイル名抽出。撮れない場合、警告ログ出力し、スキップする。
++        let Some(name) = src.file_name().and_then(|n| n.to_str()).map(str::to_string) else {
++            log_warn(&format!("unexpected error (line {})", line!()));
++            continue;
++        };
++        let dst = dst_dir.join(&name);
++
++        // output_log_*.txt 以外はスキップ
++        if !name.starts_with("output_log_") || !name.ends_with(".txt") { continue; }
++
++        let Ok(src_meta) = fs::metadata(&src) else {
++            log_err(&format!("stat src [{}]: failed", name));
++            continue;
++        };
++        let src_size = src_meta.len();
++        let src_mtime = src_meta.modified().ok();
++        
++        let dst_meta = fs::metadata(&dst).ok();
++        let dst_size = dst_meta.as_ref().map(|m| m.len()).unwrap_or(0);
++        let dst_mtime = dst_meta.and_then(|m| m.modified().ok());
++
++        // 同期が必要かどうかの判断
++        let needs_copy = if dst_size == 0 {
++            true
++        } else if src_size > dst_size {
++            true
++        } else if src_size == dst_size {
++            // サイズ同じでも、更新日時が進んでいれば（中身が書き換わっている可能性）念のため
++            match (src_mtime, dst_mtime) {
++                (Some(sm), Some(dm)) => sm > dm,
++                _ => false,
++            }
++        } else {
++            // src_size < dst_size: 想定外
++            log_err(&format!("src smaller than dst [{}]: src={} dst={}", name, src_size, dst_size));
++            false
++        };
++
++        if !needs_copy {
++            continue;
++        }
++
++        if src_size == dst_size {
++            log_warn(&format!("src size same as dst but mtime is newer [{}]: re-copying", name));
++        } else if dst_size > 0 && src_size > dst_size {
++            // 追記された場合など
++        }
++
++        if let Err(e) = fs::copy(&src, &dst) {
++            // EAC等の競合で標準の copy が失敗した場合のフォールバック
++            #[cfg(windows)]
++            {
++                use std::os::windows::fs::OpenOptionsExt;
++                use windows::Win32::Storage::FileSystem::FILE_SHARE_READ;
++                
++                let res = fs::OpenOptions::new()
++                    .read(true)
++                    .share_mode(FILE_SHARE_READ.0)
++                    .open(&src)
++                    .and_then(|mut s_file| {
++                        let mut d_file = fs::File::create(&dst)?;
++                        std::io::copy(&mut s_file, &mut d_file)
++                    });
++                
++                if let Err(e2) = res {
++                    log_err(&format!("copy failed (share mode fallback also failed) [{}]: {} / {}", name, e, e2));
++                }
++            }
++            #[cfg(not(windows))]
++            {
++                log_err(&format!("copy failed [{}]: {}", name, e));
++            }
++        }
++    }
++}
++
++// ── エラーログ ──────────────────────────────────────
++
++/// 重大度付きログを記録（正常な動作はログに残さない）
++fn log_msg(level: &str, msg: &str) {
++    if let Some(path) = log_path() {
++        append_log_line(path, &format!("[{}] [{}] {}", Local::now().format("%Y-%m-%d %H:%M:%S"), level, msg));
++    }
++}
++
++fn append_log_line(path: PathBuf, line: &str) {
++    if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(path) {
++        let _ = writeln!(log, "{}", line);
++    }
++}
++
++fn log_warn(msg: &str) { log_msg("WARN",  msg); }
++fn log_err (msg: &str) { log_msg("ERROR", msg); }
+ 
+EOF
+)
+
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/Alpheratz/src-tauri/src/utils.rs b/Alpheratz/src-tauri/src/utils.rs
+index 8cac6affd7c1ab2bb1d94d663dbb70e8a2d2df99..b55f23b06bb4118e04692bd4a0d429f82a5fddbb 100644
+--- a/Alpheratz/src-tauri/src/utils.rs
++++ b/Alpheratz/src-tauri/src/utils.rs
+@@ -1,52 +1,98 @@
+-use std::path::{Path, PathBuf};
+-use std::fs;
+-use winreg::enums::HKEY_CURRENT_USER;
+-use winreg::RegKey;
+-use chrono::Local;
+-use std::fs::OpenOptions;
+-use std::io::Write;
+-
+-fn get_alpheratz_install_dir() -> Option<PathBuf> {
+-    let key = RegKey::predef(HKEY_CURRENT_USER)
+-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Alpheratz").ok()?;
+-    let path: String = key.get_value("InstallLocation").ok()?;
+-    Some(PathBuf::from(path))
+-}
+-
+-pub fn log_msg(level: &str, msg: &str) {
+-    if let Some(path) = get_alpheratz_install_dir().map(|p| p.join("info.log")) {
+-        if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
+-            let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+-            let _ = writeln!(f, "[{}] [{}] {}", now, level, msg);
+-        }
+-    }
+-}
+-
+-pub fn log_warn(msg: &str) { log_msg("WARN",  msg); }
+-pub fn log_err (msg: &str) { log_msg("ERROR", msg); }
+-
+-pub fn get_thumbnail_cache_dir() -> Option<PathBuf> {
+-    let cache_dir = get_alpheratz_install_dir()?.join("cache");
+-    let _ = fs::create_dir_all(&cache_dir);
+-    Some(cache_dir)
+-}
+-
+-pub fn create_thumbnail_file(path: &str) -> Result<String, String> {
+-    let cache_dir = get_thumbnail_cache_dir().ok_or_else(|| {
+-        log_err("Failed to get cache dir");
+-        "Failed to get cache dir".to_string()
+-    })?;
+-    let path_p = Path::new(path);
+-    let filename = path_p.file_name().and_then(|n| n.to_str()).unwrap_or("tmp.png");
+-    let cache_path = cache_dir.join(format!("{}.thumb.jpg", filename));
+-
+-    if cache_path.exists() {
+-        return Ok(cache_path.to_string_lossy().to_string());
+-    }
+-
+-    let img = image::open(path).map_err(|e| e.to_string())?;
+-    let thumb = img.thumbnail(360, 360); 
+-    thumb.save(&cache_path).map_err(|e| e.to_string())?;
+-
+-    Ok(cache_path.to_string_lossy().to_string())
+-}
++use chrono::Local;
++use std::fs;
++use std::fs::OpenOptions;
++use std::io::Write;
++use std::path::{Path, PathBuf};
++use winreg::enums::HKEY_CURRENT_USER;
++use winreg::RegKey;
++
++const REGISTRY_BASE_KEY: &str = "Software\\CosmoArtsStore\\STELLAProject";
++const ALPHERATZ_COMPONENT: &str = "Alpheratz";
++const STELLA_RECORD_COMPONENT: &str = "StellaRecord";
++
++fn get_install_dir_by_component(component: &str) -> Option<PathBuf> {
++    let key_path = format!("{}\\{}", REGISTRY_BASE_KEY, component);
++    let key = match RegKey::predef(HKEY_CURRENT_USER).open_subkey(&key_path) {
++        Ok(v) => v,
++        Err(e) => {
++            eprintln!("[Alpheratz][WARN] registry open failed [{}]: {}", key_path, e);
++            return None;
++        }
++    };
++
++    let path: String = match key.get_value("InstallLocation") {
++        Ok(v) => v,
++        Err(e) => {
++            eprintln!(
++                "[Alpheratz][WARN] registry value read failed [{}\\InstallLocation]: {}",
++                key_path, e
++            );
++            return None;
++        }
++    };
++
++    Some(PathBuf::from(path))
++}
++
++pub fn get_alpheratz_install_dir() -> Option<PathBuf> {
++    get_install_dir_by_component(ALPHERATZ_COMPONENT)
++}
++
++pub fn get_stellarecord_install_dir() -> Option<PathBuf> {
++    get_install_dir_by_component(STELLA_RECORD_COMPONENT)
++}
++
++pub fn log_msg(level: &str, msg: &str) {
++    if let Some(path) = get_alpheratz_install_dir().map(|p| p.join("info.log")) {
++        match OpenOptions::new().create(true).append(true).open(&path) {
++            Ok(mut f) => {
++                let now = Local::now().format("%Y-%m-%d %H:%M:%S");
++                if let Err(e) = writeln!(f, "[{}] [{}] {}", now, level, msg) {
++                    eprintln!("[Alpheratz][WARN] log write failed [{}]: {}", path.display(), e);
++                }
++            }
++            Err(e) => {
++                eprintln!("[Alpheratz][WARN] log open failed [{}]: {}", path.display(), e);
++            }
++        }
++    }
++}
++
++pub fn log_warn(msg: &str) {
++    log_msg("WARN", msg);
++}
++pub fn log_err(msg: &str) {
++    log_msg("ERROR", msg);
++}
++
++pub fn get_thumbnail_cache_dir() -> Option<PathBuf> {
++    let cache_dir = get_alpheratz_install_dir()?.join("cache");
++    if let Err(e) = fs::create_dir_all(&cache_dir) {
++        log_warn(&format!("cache dir create failed [{}]: {}", cache_dir.display(), e));
++        return None;
++    }
++    Some(cache_dir)
++}
++
++pub fn create_thumbnail_file(path: &str) -> Result<String, String> {
++    let cache_dir = get_thumbnail_cache_dir().ok_or_else(|| {
++        log_err("Failed to get cache dir");
++        "Failed to get cache dir".to_string()
++    })?;
++    let path_p = Path::new(path);
++    let filename = path_p
++        .file_name()
++        .and_then(|n| n.to_str())
++        .unwrap_or("tmp.png");
++    let cache_path = cache_dir.join(format!("{}.thumb.jpg", filename));
++
++    if cache_path.exists() {
++        return Ok(cache_path.to_string_lossy().to_string());
++    }
++
++    let img = image::open(path).map_err(|e| e.to_string())?;
++    let thumb = img.thumbnail(360, 360);
++    thumb.save(&cache_path).map_err(|e| e.to_string())?;
++
++    Ok(cache_path.to_string_lossy().to_string())
++}
+ 
+EOF
+)
+
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/Alpheratz/src-tauri/src/stellarecord_ext.rs b/Alpheratz/src-tauri/src/stellarecord_ext.rs
+index d3023e9a72dc49f66961936c27942be51d168659..df13e17ce0d934628d5fb5e2a722b6c95d3d5bc8 100644
+--- a/Alpheratz/src-tauri/src/stellarecord_ext.rs
++++ b/Alpheratz/src-tauri/src/stellarecord_ext.rs
+@@ -1,72 +1,65 @@
+-use serde::{Deserialize, Serialize};
+-use std::fs;
+-use std::path::{Path, PathBuf};
+-use winreg::enums::HKEY_CURRENT_USER;
+-use winreg::RegKey;
+-
+-fn get_stellarecord_install_dir() -> Option<PathBuf> {
+-    let key = RegKey::predef(HKEY_CURRENT_USER)
+-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\StellaRecord").ok()?;
+-    let path: String = key.get_value("InstallLocation").ok()?;
+-    Some(PathBuf::from(path))
+-}
+-
+-fn get_pleiades_json_path() -> Option<PathBuf> {
+-    Some(get_stellarecord_install_dir()?.join("pleiades.json"))
+-}
+-
+-#[derive(Debug, Serialize, Deserialize, Clone)]
+-pub struct StellaRecordAppInfo {
+-    pub name: String,
+-    pub description: String,
+-    pub path: String,
+-    pub icon_path: Option<String>,
+-}
+-
+-pub fn register_self(name: &str, description: &str) -> Result<String, String> {
+-    // 1. 本アプリのパスを取得
+-    let current_exe = std::env::current_exe()
+-        .map_err(|e| format!("実行ファイルの取得に失敗しました: {}", e))?;
+-    let current_exe_str = current_exe.to_string_lossy().to_string();
+-
+-    // 2. StellaRecord の pleiades.json パスを取得
+-    let target_file = get_pleiades_json_path()
+-        .ok_or_else(|| "StellaRecord のインストール先が見つかりません。".to_string())?;
+-
+-    // 3. 既存のリストを読み込み
+-    let mut apps: Vec<StellaRecordAppInfo> = if target_file.exists() {
+-        let content = fs::read_to_string(&target_file)
+-            .map_err(|e| format!("ファイルの読み込みに失敗しました: {}", e))?;
+-        serde_json::from_str(&content).unwrap_or_else(|_| Vec::new())
+-    } else {
+-        Vec::new()
+-    };
+-
+-    // 4. 重複チェック（既に同じパスがあれば更新）
+-    let mut updated = false;
+-    for app in &mut apps {
+-        if app.name == name {
+-            app.path = current_exe_str.clone();
+-            app.description = description.to_string();
+-            updated = true;
+-            break;
+-        }
+-    }
+-
+-    if !updated {
+-        apps.push(StellaRecordAppInfo {
+-            name: name.to_string(),
+-            description: description.to_string(),
+-            path: current_exe_str,
+-            icon_path: None, // 必要に応じて追加
+-        });
+-    }
+-
+-    // 5. 保存
+-    let json = serde_json::to_string_pretty(&apps)
+-        .map_err(|e| format!("JSONの構築に失敗しました: {}", e))?;
+-    fs::write(&target_file, json)
+-        .map_err(|e| format!("保存に失敗しました: {}", e))?;
+-
+-    Ok(format!("{} を StellaRecord に登録しました。", name))
+-}
++use serde::{Deserialize, Serialize};
++use std::fs;
++use std::path::PathBuf;
++
++use crate::utils::get_stellarecord_install_dir;
++
++fn get_pleiades_json_path() -> Option<PathBuf> {
++    Some(get_stellarecord_install_dir()?.join("pleiades.json"))
++}
++
++#[derive(Debug, Serialize, Deserialize, Clone)]
++pub struct StellaRecordAppInfo {
++    pub name: String,
++    pub description: String,
++    pub path: String,
++    pub icon_path: Option<String>,
++}
++
++pub fn register_self(name: &str, description: &str) -> Result<String, String> {
++    // 1. 本アプリのパスを取得
++    let current_exe = std::env::current_exe()
++        .map_err(|e| format!("実行ファイルの取得に失敗しました: {}", e))?;
++    let current_exe_str = current_exe.to_string_lossy().to_string();
++
++    // 2. StellaRecord の pleiades.json パスを取得
++    let target_file = get_pleiades_json_path()
++        .ok_or_else(|| "StellaRecord のインストール先が見つかりません。".to_string())?;
++
++    // 3. 既存のリストを読み込み
++    let mut apps: Vec<StellaRecordAppInfo> = if target_file.exists() {
++        let content = fs::read_to_string(&target_file)
++            .map_err(|e| format!("ファイルの読み込みに失敗しました: {}", e))?;
++        serde_json::from_str(&content).unwrap_or_else(|_| Vec::new())
++    } else {
++        Vec::new()
++    };
++
++    // 4. 重複チェック（既に同じパスがあれば更新）
++    let mut updated = false;
++    for app in &mut apps {
++        if app.name == name {
++            app.path = current_exe_str.clone();
++            app.description = description.to_string();
++            updated = true;
++            break;
++        }
++    }
++
++    if !updated {
++        apps.push(StellaRecordAppInfo {
++            name: name.to_string(),
++            description: description.to_string(),
++            path: current_exe_str,
++            icon_path: None, // 必要に応じて追加
++        });
++    }
++
++    // 5. 保存
++    let json = serde_json::to_string_pretty(&apps)
++        .map_err(|e| format!("JSONの構築に失敗しました: {}", e))?;
++    fs::write(&target_file, json)
++        .map_err(|e| format!("保存に失敗しました: {}", e))?;
++
++    Ok(format!("{} を StellaRecord に登録しました。", name))
++}
+ 
+EOF
+)
+
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/Alpheratz/src-tauri/src/scanner.rs b/Alpheratz/src-tauri/src/scanner.rs
+index 7e6c3d0d7e31e3cc203ab5038660a09466d59380..885e97e49517b0773761b580a0415420e92ba34d 100644
+--- a/Alpheratz/src-tauri/src/scanner.rs
++++ b/Alpheratz/src-tauri/src/scanner.rs
+@@ -1,370 +1,521 @@
+-use std::fs;
+-use std::io::{Read, Seek, SeekFrom, BufReader};
+-use std::collections::HashSet;
+-use std::path::{Path, PathBuf};
+-use regex::Regex;
+-use rusqlite::{params, Connection, OpenFlags};
+-use tauri::{AppHandle, Emitter, Manager};
+-use std::sync::atomic::Ordering;
+-use std::sync::LazyLock;
+-
+-use crate::models::ScanProgress;
+-use crate::db::{get_alpheratz_db_path, get_stellarecord_db_path};
+-use crate::config::load_setting;
+-use crate::ScanCancelStatus;
+- 
+- static RE_COLLECT: LazyLock<Regex> = LazyLock::new(|| {
+-     Regex::new(r"(?i)VRChat_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d{3}.*?\.(png|jpg|jpeg)").expect("Failed to compile collect regex")
+- });
+- 
+- static RE_PARSE: LazyLock<Regex> = LazyLock::new(|| {
+-     Regex::new(r"VRChat_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})\.(\d{3})").expect("Failed to compile parse regex")
+- });
+- 
+- static RE_ID: LazyLock<Regex> = LazyLock::new(|| {
+-     Regex::new(r"<vrc:WorldID>([^<]+)</vrc:WorldID>").expect("Failed to compile world id regex")
+- });
+- 
+- static RE_NAME: LazyLock<Regex> = LazyLock::new(|| {
+-     Regex::new(r"<vrc:WorldDisplayName>([^<]+)</vrc:WorldDisplayName>").expect("Failed to compile world name regex")
+- });
+-
+-/// スキャン処理のメインエントリーポイント
+-pub async fn do_scan(app: AppHandle) -> Result<(), String> {
+-    let setting = load_setting();
+-    let photo_dir = if setting.photo_folder_path.is_empty() {
+-        default_photo_dir()
+-    } else {
+-        Some(PathBuf::from(&setting.photo_folder_path))
+-    };
+-
+-    let photo_dir = match photo_dir {
+-        Some(p) if p.exists() => p,
+-        _ => {
+-            let _ = app.emit("scan:error", "写真フォルダが見つかりません。設定から写真フォルダを選択してください。");
+-            return Err("Folder not found".into());
+-        }
+-    };
+-
+-    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
+-    let cancel_status = app.state::<ScanCancelStatus>();
+-
+-    // 0. 初期ステータス通知 (数千枚の場合、収集フェーズが数秒かかるため)
+-    let _ = app.emit("scan:progress", ScanProgress { processed: 0, total: 0, current_world: "ファイル収集中...".into() });
+-
+-    // 1. 既存ファイルを DB から取得 (差分判定用)
+-    let existing_files = get_existing_filenames(&conn)?;
+-
+-    // 2. ローカルファイルの再帰的収集 (最適化: Regex を事前にコンパイル)
+-    let mut found_files = Vec::new();
+-    collect_photos_recursive(&photo_dir, &mut found_files, &RE_COLLECT, &cancel_status);
+-    
+-    if cancel_status.0.load(Ordering::SeqCst) {
+-        crate::utils::log_warn("Scan cancelled during collection.");
+-        let _ = app.emit("scan:error", "スキャンが中断されました。");
+-        return Ok(());
+-    }
+-    
+-    // 3. 新規ファイルのみを抽出して新着順（ファイル名降順）にソート
+-    let mut new_files: Vec<(String, PathBuf)> = found_files.into_iter()
+-        .filter(|(name, _)| !existing_files.contains(name))
+-        .collect();
+-    new_files.sort_by(|a, b| b.0.cmp(&a.0));
+-
+-    let total = new_files.len();
+-    let _ = app.emit("scan:progress", ScanProgress { processed: 0, total, current_world: format!("{} 件の新規ファイルを検出", total) });
+-
+-    // StellaRecord DB 接続 (読み取り専用)
+-    let plan_conn = get_stellarecord_db_path()
+-        .and_then(|p| if p.exists() { Connection::open_with_flags(p, OpenFlags::SQLITE_OPEN_READ_ONLY).ok() } else { None });
+-
+-    if total > 0 {
+-        let _ = app.emit("scan:progress", ScanProgress { processed: 0, total, current_world: "".into() });
+-
+-        // 5. 新規ファイルの同期ループ
+-        for (i, (filename, path)) in new_files.into_iter().enumerate() {
+-            if cancel_status.0.load(Ordering::SeqCst) {
+-                crate::utils::log_warn("Scan cancelled by user.");
+-                let _ = app.emit("scan:error", "スキャンが中断されました。");
+-                return Ok(());
+-            }
+-
+-            if let Some(caps) = RE_PARSE.captures(&filename) {
+-                let timestamp = format!("{} {}", &caps[1], caps[2].replace("-", ":"));
+-                
+-                // ワールド情報の特定: PNG XMPメタデータ → Planetarium DB の優先順
+-                let (world_name, world_id) = resolve_world_info(&filename, &path, &plan_conn, &timestamp);
+-                
+-                // pHashの計算は重いので、スキャンの高速化のためここでは一旦NULLで登録し、後でバックグラウンド実行する
+-                upsert_photo(&conn, &filename, &path, world_id, world_name.clone(), &timestamp, None)?;
+-
+-                if i % 10 == 0 || i == total - 1 {
+-                    // INFOレベルのログは記録しない
+-                    let _ = app.emit("scan:progress", ScanProgress { 
+-                        processed: i + 1, 
+-                        total, 
+-                        current_world: world_name.unwrap_or_else(|| "ワールド不明".to_string())
+-                    });
+-                }
+-            }
+-        }
+-    }
+-
+-    // 6. 既存のワールド未特定写真をPNGメタデータで遡及更新
+-    let updated = backfill_missing_world_info(&conn, &plan_conn, &RE_PARSE)?;
+-    if updated > 0 {
+-        // INFOレベルのログは記録しない
+-    }
+-
+-    // INFOレベルのログは記録しない
+-    let _ = app.emit("scan:completed", ());
+-    Ok(())
+-}
+-
+-/// バックグラウンドで順次pHashを計算してDBを埋める
+-pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
+-    let db_path = get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?;
+-    let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+-    
+-    let mut stmt = conn.prepare("SELECT photo_filename, photo_path FROM photos WHERE phash IS NULL").map_err(|e| e.to_string())?;
+-    let rows: Vec<(String, String)> = stmt.query_map([], |row| {
+-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+-    }).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+-
+-    if rows.is_empty() { return Ok(()); }
+-    
+-    // INFOレベルのログは記録しない
+-
+-    // UIにバックグラウンドのpHash解析が始まったことを伝える（控えめに表示するため）
+-    let _ = app.emit("scan:phash_start", rows.len());
+-
+-    let hasher = image_hasher::HasherConfig::new().to_hasher();
+-
+-    for (i, (filename, path_str)) in rows.into_iter().enumerate() {
+-        if app.state::<ScanCancelStatus>().0.load(Ordering::SeqCst) {
+-            crate::utils::log_warn("Background pHash generation cancelled.");
+-            break;
+-        }
+-
+-        let path = Path::new(&path_str);
+-        if let Ok(img) = image::open(&path) {
+-            let phash = hasher.hash_image(&img).to_base64();
+-            let _ = conn.execute(
+-                "UPDATE photos SET phash = ?1 WHERE photo_filename = ?2",
+-                rusqlite::params![phash, filename],
+-            );
+-        } else {
+-            // 読み込みに失敗した場合も「失敗済み」として何か入れてスキップさせた方が良いが、
+-            // 今回はとりあえずそのまま（次回起動再トライ）にする
+-        }
+-
+-        if i > 0 && i % 25 == 0 {
+-            // INFOレベルのログは記録しない
+-        }
+-    }
+-    
+-    // INFOレベルのログは記録しない
+-    let _ = app.emit("scan:completed", ()); // 最後にUIに完全リロードさせる
+-    Ok(())
+-}
+-
+-fn default_photo_dir() -> Option<PathBuf> {
+-    let p = std::env::var("USERPROFILE").ok()?;
+-    Some(Path::new(&p).join("Pictures").join("VRChat"))
+-}
+-
+-fn get_existing_filenames(conn: &Connection) -> Result<HashSet<String>, String> {
+-    let mut stmt = conn.prepare("SELECT photo_filename FROM photos").map_err(|e| e.to_string())?;
+-    let rows = stmt.query_map([], |row| row.get::<_, String>(0)).map_err(|e| e.to_string())?;
+-    let mut set = HashSet::new();
+-    for r in rows {
+-        if let Ok(filename) = r { set.insert(filename); }
+-    }
+-    Ok(set)
+-}
+-
+-fn lookup_world_at_time(plan_conn: &Option<Connection>, timestamp: &str) -> (Option<String>, Option<String>) {
+-    if let Some(ref pconn) = plan_conn {
+-        let res: Option<(String, String)> = pconn.query_row(
+-            "SELECT world_name, world_id FROM world_visits 
+-                WHERE join_time <= ?1 AND (leave_time IS NULL OR leave_time >= ?1)
+-                ORDER BY join_time DESC LIMIT 1",
+-            params![timestamp],
+-            |row| Ok((row.get(0)?, row.get(1)?))
+-        ).ok();
+-        if let Some((wn, wid)) = res {
+-            return (Some(wn), Some(wid));
+-        }
+-    }
+-    (None, None)
+-}
+-
+-/// PNG XMPメタデータ → Planetarium DB の優先順でワールド情報を解決する
+-fn resolve_world_info(filename: &str, path: &Path, plan_conn: &Option<Connection>, timestamp: &str) -> (Option<String>, Option<String>) {
+-    if filename.to_lowercase().ends_with(".png") {
+-        let (name, id) = extract_vrc_metadata_from_png(path);
+-        if name.is_some() || id.is_some() {
+-            return (name, id);
+-        }
+-    }
+-    lookup_world_at_time(plan_conn, timestamp)
+-}
+-
+-fn upsert_photo(conn: &Connection, filename: &str, path: &Path, world_id: Option<String>, world_name: Option<String>, timestamp: &str, phash: Option<String>) -> Result<(), String> {
+-    let path_str = path.to_string_lossy().to_string().replace("\\", "/");
+-    conn.execute(
+-        "INSERT OR IGNORE INTO photos (photo_filename, photo_path, world_id, world_name, timestamp, phash)
+-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+-        params![filename, path_str, world_id, world_name, timestamp, phash]
+-    ).map_err(|e| e.to_string())?;
+-    Ok(())
+-}
+-
+-/// DB上のワールド未特定 (world_id IS NULL) の写真を PNG メタデータで遡及更新する
+-fn backfill_missing_world_info(conn: &Connection, plan_conn: &Option<Connection>, _re_parse: &Regex) -> Result<usize, String> {
+-    let mut stmt = conn.prepare(
+-        "SELECT photo_filename, photo_path, timestamp FROM photos WHERE world_id IS NULL"
+-    ).map_err(|e| e.to_string())?;
+-
+-    let rows: Vec<(String, String, String)> = stmt.query_map([], |row| {
+-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?))
+-    }).map_err(|e| e.to_string())?
+-    .filter_map(|r| r.ok())
+-    .collect();
+-
+-    let count = rows.len();
+-    if count == 0 { return Ok(0); }
+-    if count == 0 { return Ok(0); }
+-
+-    let mut updated = 0usize;
+-    for (filename, path_str, timestamp) in &rows {
+-        let path = Path::new(path_str);
+-        let (world_name, world_id) = resolve_world_info(filename, path, plan_conn, timestamp);
+-
+-        if world_name.is_some() || world_id.is_some() {
+-            conn.execute(
+-                "UPDATE photos SET world_id = ?1, world_name = ?2 WHERE photo_filename = ?3",
+-                params![world_id, world_name, filename],
+-            ).map_err(|e| e.to_string())?;
+-            updated += 1;
+-        }
+-    }
+-    Ok(updated)
+-}
+-
+-/// PNG iTXt チャンクから VRChat XMP メタデータ (WorldID, WorldDisplayName) を抽出する。
+-/// IDAT 到達前にヘッダ付近のみ読むため、大きな画像でも高速。
+-fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>) {
+-    let file = match fs::File::open(path) {
+-        Ok(f) => f,
+-        Err(e) => {
+-            crate::utils::log_err(&format!("[PNG parse] Failed to open {:?}: {}", path, e));
+-            return (None, None);
+-        }
+-    };
+-    let mut reader = BufReader::new(file);
+-
+-    let mut sig = [0u8; 8];
+-    if reader.read_exact(&mut sig).is_err() || sig != *b"\x89PNG\r\n\x1a\n" {
+-        crate::utils::log_warn(&format!("[PNG parse] Invalid PNG signature for {:?}", path));
+-        return (None, None);
+-    }
+-
+-    loop {
+-        let mut header = [0u8; 8];
+-        if reader.read_exact(&mut header).is_err() {
+-            break;
+-        }
+-        let chunk_len = u32::from_be_bytes([header[0], header[1], header[2], header[3]]) as usize;
+-        let chunk_type = [header[4], header[5], header[6], header[7]];
+-
+-        if &chunk_type == b"iTXt" {
+-            // 不正なPNGによる過大なメモリ確保(OOM)を防ぐため、4MB超のチャンクはスキップ
+-            const MAX_ITXT_SIZE: usize = 4 * 1024 * 1024;
+-            if chunk_len > MAX_ITXT_SIZE {
+-                let _ = reader.seek(SeekFrom::Current(chunk_len as i64 + 4)); // data + CRC
+-                continue;
+-            }
+-            let mut chunk_data = vec![0u8; chunk_len];
+-            if reader.read_exact(&mut chunk_data).is_err() {
+-                crate::utils::log_err("[PNG parse] Failed to read iTXt chunk data");
+-                break;
+-            }
+-            if let Some(null_pos) = chunk_data.iter().position(|&b| b == 0) {
+-                let keyword = String::from_utf8_lossy(&chunk_data[..null_pos]);
+-                if keyword == "XML:com.adobe.xmp" {
+-                    let mut pos = null_pos + 1;
+-                    if pos + 2 <= chunk_data.len() {
+-                        pos += 2; // compression flag + method
+-                        if let Some(lang_null) = chunk_data[pos..].iter().position(|&b| b == 0) {
+-                            pos += lang_null + 1;
+-                            if let Some(tk_null) = chunk_data[pos..].iter().position(|&b| b == 0) {
+-                                pos += tk_null + 1;
+-                                let xmp_text = String::from_utf8_lossy(&chunk_data[pos..]);
+-                                return parse_vrc_from_xmp(&xmp_text);
+-                            }
+-                        }
+-                    }
+-                }
+-            }
+-            let _ = reader.seek(SeekFrom::Current(4)); // CRC
+-        } else if &chunk_type == b"IDAT" || &chunk_type == b"IEND" {
+-            break;
+-        } else {
+-            let _ = reader.seek(SeekFrom::Current(chunk_len as i64 + 4));
+-        }
+-    }
+-
+-    (None, None)
+-}
+-
+-fn parse_vrc_from_xmp(xmp: &str) -> (Option<String>, Option<String>) {
+-    let world_id = RE_ID.captures(xmp).and_then(|c| c.get(1)).map(|m| m.as_str().to_string());
+-    let world_name = RE_NAME.captures(xmp).and_then(|c| c.get(1)).map(|m| m.as_str().to_string());
+-
+-
+-    (world_name, world_id)
+-}
+-
+-fn collect_photos_recursive(dir: &Path, files: &mut Vec<(String, PathBuf)>, re: &Regex, cancel_status: &ScanCancelStatus) {
+-    if cancel_status.0.load(Ordering::SeqCst) {
+-        return;
+-    }
+-
+-    if let Ok(entries) = fs::read_dir(dir) {
+-        for entry in entries.flatten() {
+-            let path = entry.path();
+-            
+-            // ジャンクション・シンボリックリンクの回避 (無限ループ防止)
+-            if let Ok(meta) = fs::symlink_metadata(&path) {
+-                if meta.file_type().is_symlink() {
+-                    continue;
+-                }
+-            }
+-
+-            if path.is_dir() {
+-                // 除外ディレクトリ (隠しフォルダ、開発ツール、巨大キャッシュ、システム関係)
+-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+-                    let n_low = name.to_lowercase();
+-                    if name.starts_with('.') || n_low == "node_modules" || n_low == "vendor" || n_low == "cache" 
+-                       || n_low == "$recycle.bin" || n_low == "system volume information" {
+-                        continue;
+-                    }
+-                }
+-                collect_photos_recursive(&path, files, re, cancel_status);
+-                if cancel_status.0.load(Ordering::SeqCst) { return; }
+-            } else if path.is_file() {
+-                if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+-                    if filename.to_lowercase().starts_with("vrchat_") {
+-                        if re.is_match(filename) {
+-                            files.push((filename.to_string(), path.to_path_buf()));
+-                            if files.len() % 1000 == 0 {
+-                                // INFOレベルのログは記録しない
+-                            }
+-                        }
+-                    }
+-                }
+-            }
+-        }
+-    }
+-}
++use std::collections::HashSet;
++use std::fs;
++use std::io::{BufReader, Read, Seek, SeekFrom};
++use std::path::{Path, PathBuf};
++use std::sync::atomic::Ordering;
++use std::sync::LazyLock;
++
++use regex::Regex;
++use rusqlite::{params, Connection, OpenFlags};
++use tauri::{AppHandle, Emitter, Manager};
++
++use crate::config::load_setting;
++use crate::db::{get_stellarecord_db_path, open_alpheratz_connection};
++use crate::models::ScanProgress;
++use crate::ScanCancelStatus;
++
++static RE_COLLECT: LazyLock<Regex> = LazyLock::new(|| {
++    Regex::new(r"(?i)VRChat_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d{3}.*?\.(png|jpg|jpeg)")
++        .expect("Failed to compile collect regex")
++});
++
++static RE_PARSE: LazyLock<Regex> = LazyLock::new(|| {
++    Regex::new(r"VRChat_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})\.(\d{3})")
++        .expect("Failed to compile parse regex")
++});
++
++static RE_ID: LazyLock<Regex> = LazyLock::new(|| {
++    Regex::new(r"<vrc:WorldID>([^<]+)</vrc:WorldID>").expect("Failed to compile world id regex")
++});
++
++static RE_NAME: LazyLock<Regex> = LazyLock::new(|| {
++    Regex::new(r"<vrc:WorldDisplayName>([^<]+)</vrc:WorldDisplayName>")
++        .expect("Failed to compile world name regex")
++});
++
++fn emit_warn<T: serde::Serialize>(app: &AppHandle, event: &str, payload: T) {
++    if let Err(e) = app.emit(event, payload) {
++        crate::utils::log_warn(&format!("emit failed [{}]: {}", event, e));
++    }
++}
++
++fn warn_row_error<T, E: std::fmt::Display>(row: Result<T, E>, context: &str) -> Option<T> {
++    match row {
++        Ok(v) => Some(v),
++        Err(e) => {
++            crate::utils::log_warn(&format!("{}: {}", context, e));
++            None
++        }
++    }
++}
++
++/// スキャン処理のメインエントリーポイント
++pub async fn do_scan(app: AppHandle) -> Result<(), String> {
++    let setting = load_setting();
++    let photo_dir = if setting.photo_folder_path.is_empty() {
++        default_photo_dir()
++    } else {
++        Some(PathBuf::from(&setting.photo_folder_path))
++    };
++
++    let photo_dir = match photo_dir {
++        Some(p) if p.exists() => p,
++        _ => {
++            emit_warn(
++                &app,
++                "scan:error",
++                "写真フォルダが見つかりません。設定から写真フォルダを選択してください。",
++            );
++            return Err("Folder not found".into());
++        }
++    };
++
++    let conn = open_alpheratz_connection()?;
++    let cancel_status = app.state::<ScanCancelStatus>();
++
++    emit_warn(
++        &app,
++        "scan:progress",
++        ScanProgress {
++            processed: 0,
++            total: 0,
++            current_world: "ファイル収集中...".into(),
++        },
++    );
++
++    let existing_files = get_existing_filenames(&conn)?;
++
++    let mut found_files = Vec::new();
++    collect_photos_recursive(&photo_dir, &mut found_files, &RE_COLLECT, &cancel_status);
++
++    if cancel_status.0.load(Ordering::SeqCst) {
++        crate::utils::log_warn("Scan cancelled during collection.");
++        emit_warn(&app, "scan:error", "スキャンが中断されました。");
++        return Ok(());
++    }
++
++    let mut new_files: Vec<(String, PathBuf)> = found_files
++        .into_iter()
++        .filter(|(name, _)| !existing_files.contains(name))
++        .collect();
++    new_files.sort_by(|a, b| b.0.cmp(&a.0));
++
++    let total = new_files.len();
++    emit_warn(
++        &app,
++        "scan:progress",
++        ScanProgress {
++            processed: 0,
++            total,
++            current_world: format!("{} 件の新規ファイルを検出", total),
++        },
++    );
++
++    let plan_conn = get_stellarecord_db_path().and_then(|p| {
++        if p.exists() {
++            match Connection::open_with_flags(&p, OpenFlags::SQLITE_OPEN_READ_ONLY) {
++                Ok(c) => Some(c),
++                Err(e) => {
++                    crate::utils::log_warn(&format!(
++                        "stella db open failed [{}]: {}",
++                        p.display(),
++                        e
++                    ));
++                    None
++                }
++            }
++        } else {
++            None
++        }
++    });
++
++    if total > 0 {
++        emit_warn(
++            &app,
++            "scan:progress",
++            ScanProgress {
++                processed: 0,
++                total,
++                current_world: "".into(),
++            },
++        );
++
++        for (i, (filename, path)) in new_files.into_iter().enumerate() {
++            if cancel_status.0.load(Ordering::SeqCst) {
++                crate::utils::log_warn("Scan cancelled by user.");
++                emit_warn(&app, "scan:error", "スキャンが中断されました。");
++                return Ok(());
++            }
++
++            if let Some(caps) = RE_PARSE.captures(&filename) {
++                let timestamp = format!("{} {}", &caps[1], caps[2].replace("-", ":"));
++                let (world_name, world_id) = resolve_world_info(&filename, &path, &plan_conn, &timestamp);
++
++                upsert_photo(
++                    &conn,
++                    &filename,
++                    &path,
++                    world_id,
++                    world_name.clone(),
++                    &timestamp,
++                    None,
++                )?;
++
++                if i % 10 == 0 || i == total - 1 {
++                    emit_warn(
++                        &app,
++                        "scan:progress",
++                        ScanProgress {
++                            processed: i + 1,
++                            total,
++                            current_world: world_name.unwrap_or_else(|| "ワールド不明".to_string()),
++                        },
++                    );
++                }
++            }
++        }
++    }
++
++    let _updated = backfill_missing_world_info(&conn, &plan_conn, &RE_PARSE)?;
++    emit_warn(&app, "scan:completed", ());
++    Ok(())
++}
++
++/// バックグラウンドで順次pHashを計算してDBを埋める
++pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
++    let conn = open_alpheratz_connection()?;
++
++    let mut stmt = conn
++        .prepare("SELECT photo_filename, photo_path FROM photos WHERE phash IS NULL")
++        .map_err(|e| e.to_string())?;
++    let rows: Vec<(String, String)> = stmt
++        .query_map([], |row| {
++            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
++        })
++        .map_err(|e| e.to_string())?
++        .filter_map(|r| warn_row_error(r, "phash row decode failed"))
++        .collect();
++
++    if rows.is_empty() {
++        return Ok(());
++    }
++
++    emit_warn(&app, "scan:phash_start", rows.len());
++
++    let hasher = image_hasher::HasherConfig::new().to_hasher();
++
++    for (filename, path_str) in rows {
++        if app.state::<ScanCancelStatus>().0.load(Ordering::SeqCst) {
++            crate::utils::log_warn("Background pHash generation cancelled.");
++            break;
++        }
++
++        let path = Path::new(&path_str);
++        match image::open(path) {
++            Ok(img) => {
++                let phash = hasher.hash_image(&img).to_base64();
++                if let Err(e) = conn.execute(
++                    "UPDATE photos SET phash = ?1 WHERE photo_filename = ?2",
++                    rusqlite::params![phash, filename],
++                ) {
++                    crate::utils::log_warn(&format!("pHash update failed [{}]: {}", filename, e));
++                }
++            }
++            Err(e) => {
++                crate::utils::log_warn(&format!("pHash image open failed [{}]: {}", path.display(), e));
++            }
++        }
++    }
++
++    emit_warn(&app, "scan:completed", ());
++    Ok(())
++}
++
++fn default_photo_dir() -> Option<PathBuf> {
++    let p = std::env::var("USERPROFILE").ok()?;
++    Some(Path::new(&p).join("Pictures").join("VRChat"))
++}
++
++fn get_existing_filenames(conn: &Connection) -> Result<HashSet<String>, String> {
++    let mut stmt = conn
++        .prepare("SELECT photo_filename FROM photos")
++        .map_err(|e| e.to_string())?;
++    let rows = stmt
++        .query_map([], |row| row.get::<_, String>(0))
++        .map_err(|e| e.to_string())?;
++    let mut set = HashSet::new();
++    for r in rows {
++        if let Some(filename) = warn_row_error(r, "existing filename row decode failed") {
++            set.insert(filename);
++        }
++    }
++    Ok(set)
++}
++
++fn lookup_world_at_time(plan_conn: &Option<Connection>, timestamp: &str) -> (Option<String>, Option<String>) {
++    if let Some(ref pconn) = plan_conn {
++        let res: Result<(String, String), rusqlite::Error> = pconn.query_row(
++            "SELECT world_name, world_id FROM world_visits
++                WHERE join_time <= ?1 AND (leave_time IS NULL OR leave_time >= ?1)
++                ORDER BY join_time DESC LIMIT 1",
++            params![timestamp],
++            |row| Ok((row.get(0)?, row.get(1)?)),
++        );
++
++        match res {
++            Ok((wn, wid)) => return (Some(wn), Some(wid)),
++            Err(rusqlite::Error::QueryReturnedNoRows) => {}
++            Err(e) => {
++                crate::utils::log_warn(&format!("world lookup query failed [{}]: {}", timestamp, e));
++            }
++        }
++    }
++    (None, None)
++}
++
++/// PNG XMPメタデータ → Planetarium DB の優先順でワールド情報を解決する
++fn resolve_world_info(
++    filename: &str,
++    path: &Path,
++    plan_conn: &Option<Connection>,
++    timestamp: &str,
++) -> (Option<String>, Option<String>) {
++    if filename.to_lowercase().ends_with(".png") {
++        let (name, id) = extract_vrc_metadata_from_png(path);
++        if name.is_some() || id.is_some() {
++            return (name, id);
++        }
++    }
++    lookup_world_at_time(plan_conn, timestamp)
++}
++
++fn upsert_photo(
++    conn: &Connection,
++    filename: &str,
++    path: &Path,
++    world_id: Option<String>,
++    world_name: Option<String>,
++    timestamp: &str,
++    phash: Option<String>,
++) -> Result<(), String> {
++    let path_str = path.to_string_lossy().to_string().replace("\\", "/");
++    conn.execute(
++        "INSERT OR IGNORE INTO photos (photo_filename, photo_path, world_id, world_name, timestamp, phash)
++            VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
++        params![filename, path_str, world_id, world_name, timestamp, phash],
++    )
++    .map_err(|e| e.to_string())?;
++    Ok(())
++}
++
++/// DB上のワールド未特定 (world_id IS NULL) の写真を PNG メタデータで遡及更新する
++fn backfill_missing_world_info(
++    conn: &Connection,
++    plan_conn: &Option<Connection>,
++    _re_parse: &Regex,
++) -> Result<usize, String> {
++    let mut stmt = conn
++        .prepare("SELECT photo_filename, photo_path, timestamp FROM photos WHERE world_id IS NULL")
++        .map_err(|e| e.to_string())?;
++
++    let rows: Vec<(String, String, String)> = stmt
++        .query_map([], |row| {
++            Ok((
++                row.get::<_, String>(0)?,
++                row.get::<_, String>(1)?,
++                row.get::<_, String>(2)?,
++            ))
++        })
++        .map_err(|e| e.to_string())?
++        .filter_map(|r| warn_row_error(r, "backfill row decode failed"))
++        .collect();
++
++    if rows.is_empty() {
++        return Ok(0);
++    }
++
++    let mut updated = 0usize;
++    for (filename, path_str, timestamp) in &rows {
++        let path = Path::new(path_str);
++        let (world_name, world_id) = resolve_world_info(filename, path, plan_conn, timestamp);
++
++        if world_name.is_some() || world_id.is_some() {
++            conn.execute(
++                "UPDATE photos SET world_id = ?1, world_name = ?2 WHERE photo_filename = ?3",
++                params![world_id, world_name, filename],
++            )
++            .map_err(|e| e.to_string())?;
++            updated += 1;
++        }
++    }
++    Ok(updated)
++}
++
++/// PNG iTXt チャンクから VRChat XMP メタデータ (WorldID, WorldDisplayName) を抽出する。
++/// IDAT 到達前にヘッダ付近のみ読むため、大きな画像でも高速。
++fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>) {
++    let file = match fs::File::open(path) {
++        Ok(f) => f,
++        Err(e) => {
++            crate::utils::log_err(&format!("[PNG parse] Failed to open {:?}: {}", path, e));
++            return (None, None);
++        }
++    };
++    let mut reader = BufReader::new(file);
++
++    let mut sig = [0u8; 8];
++    if reader.read_exact(&mut sig).is_err() || sig != *b"\x89PNG\r\n\x1a\n" {
++        crate::utils::log_warn(&format!("[PNG parse] Invalid PNG signature for {:?}", path));
++        return (None, None);
++    }
++
++    loop {
++        let mut header = [0u8; 8];
++        if reader.read_exact(&mut header).is_err() {
++            break;
++        }
++        let chunk_len =
++            u32::from_be_bytes([header[0], header[1], header[2], header[3]]) as usize;
++        let chunk_type = [header[4], header[5], header[6], header[7]];
++
++        if &chunk_type == b"iTXt" {
++            const MAX_ITXT_SIZE: usize = 4 * 1024 * 1024;
++            if chunk_len > MAX_ITXT_SIZE {
++                if let Err(e) = reader.seek(SeekFrom::Current(chunk_len as i64 + 4)) {
++                    crate::utils::log_warn(&format!(
++                        "[PNG parse] seek failed after large iTXt [{}]: {}",
++                        path.display(),
++                        e
++                    ));
++                    break;
++                }
++                continue;
++            }
++            let mut chunk_data = vec![0u8; chunk_len];
++            if reader.read_exact(&mut chunk_data).is_err() {
++                crate::utils::log_err("[PNG parse] Failed to read iTXt chunk data");
++                break;
++            }
++            if let Some(null_pos) = chunk_data.iter().position(|&b| b == 0) {
++                let keyword = String::from_utf8_lossy(&chunk_data[..null_pos]);
++                if keyword == "XML:com.adobe.xmp" {
++                    let mut pos = null_pos + 1;
++                    if pos + 2 <= chunk_data.len() {
++                        pos += 2;
++                        if let Some(lang_null) = chunk_data[pos..].iter().position(|&b| b == 0) {
++                            pos += lang_null + 1;
++                            if let Some(tk_null) = chunk_data[pos..].iter().position(|&b| b == 0) {
++                                pos += tk_null + 1;
++                                let xmp_text = String::from_utf8_lossy(&chunk_data[pos..]);
++                                return parse_vrc_from_xmp(&xmp_text);
++                            }
++                        }
++                    }
++                }
++            }
++            if let Err(e) = reader.seek(SeekFrom::Current(4)) {
++                crate::utils::log_warn(&format!(
++                    "[PNG parse] seek CRC failed [{}]: {}",
++                    path.display(),
++                    e
++                ));
++                break;
++            }
++        } else if &chunk_type == b"IDAT" || &chunk_type == b"IEND" {
++            break;
++        } else if let Err(e) = reader.seek(SeekFrom::Current(chunk_len as i64 + 4)) {
++            crate::utils::log_warn(&format!(
++                "[PNG parse] seek chunk skip failed [{}]: {}",
++                path.display(),
++                e
++            ));
++            break;
++        }
++    }
++
++    (None, None)
++}
++
++fn parse_vrc_from_xmp(xmp: &str) -> (Option<String>, Option<String>) {
++    let world_id = RE_ID
++        .captures(xmp)
++        .and_then(|c| c.get(1))
++        .map(|m| m.as_str().to_string());
++    let world_name = RE_NAME
++        .captures(xmp)
++        .and_then(|c| c.get(1))
++        .map(|m| m.as_str().to_string());
++
++    (world_name, world_id)
++}
++
++fn collect_photos_recursive(
++    dir: &Path,
++    files: &mut Vec<(String, PathBuf)>,
++    re: &Regex,
++    cancel_status: &ScanCancelStatus,
++) {
++    if cancel_status.0.load(Ordering::SeqCst) {
++        return;
++    }
++
++    let entries = match fs::read_dir(dir) {
++        Ok(v) => v,
++        Err(e) => {
++            crate::utils::log_warn(&format!("read_dir failed [{}]: {}", dir.display(), e));
++            return;
++        }
++    };
++
++    for entry_res in entries {
++        let entry = match entry_res {
++            Ok(v) => v,
++            Err(e) => {
++                crate::utils::log_warn(&format!("dir entry read failed [{}]: {}", dir.display(), e));
++                continue;
++            }
++        };
++        let path = entry.path();
++
++        match fs::symlink_metadata(&path) {
++            Ok(meta) => {
++                if meta.file_type().is_symlink() {
++                    continue;
++                }
++            }
++            Err(e) => {
++                crate::utils::log_warn(&format!(
++                    "symlink_metadata failed [{}]: {}",
++                    path.display(),
++                    e
++                ));
++                continue;
++            }
++        }
++
++        if path.is_dir() {
++            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
++                let n_low = name.to_lowercase();
++                if name.starts_with('.')
++                    || n_low == "node_modules"
++                    || n_low == "vendor"
++                    || n_low == "cache"
++                    || n_low == "$recycle.bin"
++                    || n_low == "system volume information"
++                {
++                    continue;
++                }
++            }
++            collect_photos_recursive(&path, files, re, cancel_status);
++            if cancel_status.0.load(Ordering::SeqCst) {
++                return;
++            }
++        } else if path.is_file()
++            && let Some(filename) = path.file_name().and_then(|n| n.to_str())
++            && filename.to_lowercase().starts_with("vrchat_")
++            && re.is_match(filename)
++        {
++            files.push((filename.to_string(), path.to_path_buf()));
++        }
++    }
++}
+ 
+EOF
+)
+
+再度Alpheratzを精査。記述方式にブレがある場所があれば対処お願いします。

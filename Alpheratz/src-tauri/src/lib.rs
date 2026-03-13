@@ -1,19 +1,19 @@
-use tauri::{generate_handler, Builder, AppHandle, State};
 use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::{generate_handler, AppHandle, Builder, State};
 
 pub struct ScanCancelStatus(pub AtomicBool);
 use tauri_plugin_shell::ShellExt;
 
 pub mod config;
-pub mod models;
 pub mod db;
+pub mod models;
 pub mod scanner;
 pub mod stella_record_ext;
 pub mod utils;
 
 use config::{load_setting, save_setting, AlpheratzSetting};
-use models::{PhotoRecord};
-use db::{init_alpheratz_db};
+use db::init_alpheratz_db;
+use models::PhotoRecord;
 
 // --- Commands ---
 
@@ -24,14 +24,17 @@ async fn cancel_scan(cancel_status: State<'_, ScanCancelStatus>) -> Result<(), S
 }
 
 #[tauri::command]
-async fn initialize_scan(app: AppHandle, cancel_status: State<'_, ScanCancelStatus>) -> Result<(), String> {
+async fn initialize_scan(
+    app: AppHandle,
+    cancel_status: State<'_, ScanCancelStatus>,
+) -> Result<(), String> {
     cancel_status.0.store(false, Ordering::SeqCst);
     let app_clone = app.clone();
     tauri::async_runtime::spawn(async move {
         if let Err(e) = scanner::do_scan(app_clone.clone()).await {
             crate::utils::log_err(&format!("Scanner Error: {}", e));
         }
-        
+
         if let Err(e) = scanner::compute_missing_phashes_bg(app_clone).await {
             crate::utils::log_err(&format!("Phash BG Error: {}", e));
         }
@@ -44,7 +47,7 @@ async fn get_photos(
     start_date: Option<String>,
     end_date: Option<String>,
     world_query: Option<String>,
-    world_exact: Option<String>
+    world_exact: Option<String>,
 ) -> Result<Vec<PhotoRecord>, String> {
     db::get_photos(start_date, end_date, world_query, world_exact)
 }
@@ -73,23 +76,23 @@ async fn show_in_explorer(path: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn get_rotated_phashes(path: String) -> Result<Vec<String>, String> {
-    use base64::{Engine as _, engine::general_purpose};
-    
+    use base64::{engine::general_purpose, Engine as _};
+
     let img = image::open(&path).map_err(|e| e.to_string())?;
     let mut hashes = Vec::new();
     let hasher = image_hasher::HasherConfig::new().to_hasher();
-    
+
     hashes.push(hasher.hash_image(&img).to_base64());
-    
+
     let rot90 = img.rotate90();
     hashes.push(hasher.hash_image(&rot90).to_base64());
-    
+
     let rot180 = img.rotate180();
     hashes.push(hasher.hash_image(&rot180).to_base64());
-    
+
     let rot270 = img.rotate270();
     hashes.push(hasher.hash_image(&rot270).to_base64());
-    
+
     Ok(hashes)
 }
 
@@ -106,8 +109,8 @@ fn save_setting_cmd(setting: AlpheratzSetting) -> Result<(), String> {
 #[tauri::command]
 async fn register_to_stella_record() -> Result<String, String> {
     stella_record_ext::register_self(
-        "Alpheratz", 
-        "VR写真とワールド情報を紐付けるギャラリーツール"
+        "Alpheratz",
+        "VR写真とワールド情報を紐付けるギャラリーツール",
     )
 }
 

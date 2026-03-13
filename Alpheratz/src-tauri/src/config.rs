@@ -7,7 +7,8 @@ use winreg::RegKey;
 fn get_alpheratz_install_dir() -> Option<PathBuf> {
     let root = RegKey::predef(HKEY_CURRENT_USER);
     let key = root
-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Alpheratz").ok()?;
+        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Alpheratz")
+        .ok()?;
     let path: String = key.get_value("InstallLocation").ok()?;
     let path_buf = PathBuf::from(path);
     if path_buf.exists() {
@@ -51,8 +52,7 @@ pub fn load_setting() -> AlpheratzSetting {
 
 pub fn save_setting(s: &AlpheratzSetting) -> Result<(), String> {
     let path = get_setting_path().ok_or_else(|| "Failed to get setting path".to_string())?;
-    let content = serde_json::to_string_pretty(s)
-        .map_err(|e| format!("Serialize error: {}", e))?;
+    let content = serde_json::to_string_pretty(s).map_err(|e| format!("Serialize error: {}", e))?;
     fs::write(&path, content).map_err(|e| format!("Write error ({}): {}", path.display(), e))?;
     Ok(())
 }

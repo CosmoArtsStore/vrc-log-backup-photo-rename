@@ -2,18 +2,18 @@ use std::collections::HashSet;
 use std::fs;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
 use std::sync::atomic::Ordering;
+use std::sync::LazyLock;
 
 use path_slash::PathExt;
 use regex::Regex;
-use rusqlite::{Connection, OpenFlags, params};
+use rusqlite::{params, Connection, OpenFlags};
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::ScanCancelStatus;
 use crate::config::load_setting;
-use crate::db::{get_alpheratz_db_path, get_stella_record_db_path};
+use crate::db::{get_stella_record_db_path, open_alpheratz_connection};
 use crate::models::ScanProgress;
+use crate::ScanCancelStatus;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp"];
 const PHASH_BATCH_SIZE: usize = 50;
@@ -38,6 +38,22 @@ fn compile_regex(pattern: &str, name: &str) -> Regex {
     }
 }
 
+fn emit_warn<T: serde::Serialize>(app: &AppHandle, event: &str, payload: T) {
+    if let Err(err) = app.emit(event, payload) {
+        crate::utils::log_warn(&format!("emit failed [{}]: {}", event, err));
+    }
+}
+
+fn warn_row_error<T, E: std::fmt::Display>(row: Result<T, E>, context: &str) -> Option<T> {
+    match row {
+        Ok(value) => Some(value),
+        Err(err) => {
+            crate::utils::log_warn(&format!("{}: {}", context, err));
+            None
+        }
+    }
+}
+
 static RE_COLLECT: LazyLock<Regex> = LazyLock::new(|| {
     compile_regex(
         r"(?i)^VRChat_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d{3}",
@@ -45,12 +61,18 @@ static RE_COLLECT: LazyLock<Regex> = LazyLock::new(|| {
     )
 });
 static RE_PARSE: LazyLock<Regex> = LazyLock::new(|| {
-    compile_regex(r"VRChat_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})\.(\d{3})", "RE_PARSE")
+    compile_regex(
+        r"VRChat_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})\.(\d{3})",
+        "RE_PARSE",
+    )
 });
 static RE_ID: LazyLock<Regex> =
     LazyLock::new(|| compile_regex(r"<vrc:WorldID>([^<]+)</vrc:WorldID>", "RE_ID"));
 static RE_NAME: LazyLock<Regex> = LazyLock::new(|| {
-    compile_regex(r"<vrc:WorldDisplayName>([^<]+)</vrc:WorldDisplayName>", "RE_NAME")
+    compile_regex(
+        r"<vrc:WorldDisplayName>([^<]+)</vrc:WorldDisplayName>",
+        "RE_NAME",
+    )
 });
 
 pub async fn do_scan(app: AppHandle) -> Result<(), String> {
@@ -62,24 +84,22 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     };
 
     let photo_dir = match photo_dir {
-        Some(p) if p.exists() => p,
+        Some(path) if path.exists() => path,
         _ => {
-            let _ = app.emit("scan:error", "写真フォルダが見つかりません。設定を確認してください。");
+            emit_warn(&app, "scan:error", "Photo folder not found");
             return Err("Folder not found".into());
         }
     };
 
-    let mut conn = Connection::open(
-        get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
+    let mut conn = open_alpheratz_connection()?;
     let cancel_status = app.state::<ScanCancelStatus>();
-    let _ = app.emit(
+    emit_warn(
+        &app,
         "scan:progress",
         ScanProgress {
             processed: 0,
             total: 0,
-            current_world: "ファイル収集中...".into(),
+            current_world: "Collecting files...".into(),
         },
     );
 
@@ -89,7 +109,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
 
     if cancel_status.0.load(Ordering::SeqCst) {
         crate::utils::log_warn("Scan cancelled during collection.");
-        let _ = app.emit("scan:error", "スキャンが中断されました。");
+        emit_warn(&app, "scan:error", "Scan cancelled");
         return Ok(());
     }
 
@@ -100,12 +120,13 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     new_files.sort_by(|a, b| b.0.cmp(&a.0));
 
     let total = new_files.len();
-    let _ = app.emit(
+    emit_warn(
+        &app,
         "scan:progress",
         ScanProgress {
             processed: 0,
             total,
-            current_world: format!("{} 件の新規ファイルを処理", total),
+            current_world: format!("{} new files", total),
         },
     );
 
@@ -131,20 +152,30 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     };
 
     if total > 0 {
-        let mut insert_batch: Vec<(String, PathBuf, Option<String>, Option<String>, String, Option<String>)> =
-            Vec::with_capacity(PHOTO_INSERT_BATCH_SIZE);
+        let mut insert_batch: Vec<(
+            String,
+            PathBuf,
+            Option<String>,
+            Option<String>,
+            String,
+            Option<String>,
+        )> = Vec::with_capacity(PHOTO_INSERT_BATCH_SIZE);
 
         for (i, (filename, path)) in new_files.into_iter().enumerate() {
             if cancel_status.0.load(Ordering::SeqCst) {
                 crate::utils::log_warn("Scan cancelled by user.");
-                let _ = app.emit("scan:error", "スキャンが中断されました。");
+                emit_warn(&app, "scan:error", "Scan cancelled");
                 return Ok(());
             }
 
             if let Some(caps) = RE_PARSE.captures(&filename) {
                 let timestamp = format!("{} {}", &caps[1], caps[2].replace("-", ":"));
-                let (world_name, world_id) = resolve_world_info(&filename, &path, &plan_conn, &timestamp);
-                let current_world = world_name.clone().unwrap_or_else(|| "ワールド不明".to_string());
+                let (world_name, world_id) =
+                    resolve_world_info(&filename, &path, &plan_conn, &timestamp);
+                let current_world = world_name
+                    .clone()
+                    .unwrap_or_else(|| "Unknown world".to_string());
+
                 insert_batch.push((filename, path, world_id, world_name, timestamp, None));
 
                 if insert_batch.len() >= PHOTO_INSERT_BATCH_SIZE {
@@ -153,7 +184,8 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
                 }
 
                 if i % 10 == 0 || i == total - 1 {
-                    let _ = app.emit(
+                    emit_warn(
+                        &app,
                         "scan:progress",
                         ScanProgress {
                             processed: i + 1,
@@ -170,14 +202,13 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
         }
     }
 
-    let _ = backfill_missing_world_info(&conn, &plan_conn, &RE_PARSE)?;
-    let _ = app.emit("scan:completed", ());
+    let _ = backfill_missing_world_info(&conn, &plan_conn)?;
+    emit_warn(&app, "scan:completed", ());
     Ok(())
 }
 
 pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
-    let db_path = get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?;
-    let mut conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+    let mut conn = open_alpheratz_connection()?;
     let mut stmt = conn
         .prepare("SELECT photo_filename, photo_path FROM photos WHERE phash IS NULL")
         .map_err(|e| e.to_string())?;
@@ -187,14 +218,14 @@ pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })
         .map_err(|e| e.to_string())?
-        .filter_map(Result::ok)
+        .filter_map(|row| warn_row_error(row, "phash row decode failed"))
         .collect();
 
     if rows.is_empty() {
         return Ok(());
     }
 
-    let _ = app.emit("scan:phash_start", rows.len());
+    emit_warn(&app, "scan:phash_start", rows.len());
     let mut update_batch: Vec<(String, String)> = Vec::with_capacity(PHASH_BATCH_SIZE);
 
     for (filename, path_str) in rows {
@@ -231,7 +262,7 @@ pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
         apply_phash_updates(&mut conn, &update_batch)?;
     }
 
-    let _ = app.emit("scan:completed", ());
+    emit_warn(&app, "scan:completed", ());
     Ok(())
 }
 
@@ -248,27 +279,32 @@ fn get_existing_filenames(conn: &Connection) -> Result<HashSet<String>, String> 
         .query_map([], |row| row.get::<_, String>(0))
         .map_err(|e| e.to_string())?;
     let mut set = HashSet::new();
-    for r in rows {
-        if let Ok(filename) = r {
+    for row in rows {
+        if let Some(filename) = warn_row_error(row, "existing filename row decode failed") {
             set.insert(filename);
         }
     }
     Ok(set)
 }
 
-fn lookup_world_at_time(plan_conn: &Option<Connection>, timestamp: &str) -> (Option<String>, Option<String>) {
-    if let Some(ref pconn) = plan_conn {
-        let res: Option<(String, String)> = pconn
-            .query_row(
-                "SELECT world_name, world_id FROM world_visits
-                 WHERE join_time <= ?1 AND (leave_time IS NULL OR leave_time >= ?1)
-                 ORDER BY join_time DESC LIMIT 1",
-                params![timestamp],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .ok();
-        if let Some((wn, wid)) = res {
-            return (Some(wn), Some(wid));
+fn lookup_world_at_time(
+    plan_conn: &Option<Connection>,
+    timestamp: &str,
+) -> (Option<String>, Option<String>) {
+    if let Some(pconn) = plan_conn {
+        let res: Result<(String, String), rusqlite::Error> = pconn.query_row(
+            "SELECT world_name, world_id FROM world_visits
+             WHERE join_time <= ?1 AND (leave_time IS NULL OR leave_time >= ?1)
+             ORDER BY join_time DESC LIMIT 1",
+            params![timestamp],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        );
+        match res {
+            Ok((world_name, world_id)) => return (Some(world_name), Some(world_id)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => {}
+            Err(err) => {
+                crate::utils::log_warn(&format!("world lookup failed [{}]: {}", timestamp, err));
+            }
         }
     }
     (None, None)
@@ -291,19 +327,31 @@ fn resolve_world_info(
 
 fn upsert_photo_batch(
     conn: &mut Connection,
-    items: &[(String, PathBuf, Option<String>, Option<String>, String, Option<String>)],
+    items: &[(
+        String,
+        PathBuf,
+        Option<String>,
+        Option<String>,
+        String,
+        Option<String>,
+    )],
 ) -> Result<(), String> {
     let tx = conn
         .transaction()
         .map_err(|e| format!("Failed to start insert transaction: {}", e))?;
     {
         let mut stmt = tx
-            .prepare("INSERT OR IGNORE INTO photos (photo_filename, photo_path, world_id, world_name, timestamp, phash) VALUES (?1, ?2, ?3, ?4, ?5, ?6)")
+            .prepare(
+                "INSERT OR IGNORE INTO photos (photo_filename, photo_path, world_id, world_name, timestamp, phash) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )
             .map_err(|e| format!("Failed to prepare insert statement: {}", e))?;
         for (filename, path, world_id, world_name, timestamp, phash) in items {
             let path_str = path.to_slash_lossy().to_string();
-            stmt.execute(params![filename, path_str, world_id, world_name, timestamp, phash])
-                .map_err(|e| format!("Failed to insert photo {}: {}", filename, e))?;
+            stmt.execute(params![
+                filename, path_str, world_id, world_name, timestamp, phash
+            ])
+            .map_err(|e| format!("Failed to insert photo {}: {}", filename, e))?;
         }
     }
     tx.commit()
@@ -314,7 +362,6 @@ fn upsert_photo_batch(
 fn backfill_missing_world_info(
     conn: &Connection,
     plan_conn: &Option<Connection>,
-    _re_parse: &Regex,
 ) -> Result<usize, String> {
     let mut stmt = conn
         .prepare("SELECT photo_filename, photo_path, timestamp FROM photos WHERE world_id IS NULL")
@@ -329,7 +376,7 @@ fn backfill_missing_world_info(
             ))
         })
         .map_err(|e| e.to_string())?
-        .filter_map(Result::ok)
+        .filter_map(|row| warn_row_error(row, "backfill row decode failed"))
         .collect();
 
     if rows.is_empty() {
@@ -354,9 +401,9 @@ fn backfill_missing_world_info(
 
 fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>) {
     let file = match fs::File::open(path) {
-        Ok(f) => f,
-        Err(e) => {
-            crate::utils::log_err(&format!("[PNG parse] Failed to open {:?}: {}", path, e));
+        Ok(file) => file,
+        Err(err) => {
+            crate::utils::log_err(&format!("[PNG parse] Failed to open {:?}: {}", path, err));
             return (None, None);
         }
     };
@@ -442,7 +489,11 @@ fn collect_photos_recursive(
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(err) => {
-            crate::utils::log_warn(&format!("Failed to read directory {}: {}", dir.display(), err));
+            crate::utils::log_warn(&format!(
+                "Failed to read directory {}: {}",
+                dir.display(),
+                err
+            ));
             return;
         }
     };
@@ -451,7 +502,11 @@ fn collect_photos_recursive(
         let entry = match entry {
             Ok(entry) => entry,
             Err(err) => {
-                crate::utils::log_warn(&format!("Failed to read entry in {}: {}", dir.display(), err));
+                crate::utils::log_warn(&format!(
+                    "Failed to read entry in {}: {}",
+                    dir.display(),
+                    err
+                ));
                 continue;
             }
         };
@@ -490,8 +545,8 @@ fn collect_photos_recursive(
 fn is_supported_image_extension(filename: &str) -> bool {
     let ext = Path::new(filename)
         .extension()
-        .and_then(|v| v.to_str())
-        .map(|v| v.to_ascii_lowercase());
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase());
     match ext {
         Some(ext) => SUPPORTED_EXTENSIONS.contains(&ext.as_str()),
         None => false,

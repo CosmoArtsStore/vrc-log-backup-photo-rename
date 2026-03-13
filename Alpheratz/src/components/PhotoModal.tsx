@@ -39,6 +39,8 @@ function base64ToBytes(base64: string): Uint8Array | null {
 
 const MAX_SUGGESTIONS = 5;
 const MAX_MAYBE_SUGGESTIONS = 3;
+type SimilarPhotoEntry = { item: Photo; distance: number };
+type WorldSuggestion = { world_id: string; world_name: string; min_dist: number; photo: Photo };
 
 function hammingDistance(a: Uint8Array, b: Uint8Array): number {
     let dist = 0;
@@ -46,6 +48,38 @@ function hammingDistance(a: Uint8Array, b: Uint8Array): number {
         dist += POPCNT_TABLE[a[i] ^ b[i]];
     }
     return dist;
+}
+
+function buildWorldSuggestions(
+    similarPhotos: SimilarPhotoEntry[],
+    unknownWorld: boolean,
+    opts: {
+        limit: number;
+        filter: (entry: SimilarPhotoEntry) => boolean;
+        requireNonEmpty?: boolean;
+    }
+): WorldSuggestion[] {
+    if (!unknownWorld || (opts.requireNonEmpty && similarPhotos.length === 0)) return [];
+
+    const knowns = similarPhotos.filter(
+        (entry) => entry.item.world_id && entry.item.world_name && opts.filter(entry)
+    );
+    const map = new Map<string, WorldSuggestion>();
+    for (const entry of knowns) {
+        const wid = entry.item.world_id as string;
+        const current = map.get(wid);
+        if (!current || current.min_dist > entry.distance) {
+            map.set(wid, {
+                world_id: wid,
+                world_name: entry.item.world_name ?? "不明",
+                min_dist: entry.distance,
+                photo: entry.item,
+            });
+        }
+    }
+    return Array.from(map.values())
+        .sort((a, b) => a.min_dist - b.min_dist)
+        .slice(0, opts.limit);
 }
 
 export const PhotoModal = ({
@@ -63,7 +97,7 @@ export const PhotoModal = ({
 }: PhotoModalProps) => {
     const unknownWorld = !photo.world_id;
 
-    const [similarPhotos, setSimilarPhotos] = useState<{ item: Photo; distance: number }[]>([]);
+    const [similarPhotos, setSimilarPhotos] = useState<SimilarPhotoEntry[]>([]);
     const [isSearchingSimilar, setIsSearchingSimilar] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
 
@@ -81,7 +115,7 @@ export const PhotoModal = ({
                 return;
             }
 
-            const results: { item: Photo; distance: number }[] = [];
+            const results: SimilarPhotoEntry[] = [];
 
             for (const p of allPhotos) {
                 if (p.photo_filename === photo.photo_filename || !p.phash) continue;
@@ -109,30 +143,19 @@ export const PhotoModal = ({
 
     // suggestion logic: world_idありの写真から類似ワールドを推測する
     const suggestions = useMemo(() => {
-        if (!unknownWorld) return [];
-        const knowns = similarPhotos.filter(s => s.item.world_id && s.item.world_name);
-        const map = new Map<string, { world_id: string, world_name: string, min_dist: number, photo: Photo }>();
-        for (const s of knowns) {
-            const wid = s.item.world_id as string;
-            if (!map.has(wid) || map.get(wid)!.min_dist > s.distance) {
-                map.set(wid, { world_id: wid, world_name: s.item.world_name ?? "不明", min_dist: s.distance, photo: s.item });
-            }
-        }
-        return Array.from(map.values()).sort((a, b) => a.min_dist - b.min_dist).slice(0, MAX_SUGGESTIONS);
+        return buildWorldSuggestions(similarPhotos, unknownWorld, {
+            filter: () => true,
+            limit: MAX_SUGGESTIONS,
+        });
     }, [similarPhotos, unknownWorld]);
 
     // 「もしかして」候補: world_idなしの写真で側だからworld_idありの候補求め
     const maybeSuggestions = useMemo(() => {
-        if (!unknownWorld || similarPhotos.length === 0) return [];
-        const knowns = similarPhotos.filter(s => s.item.world_id && s.item.world_name && s.distance > 10 && s.distance <= 20);
-        const map = new Map<string, { world_id: string, world_name: string, min_dist: number, photo: Photo }>();
-        for (const s of knowns) {
-            const wid = s.item.world_id as string;
-            if (!map.has(wid) || map.get(wid)!.min_dist > s.distance) {
-                map.set(wid, { world_id: wid, world_name: s.item.world_name ?? "不明", min_dist: s.distance, photo: s.item });
-            }
-        }
-        return Array.from(map.values()).sort((a, b) => a.min_dist - b.min_dist).slice(0, MAX_MAYBE_SUGGESTIONS);
+        return buildWorldSuggestions(similarPhotos, unknownWorld, {
+            filter: (entry) => entry.distance > 10 && entry.distance <= 20,
+            limit: MAX_MAYBE_SUGGESTIONS,
+            requireNonEmpty: true,
+        });
     }, [similarPhotos, unknownWorld]);
 
     const confident = suggestions.filter(s => s.min_dist <= 6);

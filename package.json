@@ -12,7 +12,7 @@
     "dev:StellaRecord": "cd StellaRecord/stella_record_ui && npx tauri dev",
     "dev:Alpheratz": "cd Alpheratz && npx tauri dev",
     "build:Polaris-bin": "cd Polaris/src-tauri && cargo build --release -p polaris -q",
-    "build:Polaris-pkg": "npm run build:Polaris-bin && cd Polaris && npx tauri build",
+    "build:Polaris-pkg": "npm run build:Polaris-bin && cd Polaris && npx tauri build --bundles nsis",
     "build:StellaRecord-pkg": "cd StellaRecord/stella_record_ui && npx tauri build",
     "build:Alpheratz-pkg": "cd Alpheratz && npx tauri build"
   },

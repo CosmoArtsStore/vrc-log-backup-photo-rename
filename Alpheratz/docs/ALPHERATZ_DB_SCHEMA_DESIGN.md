@@ -1,5 +1,9 @@
--- V1: Initial schema for Alpheratz
-CREATE TABLE IF NOT EXISTS photos (
+# Alpheratz.db schema design
+
+## photos
+
+```sql
+CREATE TABLE photos (
     photo_filename  TEXT PRIMARY KEY,
     photo_path      TEXT NOT NULL,
     world_id        TEXT,
@@ -13,17 +17,28 @@ CREATE TABLE IF NOT EXISTS photos (
     histogram       BLOB,
     is_favorite     INTEGER DEFAULT 0
 );
+```
 
-CREATE TABLE IF NOT EXISTS tags (
+## tags
+
+```sql
+CREATE TABLE tags (
     id    INTEGER PRIMARY KEY AUTOINCREMENT,
     name  TEXT NOT NULL UNIQUE
 );
+```
 
-CREATE TABLE IF NOT EXISTS photo_tags (
+## photo_tags
+
+```sql
+CREATE TABLE photo_tags (
     photo_filename  TEXT REFERENCES photos(photo_filename),
     tag_id          INTEGER REFERENCES tags(id),
     PRIMARY KEY (photo_filename, tag_id)
 );
+```
 
-CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp);
-CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name);
+メモ:
+- `photo_filename` を写真の一意キーとして採用
+- `is_favorite` は SQLite では `INTEGER`
+- 将来的な検索強化のため `histogram` を確保

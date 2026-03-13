@@ -6,7 +6,7 @@
         "stella_record_ui"
     ],
     "scripts": {
-        "build:Polaris-pkg": "npm run build:Polaris-bin && cd Polaris && npx tauri build",
+        "build:Polaris-pkg": "npm run build:Polaris-bin && cd Polaris && npx tauri build --bundles nsis",
         "build:Polaris-bin": "cargo build --release -p polaris -q",
         "build:StellaRecord-pkg": "cd stella_record_ui && npx tauri build",
         "dev:StellaRecord": "cd stella_record_ui && npx tauri dev",

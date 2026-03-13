@@ -9,11 +9,19 @@ use std::time::Duration;
 
 use chrono::Local;
 use sysinfo::{ProcessesToUpdate, System};
-use tray_icon::{Icon, TrayIcon, TrayIconBuilder, menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem}};
-use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError};
-use windows::Win32::System::Threading::{CreateMutexW, OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE};
-use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageW, MessageBoxW, PeekMessageW, TranslateMessage, IDOK, MB_ICONWARNING, MB_OKCANCEL, MSG, PM_REMOVE};
+use tray_icon::{
+    menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem},
+    Icon, TrayIcon, TrayIconBuilder,
+};
 use windows::core::PCWSTR;
+use windows::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS};
+use windows::Win32::System::Threading::{
+    CreateMutexW, OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
+    DispatchMessageW, MessageBoxW, PeekMessageW, TranslateMessage, IDOK, MB_ICONWARNING,
+    MB_OKCANCEL, MSG, PM_REMOVE,
+};
 use winreg::enums::HKEY_CURRENT_USER;
 use winreg::RegKey;
 
@@ -24,7 +32,8 @@ const ICON_BYTES: &[u8] = include_bytes!("../icon.ico");
 fn get_component_install_dir(name: &str) -> Option<PathBuf> {
     let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
     let key = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey(&key_path).ok()?;
+        .open_subkey(&key_path)
+        .ok()?;
     let path: String = key.get_value("InstallLocation").ok()?;
     Some(PathBuf::from(path))
 }
@@ -65,17 +74,12 @@ fn main() {
         } else {
             "致命的なエラーが発生しました。"
         };
-        
+
         let error_msg = format!(
             "STELLARECORD (Polaris) で致命的なエラーが発生しました。\n\nエラー内容: {}\n発生場所: {}\n\nアプリケーションを終了します。\n詳細はインストール先の info.log を確認してください。",
             msg, location
         );
-        if let Some(path) = log_path() {
-            if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&path) {
-                let now = Local::now().format("%Y-%m-%d %H:%M:%S");
-                let _ = writeln!(f, "[{}] [PANIC] {} {}", now, msg, location);
-            }
-        }
+        log_msg("PANIC", &format!("{} {}", msg, location));
         log_err(&error_msg);
     }));
 
@@ -106,7 +110,7 @@ fn main() {
         loop {
             if let Some(pid) = find_vrchat_pid(&mut sys) {
                 if let Ok(handle) = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid) } {
-                    unsafe { WaitForSingleObject(handle, INFINITE) }; 
+                    unsafe { WaitForSingleObject(handle, INFINITE) };
                     unsafe { CloseHandle(handle).ok() };
                     sync_logs();
                 }
@@ -120,10 +124,22 @@ fn main() {
     loop {
         if let Ok(event) = MenuEvent::receiver().try_recv() {
             if event.id == quit_id {
-                let text:  Vec<u16> = "Polarisを停止すると、以降のログバックアップは行われません。\0".encode_utf16().collect();
+                let text: Vec<u16> =
+                    "Polarisを停止すると、以降のログバックアップは行われません。\0"
+                        .encode_utf16()
+                        .collect();
                 let title: Vec<u16> = "Polaris 停止確認\0".encode_utf16().collect();
-                let result = unsafe { MessageBoxW(None, PCWSTR(text.as_ptr()), PCWSTR(title.as_ptr()), MB_OKCANCEL | MB_ICONWARNING) };
-                if result == IDOK { break; }
+                let result = unsafe {
+                    MessageBoxW(
+                        None,
+                        PCWSTR(text.as_ptr()),
+                        PCWSTR(title.as_ptr()),
+                        MB_OKCANCEL | MB_ICONWARNING,
+                    )
+                };
+                if result == IDOK {
+                    break;
+                }
             }
         }
         unsafe {
@@ -143,15 +159,19 @@ fn build_tray() -> Result<(MenuId, TrayIcon), String> {
         .map_err(|e| format!("icon load failed: {}", e))?
         .into_rgba8();
     let (w, h) = img.dimensions();
-    let icon = Icon::from_rgba(img.into_raw(), w, h).map_err(|e| format!("icon build failed: {}", e))?;
+    let icon =
+        Icon::from_rgba(img.into_raw(), w, h).map_err(|e| format!("icon build failed: {}", e))?;
 
     let menu = Menu::new();
-    let status = MenuItem::new("Polaris 起動中", false, None); 
-    let quit   = MenuItem::new("停止", true, None);
+    let status = MenuItem::new("Polaris 起動中", false, None);
+    let quit = MenuItem::new("停止", true, None);
     let quit_id = quit.id().clone();
-    menu.append(&status).map_err(|e| format!("menu append failed: {}", e))?;
-    menu.append(&PredefinedMenuItem::separator()).map_err(|e| format!("menu append failed: {}", e))?;
-    menu.append(&quit).map_err(|e| format!("menu append failed: {}", e))?;
+    menu.append(&status)
+        .map_err(|e| format!("menu append failed: {}", e))?;
+    menu.append(&PredefinedMenuItem::separator())
+        .map_err(|e| format!("menu append failed: {}", e))?;
+    menu.append(&quit)
+        .map_err(|e| format!("menu append failed: {}", e))?;
 
     let tray = TrayIconBuilder::new()
         .with_icon(icon)
@@ -183,16 +203,26 @@ fn find_vrchat_pid(sys: &mut System) -> Option<u32> {
 fn sync_logs() {
     let dst_dir = match archive_dir() {
         Some(d) => d,
-        None => { log_err("インストール先をレジストリから取得できません"); return; }
+        None => {
+            log_err("インストール先をレジストリから取得できません");
+            return;
+        }
     };
     if let Err(e) = fs::create_dir_all(&dst_dir) {
-        log_err(&format!("Cannot create archive dir ({}): {}", dst_dir.display(), e));
+        log_err(&format!(
+            "Cannot create archive dir ({}): {}",
+            dst_dir.display(),
+            e
+        ));
         return;
     }
 
     let log_dir = match vrchat_log_dir() {
         Some(d) => d,
-        None => { log_err("AppDataが取得できません"); return; }
+        None => {
+            log_err("AppDataが取得できません");
+            return;
+        }
     };
     let Ok(entries) = fs::read_dir(&log_dir) else {
         log_err("Cannot read VRChat log dir");
@@ -217,7 +247,9 @@ fn sync_logs() {
         let dst = dst_dir.join(&name);
 
         // output_log_*.txt 以外はスキップ
-        if !name.starts_with("output_log_") || !name.ends_with(".txt") { continue; }
+        if !name.starts_with("output_log_") || !name.ends_with(".txt") {
+            continue;
+        }
 
         let Ok(src_meta) = fs::metadata(&src) else {
             log_err(&format!("stat src [{}]: failed", name));
@@ -225,9 +257,13 @@ fn sync_logs() {
         };
         let src_size = src_meta.len();
         let src_mtime = src_meta.modified().ok();
-        
+
         let dst_meta = fs::metadata(&dst).ok();
-        let dst_size = if let Some(meta) = dst_meta.as_ref() { meta.len() } else { 0 };
+        let dst_size = if let Some(meta) = dst_meta.as_ref() {
+            meta.len()
+        } else {
+            0
+        };
         let dst_mtime = dst_meta.and_then(|m| m.modified().ok());
 
         // 同期が必要かどうかの判断
@@ -243,7 +279,10 @@ fn sync_logs() {
             }
         } else {
             // src_size < dst_size: 想定外
-            log_err(&format!("src smaller than dst [{}]: src={} dst={}", name, src_size, dst_size));
+            log_err(&format!(
+                "src smaller than dst [{}]: src={} dst={}",
+                name, src_size, dst_size
+            ));
             false
         };
 
@@ -252,7 +291,10 @@ fn sync_logs() {
         }
 
         if src_size == dst_size {
-            log_warn(&format!("src size same as dst but mtime is newer [{}]: re-copying", name));
+            log_warn(&format!(
+                "src size same as dst but mtime is newer [{}]: re-copying",
+                name
+            ));
         } else if dst_size > 0 && src_size > dst_size {
             // 追記された場合など
         }
@@ -263,7 +305,7 @@ fn sync_logs() {
             {
                 use std::os::windows::fs::OpenOptionsExt;
                 use windows::Win32::Storage::FileSystem::FILE_SHARE_READ;
-                
+
                 let res = fs::OpenOptions::new()
                     .read(true)
                     .share_mode(FILE_SHARE_READ.0)
@@ -272,9 +314,12 @@ fn sync_logs() {
                         let mut d_file = fs::File::create(&dst)?;
                         std::io::copy(&mut s_file, &mut d_file)
                     });
-                
+
                 if let Err(e2) = res {
-                    log_err(&format!("copy failed (share mode fallback also failed) [{}]: {} / {}", name, e, e2));
+                    log_err(&format!(
+                        "copy failed (share mode fallback also failed) [{}]: {} / {}",
+                        name, e, e2
+                    ));
                 }
             }
             #[cfg(not(windows))]
@@ -290,12 +335,27 @@ fn sync_logs() {
 /// WARN / ERROR のみ記録（正常な動作はログに残さない）
 fn log_msg(level: &str, msg: &str) {
     if let Some(path) = log_path() {
-        if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(path) {
-            let now = Local::now().format("%Y-%m-%d %H:%M:%S");
-            let _ = writeln!(log, "[{}] [{}] {}", now, level, msg);
-        }
+        append_log_line(
+            path,
+            &format!(
+                "[{}] [{}] {}",
+                Local::now().format("%Y-%m-%d %H:%M:%S"),
+                level,
+                msg
+            ),
+        );
     }
 }
 
-fn log_warn(msg: &str) { log_msg("WARN",  msg); }
-fn log_err (msg: &str) { log_msg("ERROR", msg); }
+fn append_log_line(path: PathBuf, line: &str) {
+    if let Ok(mut log) = OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(log, "{}", line);
+    }
+}
+
+fn log_warn(msg: &str) {
+    log_msg("WARN", msg);
+}
+fn log_err(msg: &str) {
+    log_msg("ERROR", msg);
+}
