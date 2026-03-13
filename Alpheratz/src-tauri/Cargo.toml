@@ -1,7 +1,7 @@
 [package]
 name = "alpheratz"
 version = "0.1.0"
-description = "Alpheratz — Photo manager for STELLARECORD Ecosystem"
+description = "Alpheratz — Photo manager for STELLAProject Ecosystem"
 authors = ["CosmoArtsStore"]
 edition = "2021"
 
@@ -29,4 +29,5 @@ image_hasher = "3.1.1"
 base64 = "0.22.1"
 winreg = "0.52"
 opener = { version = "0.8", features = ["reveal"] }
-
+directories = "5.0.1"
+path-slash = "0.2.1"

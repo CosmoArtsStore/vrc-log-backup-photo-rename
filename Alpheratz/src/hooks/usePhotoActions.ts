@@ -12,7 +12,7 @@ export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<P
         if (!selectedPhoto) return;
         setIsSavingMemo(true);
         try {
-            await invoke("save_photo_memo", {
+            await invoke("save_photo_memo_cmd", {
                 filename: selectedPhoto.photo_filename,
                 memo: localMemo
             });

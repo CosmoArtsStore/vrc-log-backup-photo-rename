@@ -8,7 +8,7 @@ pub mod config;
 pub mod models;
 pub mod db;
 pub mod scanner;
-pub mod stellarecord_ext;
+pub mod stella_record_ext;
 pub mod utils;
 
 use config::{load_setting, save_setting, AlpheratzSetting};
@@ -55,7 +55,7 @@ async fn create_thumbnail(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn save_photo_memo(filename: String, memo: String) -> Result<(), String> {
+async fn save_photo_memo_cmd(filename: String, memo: String) -> Result<(), String> {
     db::save_photo_memo(&filename, &memo)
 }
 
@@ -104,8 +104,8 @@ fn save_setting_cmd(setting: AlpheratzSetting) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn register_to_stellarecord() -> Result<String, String> {
-    stellarecord_ext::register_self(
+async fn register_to_stella_record() -> Result<String, String> {
+    stella_record_ext::register_self(
         "Alpheratz", 
         "VR写真とワールド情報を紐付けるギャラリーツール"
     )
@@ -113,9 +113,11 @@ async fn register_to_stellarecord() -> Result<String, String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let _ = init_alpheratz_db();
+    if let Err(err) = init_alpheratz_db() {
+        utils::log_err(&format!("Database initialization failed: {}", err));
+    }
 
-    Builder::default()
+    let run_result = Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -127,12 +129,15 @@ pub fn run() {
             cancel_scan,
             get_photos,
             create_thumbnail,
-            save_photo_memo,
+            save_photo_memo_cmd,
             open_world_url,
             show_in_explorer,
             get_rotated_phashes,
-            register_to_stellarecord,
+            register_to_stella_record,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .run(tauri::generate_context!());
+
+    if let Err(err) = run_result {
+        utils::log_err(&format!("Tauri runtime failed: {}", err));
+    }
 }

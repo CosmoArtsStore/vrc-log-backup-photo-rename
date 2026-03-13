@@ -55,9 +55,10 @@ fn log_path() -> Option<PathBuf> {
 fn main() {
     // #19: Panic Hookの設定 — リリースビルドでのサイレントクラッシュを防止
     std::panic::set_hook(Box::new(|info| {
-        let location = info.location()
-            .map(|l| format!("at {}:{}", l.file(), l.line()))
-            .unwrap_or_else(|| "unknown location".to_string());
+        let location = match info.location() {
+            Some(l) => format!("at {}:{}", l.file(), l.line()),
+            None => "unknown location".to_string(),
+        };
         let payload = info.payload();
         let msg = if let Some(s) = payload.downcast_ref::<&str>() {
             "Alpheratz"
@@ -91,7 +92,13 @@ fn main() {
     }
 
     // トレイアイコン構築
-    let (quit_id, _tray) = build_tray();
+    let (quit_id, _tray) = match build_tray() {
+        Ok(v) => v,
+        Err(err) => {
+            log_err(&format!("tray init failed: {}", err));
+            return;
+        }
+    };
 
     // 10秒ごとにVRChatをチェックし、確認出来たら終了まで待機、終了後ログをバックアップする。
     thread::spawn(move || {
@@ -131,27 +138,29 @@ fn main() {
 
 // ── トレイアイコン構築 ────────────────────────────
 
-fn build_tray() -> (MenuId, TrayIcon) {
-    let img = image::load_from_memory(ICON_BYTES).expect("icon load failed").into_rgba8();
+fn build_tray() -> Result<(MenuId, TrayIcon), String> {
+    let img = image::load_from_memory(ICON_BYTES)
+        .map_err(|e| format!("icon load failed: {}", e))?
+        .into_rgba8();
     let (w, h) = img.dimensions();
-    let icon = Icon::from_rgba(img.into_raw(), w, h).expect("icon failed");
+    let icon = Icon::from_rgba(img.into_raw(), w, h).map_err(|e| format!("icon build failed: {}", e))?;
 
     let menu = Menu::new();
     let status = MenuItem::new("Polaris 起動中", false, None); 
     let quit   = MenuItem::new("停止", true, None);
     let quit_id = quit.id().clone();
-    menu.append(&status).expect("menu append failed");
-    menu.append(&PredefinedMenuItem::separator()).expect("menu append failed");
-    menu.append(&quit).expect("menu append failed");
+    menu.append(&status).map_err(|e| format!("menu append failed: {}", e))?;
+    menu.append(&PredefinedMenuItem::separator()).map_err(|e| format!("menu append failed: {}", e))?;
+    menu.append(&quit).map_err(|e| format!("menu append failed: {}", e))?;
 
     let tray = TrayIconBuilder::new()
         .with_icon(icon)
         .with_tooltip("STELLA RECORD - Polaris")
         .with_menu(Box::new(menu))
         .build()
-        .expect("tray build failed");
+        .map_err(|e| format!("tray build failed: {}", e))?;
 
-    (quit_id, tray)
+    Ok((quit_id, tray))
 }
 
 // ── VRChatプロセス検索 ────────────────────────────
@@ -218,7 +227,7 @@ fn sync_logs() {
         let src_mtime = src_meta.modified().ok();
         
         let dst_meta = fs::metadata(&dst).ok();
-        let dst_size = dst_meta.as_ref().map(|m| m.len()).unwrap_or(0);
+        let dst_size = if let Some(meta) = dst_meta.as_ref() { meta.len() } else { 0 };
         let dst_mtime = dst_meta.and_then(|m| m.modified().ok());
 
         // 同期が必要かどうかの判断

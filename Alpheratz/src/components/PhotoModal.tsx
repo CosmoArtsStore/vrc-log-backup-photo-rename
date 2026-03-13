@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { Photo } from "../types";
+import { Icons } from "./Icons";
 
 interface PhotoModalProps {
     photo: Photo;
@@ -27,14 +28,17 @@ for (let i = 0; i < 256; i++) {
     POPCNT_TABLE[i] = count;
 }
 
-function base64ToBytes(base64: string): Uint8Array {
+function base64ToBytes(base64: string): Uint8Array | null {
     try {
         const binString = atob(base64);
         return Uint8Array.from(binString, (m) => m.codePointAt(0)!);
     } catch {
-        return new Uint8Array(8);
+        return null;
     }
 }
+
+const MAX_SUGGESTIONS = 5;
+const MAX_MAYBE_SUGGESTIONS = 3;
 
 function hammingDistance(a: Uint8Array, b: Uint8Array): number {
     let dist = 0;
@@ -69,7 +73,13 @@ export const PhotoModal = ({
 
         try {
             const rotatedHashes: string[] = await invoke("get_rotated_phashes", { path: photo.photo_path });
-            const allTargetHashes = rotatedHashes.map(base64ToBytes);
+            const allTargetHashes = rotatedHashes
+                .map(base64ToBytes)
+                .filter((bytes): bytes is Uint8Array => bytes !== null);
+
+            if (allTargetHashes.length === 0) {
+                return;
+            }
 
             const results: { item: Photo; distance: number }[] = [];
 
@@ -77,6 +87,7 @@ export const PhotoModal = ({
                 if (p.photo_filename === photo.photo_filename || !p.phash) continue;
 
                 const pBytes = base64ToBytes(p.phash);
+                if (!pBytes) continue;
                 let minDist = 64;
                 for (const targetBytes of allTargetHashes) {
                     const dist = hammingDistance(targetBytes, pBytes);
@@ -102,12 +113,12 @@ export const PhotoModal = ({
         const knowns = similarPhotos.filter(s => s.item.world_id && s.item.world_name);
         const map = new Map<string, { world_id: string, world_name: string, min_dist: number, photo: Photo }>();
         for (const s of knowns) {
-            const wid = s.item.world_id!;
+            const wid = s.item.world_id as string;
             if (!map.has(wid) || map.get(wid)!.min_dist > s.distance) {
-                map.set(wid, { world_id: wid, world_name: s.item.world_name!, min_dist: s.distance, photo: s.item });
+                map.set(wid, { world_id: wid, world_name: s.item.world_name ?? "不明", min_dist: s.distance, photo: s.item });
             }
         }
-        return Array.from(map.values()).sort((a, b) => a.min_dist - b.min_dist).slice(0, 5);
+        return Array.from(map.values()).sort((a, b) => a.min_dist - b.min_dist).slice(0, MAX_SUGGESTIONS);
     }, [similarPhotos, unknownWorld]);
 
     // 「もしかして」候補: world_idなしの写真で側だからworld_idありの候補求め
@@ -116,12 +127,12 @@ export const PhotoModal = ({
         const knowns = similarPhotos.filter(s => s.item.world_id && s.item.world_name && s.distance > 10 && s.distance <= 20);
         const map = new Map<string, { world_id: string, world_name: string, min_dist: number, photo: Photo }>();
         for (const s of knowns) {
-            const wid = s.item.world_id!;
+            const wid = s.item.world_id as string;
             if (!map.has(wid) || map.get(wid)!.min_dist > s.distance) {
-                map.set(wid, { world_id: wid, world_name: s.item.world_name!, min_dist: s.distance, photo: s.item });
+                map.set(wid, { world_id: wid, world_name: s.item.world_name ?? "不明", min_dist: s.distance, photo: s.item });
             }
         }
-        return Array.from(map.values()).sort((a, b) => a.min_dist - b.min_dist).slice(0, 3);
+        return Array.from(map.values()).sort((a, b) => a.min_dist - b.min_dist).slice(0, MAX_MAYBE_SUGGESTIONS);
     }, [similarPhotos, unknownWorld]);
 
     const confident = suggestions.filter(s => s.min_dist <= 6);
@@ -143,7 +154,9 @@ export const PhotoModal = ({
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                     </button>
                 )}
-                <button className="modal-close" onClick={onClose}>×</button>
+                <button className="modal-close" onClick={onClose} aria-label="閉じる">
+                    <Icons.Close />
+                </button>
                 <div className="modal-body photo-modal-body">
                     <div className="modal-image-container photo-modal-image" style={{ position: 'relative' }}>
                         <img src={convertFileSrc(photo.photo_path)} alt="" />

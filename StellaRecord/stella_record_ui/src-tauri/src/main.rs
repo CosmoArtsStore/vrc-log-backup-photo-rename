@@ -140,11 +140,10 @@ fn launch_enhanced_import(handle: tauri::AppHandle, file_names: Vec<String>) -> 
 
     std::thread::spawn(move || {
         for (idx, target_path) in target_paths.into_iter().enumerate() {
-            let file_label = target_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("")
-                .to_string();
+            let file_label = match target_path.file_name().and_then(|n| n.to_str()) {
+                Some(s) => s.to_string(),
+                None => target_path.display().to_string(),
+            };
 
             let _ = handle.emit("analyze-progress", AnalyzePayload {
                 status: format!("[{}/{}] {}", idx + 1, total, file_label),
@@ -500,9 +499,10 @@ async fn start_polaris() -> Result<String, String> {
 
 fn main() {
     std::panic::set_hook(Box::new(|info| {
-        let location = info.location()
-            .map(|l| format!("at {}:{}", l.file(), l.line()))
-            .unwrap_or_else(|| "unknown location".to_string());
+        let location = match info.location() {
+            Some(l) => format!("at {}:{}", l.file(), l.line()),
+            None => "unknown location".to_string(),
+        };
         let payload = info.payload();
         let msg = if let Some(s) = payload.downcast_ref::<&str>() {
             s.to_string()
@@ -533,7 +533,7 @@ fn main() {
         }
     }
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
@@ -556,6 +556,9 @@ fn main() {
             open_folder,
             get_polaris_status,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .run(tauri::generate_context!());
+
+    if let Err(err) = app {
+        log_err(&format!("error while running tauri application: {}", err));
+    }
 }

@@ -25,19 +25,21 @@ pub fn log_msg(level: &str, msg: &str) {
 pub fn log_warn(msg: &str) { log_msg("WARN",  msg); }
 pub fn log_err (msg: &str) { log_msg("ERROR", msg); }
 
-pub fn get_thumbnail_cache_dir() -> Option<PathBuf> {
-    let cache_dir = get_alpheratz_install_dir()?.join("cache");
-    let _ = fs::create_dir_all(&cache_dir);
-    Some(cache_dir)
+pub fn get_thumbnail_cache_dir() -> Result<PathBuf, String> {
+    let install_dir = get_alpheratz_install_dir().ok_or_else(|| "Failed to get install dir".to_string())?;
+    let cache_dir = install_dir.join("cache");
+    fs::create_dir_all(&cache_dir)
+        .map_err(|e| format!("Failed to create cache directory ({}): {}", cache_dir.display(), e))?;
+    Ok(cache_dir)
 }
 
 pub fn create_thumbnail_file(path: &str) -> Result<String, String> {
-    let cache_dir = get_thumbnail_cache_dir().ok_or_else(|| {
-        log_err("Failed to get cache dir");
-        "Failed to get cache dir".to_string()
-    })?;
+    let cache_dir = get_thumbnail_cache_dir()?;
     let path_p = Path::new(path);
-    let filename = path_p.file_name().and_then(|n| n.to_str()).unwrap_or("tmp.png");
+    let filename = path_p
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| "Failed to resolve file name".to_string())?;
     let cache_path = cache_dir.join(format!("{}.thumb.jpg", filename));
 
     if cache_path.exists() {

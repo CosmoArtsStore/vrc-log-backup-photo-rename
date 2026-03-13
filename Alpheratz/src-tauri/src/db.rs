@@ -1,27 +1,38 @@
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
-use std::fs;
 use winreg::enums::HKEY_CURRENT_USER;
 use winreg::RegKey;
 
-fn get_component_install_dir(name: &str) -> Option<PathBuf> {
-    let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
-    let key = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey(&key_path).ok()?;
-    let path: String = key.get_value("InstallLocation").ok()?;
-    Some(PathBuf::from(path))
+fn get_component_install_dir(candidates: &[&str]) -> Option<PathBuf> {
+    let root = RegKey::predef(HKEY_CURRENT_USER);
+    for name in candidates {
+        let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
+        let key = match root.open_subkey(&key_path) {
+            Ok(key) => key,
+            Err(_) => continue,
+        };
+        let path: String = match key.get_value("InstallLocation") {
+            Ok(path) => path,
+            Err(_) => continue,
+        };
+        let path_buf = PathBuf::from(path);
+        if path_buf.exists() {
+            return Some(path_buf);
+        }
+    }
+    None
 }
 
 fn get_alpheratz_install_dir() -> Option<PathBuf> {
-    get_component_install_dir("Alpheratz")
+    get_component_install_dir(&["Alpheratz"])
 }
 
-fn get_stellarecord_install_dir() -> Option<PathBuf> {
-    get_component_install_dir("StellaRecord")
+fn get_stella_record_install_dir() -> Option<PathBuf> {
+    get_component_install_dir(&["STELLA_RECORD", "StellaRecord"])
 }
 
-pub fn get_stellarecord_db_path() -> Option<PathBuf> {
-    Some(get_stellarecord_install_dir()?.join("stellarecord.db"))
+pub fn get_stella_record_db_path() -> Option<PathBuf> {
+    Some(get_stella_record_install_dir()?.join("stellarecord.db"))
 }
 
 pub fn get_alpheratz_db_path() -> Option<PathBuf> {
@@ -29,7 +40,9 @@ pub fn get_alpheratz_db_path() -> Option<PathBuf> {
 }
 
 pub fn init_alpheratz_db() -> Result<(), String> {
-    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
+    let db_path = get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?;
+    let conn = Connection::open(&db_path)
+        .map_err(|e| format!("Failed to open DB at {}: {}", db_path.display(), e))?;
     
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
@@ -46,17 +59,9 @@ pub fn init_alpheratz_db() -> Result<(), String> {
              phash           TEXT
          );
          
-         CREATE TABLE IF NOT EXISTS photo_embeddings (
-             photo_id       TEXT PRIMARY KEY,
-             world_emb      BLOB,
-             avatar_emb     BLOB,
-             world_cluster  INTEGER,
-             avatar_cluster INTEGER
-         );
-         
          CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp);
          CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name);"
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|e| format!("Database schema initialization failed: {}", e))?;
 
     Ok(())
 }
@@ -68,7 +73,9 @@ pub fn get_photos(
     world_query: Option<String>,
     world_exact: Option<String>
 ) -> Result<Vec<PhotoRecord>, String> {
-    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
+    let db_path = get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?;
+    let conn = Connection::open(&db_path)
+        .map_err(|e| format!("Failed to open DB at {}: {}", db_path.display(), e))?;
     
     let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo, phash FROM photos WHERE 1=1".to_string();
     
@@ -85,10 +92,15 @@ pub fn get_photos(
 
     sql.push_str(" ORDER BY timestamp DESC");
     
-    let mut results = Vec::new();
+    let row_count: usize = conn
+        .query_row("SELECT COUNT(*) FROM photos", [], |row| row.get(0))
+        .map_err(|e| format!("Failed to count photos: {}", e))?;
+    let mut results = Vec::with_capacity(row_count.min(2_000));
     let query_val = world_query.as_ref().map(|w| format!("%{}%", w));
     
-    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| format!("Failed to prepare query [{}]: {}", sql, e))?;
     
     let mut params = Vec::new();
     if let Some(ref s) = start_date { params.push((":start", s as &dyn rusqlite::ToSql)); }
@@ -110,7 +122,7 @@ pub fn get_photos(
             memo: row.get(5)?,
             phash: row.get(6)?,
         })
-    }).map_err(|e| e.to_string())?;
+    }).map_err(|e| format!("Failed to execute query: {}", e))?;
 
     for r in rows {
         if let Ok(rec) = r { results.push(rec); }
@@ -119,11 +131,13 @@ pub fn get_photos(
 }
 
 pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
-    let conn = Connection::open(get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?).map_err(|e| e.to_string())?;
+    let db_path = get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?;
+    let conn = Connection::open(&db_path)
+        .map_err(|e| format!("Failed to open DB at {}: {}", db_path.display(), e))?;
     let changed = conn.execute(
         "UPDATE photos SET memo = ?1 WHERE photo_filename = ?2",
         rusqlite::params![memo, filename],
-    ).map_err(|e| e.to_string())?;
+    ).map_err(|e| format!("Failed to update memo for {}: {}", filename, e))?;
     if changed == 0 {
         return Err(format!("写真が見つかりません: {}", filename));
     }

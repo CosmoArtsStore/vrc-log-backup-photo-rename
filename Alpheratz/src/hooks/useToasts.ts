@@ -1,11 +1,19 @@
 import { useState, useCallback } from "react";
 
-export const useToasts = () => {
-    const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
+export type ToastType = "success" | "error" | "info";
 
-    const addToast = useCallback((msg: string, duration = 3000) => {
+interface Toast {
+    id: number;
+    msg: string;
+    type: ToastType;
+}
+
+export const useToasts = () => {
+    const [toasts, setToasts] = useState<Toast[]>([]);
+
+    const addToast = useCallback((msg: string, type: ToastType = "info", duration = 3000) => {
         const id = Date.now();
-        setToasts((prev) => [...prev, { id, msg }]);
+        setToasts((prev) => [...prev, { id, msg, type }]);
         setTimeout(() => {
             setToasts((prev) => prev.filter((t) => t.id !== id));
         }, duration);

@@ -19,7 +19,7 @@ export const ActionCards = ({
         <div className="action-cards-grid">
             <div className="action-card" onClick={handleRegisterToStellaRecord}>
                 <div className="action-icon"><Icons.Link /></div>
-                <div className="action-info"><h3>Connect</h3><p>StellaRecord 連携登録</p></div>
+                <div className="action-info"><h3>Connect</h3><p>STELLA RECORD 連携登録</p></div>
             </div>
             {scanStatus === "scanning" ? (
                 <div className="action-card cancel" onClick={cancelScan}>

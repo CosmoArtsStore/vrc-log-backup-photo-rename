@@ -62,11 +62,10 @@ where
 
     let total = log_files.len();
     for (idx, log_path) in log_files.iter().enumerate() {
-        let filename = log_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_string();
+        let filename = match log_path.file_name().and_then(|n| n.to_str()) {
+            Some(v) => v.to_string(),
+            None => continue,
+        };
 
         let already_processed: bool = conn
             .query_row(
@@ -74,7 +73,10 @@ where
                 params![filename],
                 |row| row.get(0),
             )
-            .unwrap_or(false);
+            .unwrap_or_else(|e| {
+                crate::log_err_lib(&format!("[StellaRecord] failed to check session existence: {}", e));
+                false
+            });
 
         if already_processed {
             let progress_pct = ((idx + 1) as f32 / total as f32 * 100.0) as u32;
@@ -187,9 +189,11 @@ where
                 end_time = Some(formatted);
             }
         }
-        let ts_str = current_ts
-            .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string())
-            .unwrap_or_default();
+        let ts_str = if let Some(t) = current_ts {
+            t.format("%Y-%m-%d %H:%M:%S").to_string()
+        } else {
+            String::new()
+        };
 
         // --- VRChatビルド ---
         if vrchat_build.is_none() {
@@ -234,10 +238,16 @@ where
         // --- ワールドJoin ---
         if let Some(caps) = RE_JOINING.captures(&line) {
             if let Some(ref rname) = pending_room_name {
-                let world_id = caps.get(1).map(|m| m.as_str()).unwrap_or("").to_string();
+                let Some(world_id_match) = caps.get(1) else { continue; };
+                let world_id = world_id_match.as_str().to_string();
                 // instance_id: インスタンス番号のみ（例: "74156"）
-                let instance_id = caps.get(2).map(|m| m.as_str()).unwrap_or("").to_string();
-                let access_raw = caps.get(3).map(|m| m.as_str().trim()).unwrap_or("").to_string();
+                let instance_id = if let Some(m) = caps.get(2) {
+                    m.as_str().to_string()
+                } else {
+                    String::new()
+                };
+                let Some(access_match) = caps.get(3) else { continue; };
+                let access_raw = access_match.as_str().trim().to_string();
                 let region = caps.get(4).map(|m| m.as_str().to_string());
                 let (access_type, instance_owner) = parse_access_type(&access_raw);
 
@@ -392,7 +402,8 @@ where
             let sender_username = caps.get(1).map(|m| m.as_str()).filter(|s| !s.is_empty()).map(String::from);
             let sender_user_id  = caps.get(2).map(|m| m.as_str()).filter(|s| !s.is_empty()).map(String::from);
             let notif_id        = caps.get(4).map(|m| m.as_str().to_string());
-            let created_at_raw  = caps.get(5).map(|m| m.as_str()).unwrap_or("").trim();
+            let Some(created_at_match) = caps.get(5) else { continue; };
+            let created_at_raw = created_at_match.as_str().trim();
             let message         = caps.get(6).map(|m| m.as_str().to_string());
 
             // created_at: "02/27/2026 05:05:12 UTC" -> "2026-02-27 05:05:12"
@@ -414,9 +425,11 @@ where
 
     // ファイル末尾で未クローズのvisitを閉じる
     if let Some(vid) = current_visit_id {
-        let last_ts = current_ts
-            .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string())
-            .unwrap_or_default();
+        let last_ts = if let Some(t) = current_ts {
+            t.format("%Y-%m-%d %H:%M:%S").to_string()
+        } else {
+            String::new()
+        };
         tx.execute(
             "UPDATE world_visits SET leave_time = ?1 WHERE id = ?2 AND leave_time IS NULL",
             params![last_ts, vid],
@@ -427,11 +440,17 @@ where
         )?;
     }
 
+    let start_time_value = if let Some(v) = start_time {
+        v
+    } else {
+        String::new()
+    };
+
     tx.execute(
         "UPDATE app_sessions
          SET start_time = ?1, end_time = ?2, my_user_id = ?3, my_display_name = ?4, vrchat_build = ?5
          WHERE log_filename = ?6",
-        params![start_time.unwrap_or_default(), end_time, my_user_id, my_display_name, vrchat_build, filename]
+        params![start_time_value, end_time, my_user_id, my_display_name, vrchat_build, filename]
     )?;
 
     tx.commit()?;
@@ -452,7 +471,11 @@ where
     init_db(&conn)
         .map_err(|e| format!("Failed to init DB: {}", e))?;
 
-    let filename = target_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+    let filename = target_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| "Invalid target file name".to_string())?
+        .to_string();
     
     if filename.ends_with(".tar.zst") {
         progress_callback("アーカイブを展開中...".to_string(), "0%".to_string());

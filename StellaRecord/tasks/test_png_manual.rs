@@ -5,7 +5,10 @@ use std::io::Read;
 fn extract_vrc_meta_from_png(path: &Path) -> (Option<String>, Option<String>) {
     if let Ok(mut file) = fs::File::open(path) {
         let mut buf = vec![0; 256 * 1024];
-        let n = file.read(&mut buf).unwrap_or(0);
+        let n = match file.read(&mut buf) {
+            Ok(n) => n,
+            Err(_) => return (None, None),
+        };
         let content = String::from_utf8_lossy(&buf[..n]);
         
         let mut world_id = None;

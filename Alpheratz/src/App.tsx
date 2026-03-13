@@ -39,10 +39,10 @@ function App() {
   }, [searchQuery]);
 
   // --- Logic Extraction via Hooks ---
-  const { photos, setPhotos, loadPhotos, isLoading } = usePhotos(debouncedQuery, worldFilter);
-  const { scanStatus, scanProgress, photoFolderPath, startScan, refreshSettings, cancelScan } = useScan();
   const { rightPanelRef, gridWrapperRef, panelWidth, gridHeight, columnCount } = useGridDimensions(CARD_WIDTH);
   const { toasts, addToast } = useToasts();
+  const { photos, setPhotos, loadPhotos, isLoading } = usePhotos(debouncedQuery, worldFilter);
+  const { scanStatus, scanProgress, photoFolderPath, startScan, refreshSettings, cancelScan } = useScan(addToast);
 
   const {
     scrollTop, thumbTop, thumbHeight, isDragging, totalHeight, onGridRef,
@@ -58,12 +58,12 @@ function App() {
 
   // --- Handlers ---
   const handleRegisterToStellaRecord = async () => {
-    addToast("StellaRecord への連携を同期中...");
+    addToast("STELLA RECORD への連携を同期中...", "info");
     try {
-      const res: string = await invoke("register_to_stellarecord");
-      addToast(res);
+      const res: string = await invoke("register_to_stella_record");
+      addToast(res, "success");
     } catch (err) {
-      addToast("連携エラー: " + String(err));
+      addToast("連携エラー: " + String(err), "error");
     }
   };
 

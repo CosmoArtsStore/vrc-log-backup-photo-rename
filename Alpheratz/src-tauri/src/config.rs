@@ -1,21 +1,20 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use winreg::enums::HKEY_CURRENT_USER;
 use winreg::RegKey;
 
 fn get_alpheratz_install_dir() -> Option<PathBuf> {
-    let key = RegKey::predef(HKEY_CURRENT_USER)
+    let root = RegKey::predef(HKEY_CURRENT_USER);
+    let key = root
         .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Alpheratz").ok()?;
     let path: String = key.get_value("InstallLocation").ok()?;
-    Some(PathBuf::from(path))
-}
-
-fn get_stellarecord_install_dir() -> Option<PathBuf> {
-    let key = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\StellaRecord").ok()?;
-    let path: String = key.get_value("InstallLocation").ok()?;
-    Some(PathBuf::from(path))
+    let path_buf = PathBuf::from(path);
+    if path_buf.exists() {
+        Some(path_buf)
+    } else {
+        None
+    }
 }
 
 /// 仕様書 §8.4 AlpheratzSetting.json
@@ -54,6 +53,6 @@ pub fn save_setting(s: &AlpheratzSetting) -> Result<(), String> {
     let path = get_setting_path().ok_or_else(|| "Failed to get setting path".to_string())?;
     let content = serde_json::to_string_pretty(s)
         .map_err(|e| format!("Serialize error: {}", e))?;
-    fs::write(path, content).map_err(|e| format!("Write error: {}", e))?;
+    fs::write(&path, content).map_err(|e| format!("Write error ({}): {}", path.display(), e))?;
     Ok(())
 }

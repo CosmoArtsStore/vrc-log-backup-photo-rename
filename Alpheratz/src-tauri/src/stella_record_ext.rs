@@ -1,18 +1,33 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use winreg::enums::HKEY_CURRENT_USER;
 use winreg::RegKey;
 
-fn get_stellarecord_install_dir() -> Option<PathBuf> {
-    let key = RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\StellaRecord").ok()?;
-    let path: String = key.get_value("InstallLocation").ok()?;
-    Some(PathBuf::from(path))
+fn get_stella_record_install_dir() -> Option<PathBuf> {
+    let root = RegKey::predef(HKEY_CURRENT_USER);
+    for key_path in [
+        "Software\\CosmoArtsStore\\STELLAProject\\STELLA_RECORD",
+        "Software\\CosmoArtsStore\\STELLAProject\\StellaRecord",
+    ] {
+        let key = match root.open_subkey(key_path) {
+            Ok(key) => key,
+            Err(_) => continue,
+        };
+        let path: String = match key.get_value("InstallLocation") {
+            Ok(path) => path,
+            Err(_) => continue,
+        };
+        let path_buf = PathBuf::from(path);
+        if path_buf.exists() {
+            return Some(path_buf);
+        }
+    }
+    None
 }
 
 fn get_pleiades_json_path() -> Option<PathBuf> {
-    Some(get_stellarecord_install_dir()?.join("pleiades.json"))
+    Some(get_stella_record_install_dir()?.join("pleiades.json"))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -37,7 +52,8 @@ pub fn register_self(name: &str, description: &str) -> Result<String, String> {
     let mut apps: Vec<StellaRecordAppInfo> = if target_file.exists() {
         let content = fs::read_to_string(&target_file)
             .map_err(|e| format!("ファイルの読み込みに失敗しました: {}", e))?;
-        serde_json::from_str(&content).unwrap_or_else(|_| Vec::new())
+        serde_json::from_str(&content)
+            .map_err(|e| format!("JSON parse error: {}", e))?
     } else {
         Vec::new()
     };

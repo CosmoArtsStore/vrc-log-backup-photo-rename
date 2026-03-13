@@ -17,6 +17,7 @@ fn show_fatal_error(msg: &str) {
         .encode_utf16()
         .collect();
 
+    // SAFETY: static UTF-16 buffers are null-terminated and valid for MessageBoxW call duration.
     unsafe {
         let _ = MessageBoxW(
             None,
@@ -37,9 +38,10 @@ fn main() {
     // 1. パニックフックの設定
     // リリースビルド（Windowsサブシステム）でのサイレントクラッシュを防止
     panic::set_hook(Box::new(|info| {
-        let location = info.location()
-            .map(|l| format!("at {}:{}", l.file(), l.line()))
-            .unwrap_or_else(|| "unknown location".to_string());
+        let location = match info.location() {
+            Some(l) => format!("at {}:{}", l.file(), l.line()),
+            None => String::new(),
+        };
         
         let payload = info.payload();
         let payload_msg = if let Some(s) = payload.downcast_ref::<&'static str>() {
@@ -51,7 +53,7 @@ fn main() {
         };
 
         let error_msg = format!(
-            "STELLARECORD (Alpheratz) で致命的なエラーが発生しました。\n\nエラー内容: {}\n発生場所: {}\n\nアプリケーションを終了します。\n詳細はインストール先の info.log を確認してください。",
+            "STELLAProject (Alpheratz) で致命的なエラーが発生しました。\n\nエラー内容: {}\n発生場所: {}\n\nアプリケーションを終了します。\n詳細はインストール先の info.log を確認してください。",
             payload_msg, location
         );
 
