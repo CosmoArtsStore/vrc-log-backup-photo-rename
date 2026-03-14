@@ -1,5 +1,6 @@
 # Rust build artifacts
 **/target/
+tmp/
 
 # Node.js
 node_modules/
@@ -34,3 +35,6 @@ all_codes_combined.txt
 
 # Tauri gen
 **/gen/
+
+# AI investigation tools and outputs
+AITools/output/

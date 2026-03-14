@@ -6,7 +6,7 @@ import { useAnalyzeState } from "./hooks/useAnalyzeState";
 import { useArchiveSelection } from "./hooks/useArchiveSelection";
 import { useDashboardState } from "./hooks/useDashboardState";
 import { useToasts } from "./hooks/useToasts";
-import { AppCard, DangerAction, Section, TableData } from "./types";
+import type { AppCard, DangerAction, Section, TableData } from "./types";
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");

@@ -4,6 +4,8 @@ use crate::platform;
 use crate::utils;
 
 pub fn sync_logs() {
+    // 常駐アプリなので、同期処理の途中で一部ファイルが失敗しても全体停止しない。
+    // 取得できたログだけを確実に退避し、失敗は文脈付きログに残して次へ進む。
     let destination_dir = match utils::archive_dir() {
         Some(path) => path,
         None => {
@@ -82,11 +84,10 @@ pub fn sync_logs() {
             .unwrap_or(0);
         let destination_mtime = destination_meta.and_then(|meta| meta.modified().ok());
 
-        let needs_copy = if destination_size == 0 {
-            true
-        } else if source_size > destination_size {
+        let needs_copy = if destination_size == 0 || source_size > destination_size {
             true
         } else if source_size == destination_size {
+            // サイズが同じでも更新時刻が新しければ、書き込み途中だった旧コピーを上書きする。
             match (source_mtime, destination_mtime) {
                 (Some(source_time), Some(dest_time)) => source_time > dest_time,
                 _ => false,
@@ -127,6 +128,8 @@ fn copy_with_share_mode_fallback(
         use std::os::windows::fs::OpenOptionsExt;
         use windows::Win32::Storage::FileSystem::FILE_SHARE_READ;
 
+        // VRChat 終了直後はログの共有状態が不安定なことがあるため、
+        // 通常コピーに失敗した場合だけ共有読み取り付きで再試行する。
         let result = fs::OpenOptions::new()
             .read(true)
             .share_mode(FILE_SHARE_READ.0)

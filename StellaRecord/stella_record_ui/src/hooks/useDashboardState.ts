@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { AppCard, StorageStatus } from "../types";
+import type { AppCard, StorageStatus } from "../types";
 
 export function useDashboardState() {
   const [pleiadesApps, setPleiadesApps] = useState<AppCard[]>([]);

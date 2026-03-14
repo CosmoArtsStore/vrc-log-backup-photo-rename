@@ -2,7 +2,7 @@
 
 ## Current Objectives
 - [x] Alpheratzの現状分析と評価レポート作成
-- [ ] `codex_現課題01.md` に基づく詳細なコーディング規約書の作成
+- [ ] `AITools/docs/codex_現課題01.md` に基づく詳細なコーディング規約書の作成
 - [ ] CI自動化チェックリストやLinter等のツール化の検討・反映
 
 ## Review

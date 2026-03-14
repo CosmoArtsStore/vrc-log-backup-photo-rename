@@ -22,6 +22,8 @@ pub struct TrayRuntime {
 
 impl TrayRuntime {
     pub fn build() -> Result<Self, String> {
+        // オープンソース化後に読んでも追いやすいよう、トレイ生成は
+        // 「アイコン準備 -> メニュー構築 -> トレイ登録」の順で直列に行う。
         let image = image::load_from_memory(ICON_BYTES)
             .map_err(|err| utils::platform_err("icon load failed", err))?
             .into_rgba8();
@@ -72,6 +74,7 @@ impl TrayRuntime {
                 }
             }
 
+            // メッセージループを回しつつ CPU を占有しないよう、短い休止を入れる。
             thread::sleep(Duration::from_millis(100));
         }
     }
