@@ -1,0 +1,5 @@
+F:\DEVELOPFOLDER\STELLAProject\tmp\stellarecord-check\debug\deps\cfg_if-f35af99d81ed8f2e.d: C:\Users\kaimu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cfg-if-1.0.4\src\lib.rs
+
+F:\DEVELOPFOLDER\STELLAProject\tmp\stellarecord-check\debug\deps\libcfg_if-f35af99d81ed8f2e.rmeta: C:\Users\kaimu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cfg-if-1.0.4\src\lib.rs
+
+C:\Users\kaimu\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\cfg-if-1.0.4\src\lib.rs:

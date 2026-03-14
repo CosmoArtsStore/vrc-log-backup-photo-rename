@@ -11,20 +11,40 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
+fn analyze_err<E: std::fmt::Display>(context: &str, err: E) -> String {
+    format!("{}: {}", context, err)
+}
+
 /// アーカイブディレクトリ内の output_log_*.txt を収集（ソート済み）
 fn collect_log_files(archive_dir: &Path) -> Vec<std::path::PathBuf> {
     let mut files = Vec::new();
     if !archive_dir.exists() {
         return files;
     }
-    if let Ok(entries) = fs::read_dir(archive_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.starts_with("output_log_") && name.ends_with(".txt") {
-                        files.push(path);
-                    }
+    let entries = match fs::read_dir(archive_dir) {
+        Ok(entries) => entries,
+        Err(err) => {
+            crate::utils::log_warn(&format!(
+                "archive directory read failed [{}]: {}",
+                archive_dir.display(),
+                err
+            ));
+            return files;
+        }
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(err) => {
+                crate::utils::log_warn(&format!("archive entry read failed: {}", err));
+                continue;
+            }
+        };
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with("output_log_") && name.ends_with(".txt") {
+                    files.push(path);
                 }
             }
         }
@@ -44,10 +64,9 @@ where
     F: FnMut(String, String),
 {
     let mut conn = Connection::open(&db_path)
-        .map_err(|e| format!("Failed to open DB: {}", e))?;
-    
-    init_db(&conn)
-        .map_err(|e| format!("Failed to init DB: {}", e))?;
+        .map_err(|e| analyze_err(&format!("Failed to open DB at {}", db_path.display()), e))?;
+
+    init_db(&conn).map_err(|e| analyze_err("Failed to init DB", e))?;
 
     let log_files = collect_log_files(&archive_dir);
     if log_files.is_empty() {
@@ -73,10 +92,7 @@ where
                 params![filename],
                 |row| row.get(0),
             )
-            .unwrap_or_else(|e| {
-                crate::log_err_lib(&format!("[StellaRecord] failed to check session existence: {}", e));
-                false
-            });
+            .map_err(|e| analyze_err("Failed to check session existence", e))?;
 
         if already_processed {
             let progress_pct = ((idx + 1) as f32 / total as f32 * 100.0) as u32;
@@ -89,8 +105,9 @@ where
                 format!("処理中: {}", filename),
                 format!("{}%", ((idx as f32 / total as f32) * 100.0) as u32),
             );
-            if let Err(e) = parse_and_import(&mut conn, log_path, &filename, &mut progress_callback) {
-                crate::log_err_lib(&format!("[StellaRecord] エラー ({}): {}", filename, e));
+            if let Err(e) = parse_and_import(&mut conn, log_path, &filename, &mut progress_callback)
+            {
+                crate::utils::log_err(&format!("[StellaRecord] エラー ({}): {}", filename, e));
             }
         }
     }
@@ -178,7 +195,9 @@ where
 
         // --- タイムスタンプ更新 ---
         if let Some(caps) = RE_TIME.captures(&line) {
-            let Some(m) = caps.get(1) else { continue; };
+            let Some(m) = caps.get(1) else {
+                continue;
+            };
             let ts_str = m.as_str();
             if let Ok(dt) = NaiveDateTime::parse_from_str(ts_str, "%Y.%m.%d %H:%M:%S") {
                 current_ts = Some(dt);
@@ -187,6 +206,13 @@ where
                     start_time = Some(formatted.clone());
                 }
                 end_time = Some(formatted);
+            } else {
+                // Intentional: malformed timestamp lines are skipped because later lines may still
+                // establish a valid session window for the same log.
+                crate::utils::log_warn(&format!(
+                    "timestamp parse skipped [{}]: {}",
+                    filename, ts_str
+                ));
             }
         }
         let ts_str = if let Some(t) = current_ts {
@@ -238,7 +264,9 @@ where
         // --- ワールドJoin ---
         if let Some(caps) = RE_JOINING.captures(&line) {
             if let Some(ref rname) = pending_room_name {
-                let Some(world_id_match) = caps.get(1) else { continue; };
+                let Some(world_id_match) = caps.get(1) else {
+                    continue;
+                };
                 let world_id = world_id_match.as_str().to_string();
                 // instance_id: インスタンス番号のみ（例: "74156"）
                 let instance_id = if let Some(m) = caps.get(2) {
@@ -246,7 +274,9 @@ where
                 } else {
                     String::new()
                 };
-                let Some(access_match) = caps.get(3) else { continue; };
+                let Some(access_match) = caps.get(3) else {
+                    continue;
+                };
                 let access_raw = access_match.as_str().trim().to_string();
                 let region = caps.get(4).map(|m| m.as_str().to_string());
                 let (access_type, instance_owner) = parse_access_type(&access_raw);
@@ -281,7 +311,9 @@ where
 
         // --- プレイヤー入室 ---
         if let Some(caps) = RE_PLAYER_JOIN.captures(&line) {
-            let (Some(m1), Some(m2)) = (caps.get(1), caps.get(2)) else { continue; };
+            let (Some(m1), Some(m2)) = (caps.get(1), caps.get(2)) else {
+                continue;
+            };
             let dname = m1.as_str().to_string();
             let uid = m2.as_str().to_string();
 
@@ -294,11 +326,13 @@ where
             let player_id = if let Some(&pid) = player_id_cache.get(&uid) {
                 Some(pid)
             } else {
-                let pid: Option<i64> = tx.query_row(
-                    "SELECT id FROM players WHERE user_id = ?1",
-                    params![uid],
-                    |row| row.get::<_, i64>(0),
-                ).ok();
+                let pid: Option<i64> = tx
+                    .query_row(
+                        "SELECT id FROM players WHERE user_id = ?1",
+                        params![uid],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .ok();
                 if let Some(pid) = pid {
                     player_id_cache.insert(uid.clone(), pid);
                 }
@@ -317,7 +351,9 @@ where
 
         // --- プレイヤー退室 ---
         if let Some(caps) = RE_PLAYER_LEFT.captures(&line) {
-            let Some(m2) = caps.get(2) else { continue; };
+            let Some(m2) = caps.get(2) else {
+                continue;
+            };
             let uid = m2.as_str().to_string();
             if let Some(vid) = current_visit_id {
                 let player_id = if let Some(&pid) = player_id_cache.get(&uid) {
@@ -327,7 +363,8 @@ where
                         "SELECT id FROM players WHERE user_id = ?1",
                         params![uid],
                         |row| row.get(0),
-                    ).ok()
+                    )
+                    .ok()
                 };
                 if let Some(pid) = player_id {
                     tx.execute(
@@ -343,12 +380,15 @@ where
         // --- ローカルプレイヤー確定（ワールド入室ごとに出現）---
         //   User Authenticated とは別に、ワールド内でのローカル/リモート判定に使う
         if let Some(caps) = RE_IS_LOCAL.captures(&line) {
-            let (Some(m1), Some(m2)) = (caps.get(1), caps.get(2)) else { continue; };
+            let (Some(m1), Some(m2)) = (caps.get(1), caps.get(2)) else {
+                continue;
+            };
             let dname_raw = m1.as_str();
             let locality = m2.as_str();
             if locality == "local" {
                 // my_display_name の補完（User Authenticated に頼れないログ形式の場合）
-                if my_display_name.is_none() || my_display_name.as_deref() == Some("[LocalPlayer]") {
+                if my_display_name.is_none() || my_display_name.as_deref() == Some("[LocalPlayer]")
+                {
                     my_display_name = Some(dname_raw.to_string());
                 }
                 if let Some(vid) = current_visit_id {
@@ -367,8 +407,7 @@ where
         if let Some(caps) = RE_VIDEO.captures(&line) {
             if let Some(vid) = current_visit_id {
                 if let Some(m) = caps.get(1) {
-                    let url = m.as_str().trim_end_matches(',')
-                        .trim().to_string();
+                    let url = m.as_str().trim_end_matches(',').trim().to_string();
                     tx.execute(
                         "INSERT INTO video_playbacks (visit_id, url, timestamp) VALUES (?1, ?2, ?3)",
                         params![vid, url, ts_str],
@@ -394,17 +433,29 @@ where
 
         // --- 通知受信（group タイプはスキップ）---
         if let Some(caps) = RE_NOTIFICATION.captures(&line) {
-            let Some(m3) = caps.get(3) else { continue; };
+            let Some(m3) = caps.get(3) else {
+                continue;
+            };
             let notif_type = m3.as_str().trim().to_string();
             if !is_collectible_notification(&notif_type) {
                 continue;
             }
-            let sender_username = caps.get(1).map(|m| m.as_str()).filter(|s| !s.is_empty()).map(String::from);
-            let sender_user_id  = caps.get(2).map(|m| m.as_str()).filter(|s| !s.is_empty()).map(String::from);
-            let notif_id        = caps.get(4).map(|m| m.as_str().to_string());
-            let Some(created_at_match) = caps.get(5) else { continue; };
+            let sender_username = caps
+                .get(1)
+                .map(|m| m.as_str())
+                .filter(|s| !s.is_empty())
+                .map(String::from);
+            let sender_user_id = caps
+                .get(2)
+                .map(|m| m.as_str())
+                .filter(|s| !s.is_empty())
+                .map(String::from);
+            let notif_id = caps.get(4).map(|m| m.as_str().to_string());
+            let Some(created_at_match) = caps.get(5) else {
+                continue;
+            };
             let created_at_raw = created_at_match.as_str().trim();
-            let message         = caps.get(6).map(|m| m.as_str().to_string());
+            let message = caps.get(6).map(|m| m.as_str().to_string());
 
             // created_at: "02/27/2026 05:05:12 UTC" -> "2026-02-27 05:05:12"
             let created_at = NaiveDateTime::parse_from_str(created_at_raw, "%m/%d/%Y %H:%M:%S UTC")
@@ -466,31 +517,37 @@ where
     F: FnMut(String, String),
 {
     let mut conn = Connection::open(&db_path)
-        .map_err(|e| format!("Failed to open DB: {}", e))?;
-    
-    init_db(&conn)
-        .map_err(|e| format!("Failed to init DB: {}", e))?;
+        .map_err(|e| analyze_err(&format!("Failed to open DB at {}", db_path.display()), e))?;
+
+    init_db(&conn).map_err(|e| analyze_err("Failed to init DB", e))?;
 
     let filename = target_path
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or_else(|| "Invalid target file name".to_string())?
         .to_string();
-    
+
     if filename.ends_with(".tar.zst") {
         progress_callback("アーカイブを展開中...".to_string(), "0%".to_string());
-        
-        let file = std::fs::File::open(&target_path).map_err(|e| e.to_string())?;
+
+        let file = std::fs::File::open(&target_path)
+            .map_err(|e| analyze_err(&format!("Failed to open {}", target_path.display()), e))?;
         // ② ディスクに .tar を書き出さず、zstdデコーダー → tarアーカイブへ直接ストリーム展開
-        let decoder = zstd::stream::Decoder::new(file).map_err(|e| e.to_string())?;
+        let decoder = zstd::stream::Decoder::new(file)
+            .map_err(|e| analyze_err("Failed to create zstd decoder", e))?;
         let mut archive = tar::Archive::new(decoder);
 
         // txt ファイルのみを BufReader として取り出してインメモリでパース
         let txt_name = filename.replace(".tar.zst", "");
         let mut found = false;
-        for entry in archive.entries().map_err(|e| e.to_string())? {
-            let mut entry = entry.map_err(|e| e.to_string())?;
-            let entry_name = entry.path().map_err(|e| e.to_string())?;
+        for entry in archive
+            .entries()
+            .map_err(|e| analyze_err("Failed to enumerate archive entries", e))?
+        {
+            let mut entry = entry.map_err(|e| analyze_err("Failed to read archive entry", e))?;
+            let entry_name = entry
+                .path()
+                .map_err(|e| analyze_err("Failed to resolve archive entry path", e))?;
             let entry_name_str = entry_name.to_string_lossy().to_string();
             if entry_name_str == txt_name || entry_name_str.ends_with(&txt_name) {
                 found = true;
@@ -501,18 +558,22 @@ where
                     BufReader::new(&mut entry),
                     &txt_name,
                     &mut progress_callback,
-                ).map_err(|e| e.to_string())?;
+                )
+                .map_err(|e| analyze_err("Failed to import archive log", e))?;
                 break;
             }
         }
         if !found {
-            return Err(format!("アーカイブ内にログファイルが見つかりません: {}", txt_name));
+            return Err(format!(
+                "アーカイブ内にログファイルが見つかりません: {}",
+                txt_name
+            ));
         }
     } else {
         // 通常の .txt 処理
         progress_callback(format!("処理中: {}", filename), "10%".to_string());
         parse_and_import(&mut conn, &target_path, &filename, &mut progress_callback)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| analyze_err("Failed to import text log", e))?;
     }
 
     progress_callback("完了".to_string(), "100%".to_string());

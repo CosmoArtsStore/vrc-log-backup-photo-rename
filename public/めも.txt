@@ -1,3 +1,4 @@
+
 ご要望どおり、Alpheratz の握りつぶし箇所を削減し、継続するケースは WARN ログを残す方針に統一しました。scanner.rs に emit_warn と warn_row_error を追加し、イベント通知失敗・行デコード失敗・連携DB接続失敗などを警告ログ付きで継続する形に変更しています。
 
 pHash 背景処理での画像読込失敗/DB更新失敗、PNG解析中の seek 失敗、再帰走査中の read_dir/entry/symlink 失敗も、黙殺せず WARN を出して継続するようにしました。

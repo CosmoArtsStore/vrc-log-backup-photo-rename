@@ -1,6 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::fs;
 use std::panic;
 use std::process;
 
@@ -15,7 +14,7 @@ fn show_fatal_error(msg: &str) {
 
     // SAFETY: static UTF-16 buffers are null-terminated and valid for MessageBoxW call duration.
     unsafe {
-        let _ = MessageBoxW(
+        MessageBoxW(
             None,
             PCWSTR(message.as_ptr()),
             PCWSTR(title.as_ptr()),
@@ -26,8 +25,7 @@ fn show_fatal_error(msg: &str) {
 
 #[cfg(not(target_os = "windows"))]
 fn show_fatal_error(msg: &str) {
-    // eprintln! は使用禁止のため削除または適切なエラー表示に変更
-    // show_fatal_error が既に呼ばれているので、ここでは何もしないかログ出力を行う
+    // Intentional no-op: this app targets Windows-only (VRC users), so non-Windows builds are unsupported.
 }
 
 fn main() {

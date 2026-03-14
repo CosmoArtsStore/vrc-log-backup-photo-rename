@@ -1,26 +1,22 @@
 import { Icons } from "./Icons";
 
 interface ActionCardsProps {
-    handleRegisterToStellaRecord: () => void;
     startScan: () => void;
     cancelScan: () => void;
     scanStatus: string;
     setShowSettings: (val: boolean) => void;
+    setIsFilterOpen: (val: boolean) => void;
 }
 
 export const ActionCards = ({
-    handleRegisterToStellaRecord,
     startScan,
     cancelScan,
     scanStatus,
     setShowSettings,
+    setIsFilterOpen,
 }: ActionCardsProps) => {
     return (
         <div className="action-cards-grid">
-            <div className="action-card" onClick={handleRegisterToStellaRecord}>
-                <div className="action-icon"><Icons.Link /></div>
-                <div className="action-info"><h3>Connect</h3><p>STELLA RECORD 連携登録</p></div>
-            </div>
             {scanStatus === "scanning" ? (
                 <div className="action-card cancel" onClick={cancelScan}>
                     <div className="action-icon"><Icons.Close /></div>
@@ -35,6 +31,10 @@ export const ActionCards = ({
             <div className="action-card" onClick={() => setShowSettings(true)}>
                 <div className="action-icon"><Icons.Settings /></div>
                 <div className="action-info"><h3>Settings</h3><p>フォルダ設定</p></div>
+            </div>
+            <div className="action-card" onClick={() => setIsFilterOpen(true)}>
+                <div className="action-icon"><Icons.Search /></div>
+                <div className="action-info"><h3>Filter</h3><p>条件検索を開く</p></div>
             </div>
         </div>
     );

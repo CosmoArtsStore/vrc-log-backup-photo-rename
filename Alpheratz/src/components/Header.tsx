@@ -1,23 +1,28 @@
 import { Icons } from "./Icons";
 
 interface HeaderProps {
+    isFilterOpen: boolean;
+    setIsFilterOpen: (val: boolean) => void;
     searchQuery: string;
     setSearchQuery: (val: string) => void;
-    worldFilter: string;
-    setWorldFilter: (val: string) => void;
-    worldNameList: string[];
 }
 
 export const Header = ({
+    isFilterOpen,
+    setIsFilterOpen,
     searchQuery,
     setSearchQuery,
-    worldFilter,
-    setWorldFilter,
-    worldNameList,
 }: HeaderProps) => {
     return (
         <header className="header">
             <div className="logo-group">
+                <button
+                    className={`menu-button ${isFilterOpen ? "active" : ""}`}
+                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    aria-label="検索サイドバーを切り替え"
+                >
+                    <Icons.Menu />
+                </button>
                 <img src="/Alpheratz-logo.png" alt="Alpheratz" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
             </div>
             <div className="search-bar">
@@ -30,14 +35,6 @@ export const Header = ({
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <select value={worldFilter} onChange={(e) => setWorldFilter(e.target.value)}>
-                    <option value="all">すべてのワールド</option>
-                    {worldNameList.map((name) => (
-                        <option key={name || "unknown"} value={name || "unknown"}>
-                            {name || "ワールド不明"}
-                        </option>
-                    ))}
-                </select>
             </div>
         </header>
     );

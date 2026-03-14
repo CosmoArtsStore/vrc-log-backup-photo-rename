@@ -1,15 +1,9 @@
-# StellaRecord Project Todo (Alpheratz)
+# Tasks
 
-## 完了済み
-- [x] Alpheratz 100項目レポート作成 (中略なし・ブランド階層準拠)
-- [x] ブランド階層定義の再策定 (STELLAProject > STELLA RECORD)
-- [x] レポートの30項目厳選とフォーマット修正
+## Current Objectives
+- [x] Alpheratzの現状分析と評価レポート作成
+- [ ] `codex_現課題01.md` に基づく詳細なコーディング規約書の作成
+- [ ] CI自動化チェックリストやLinter等のツール化の検討・反映
 
-## 現在のタスク
-- [ ] 対応不要項目の文書化 (`対応不要.md`) [/]
-- [ ] `現課題.md` に基づく修正計画の策定 [ ]
-
-## 検討事項
-- [ ] 非同期スキャンの実装方式 (#18)
-- [ ] CSS設計の共通化 (#26)
-- [ ] SQLite ジャーナルモードのフォールバック実装 (#28)
+## Review
+Alpheratzのコードは `coding-standard.md` と `現課題_意図的例外.md` に完全に準拠しており、基準実装として相応しい品質であることを確認した。これに基づき、規約書への方針落とし込み（Prettier, rustfmt, clippy, TSDoc等の強制）を進めるフェーズに入る。

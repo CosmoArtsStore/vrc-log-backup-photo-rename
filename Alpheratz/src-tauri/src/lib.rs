@@ -1,14 +1,13 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{generate_handler, AppHandle, Builder, State};
+use tauri_plugin_shell::ShellExt;
 
 pub struct ScanCancelStatus(pub AtomicBool);
-use tauri_plugin_shell::ShellExt;
 
 pub mod config;
 pub mod db;
 pub mod models;
 pub mod scanner;
-pub mod stella_record_ext;
 pub mod utils;
 
 use config::{load_setting, save_setting, AlpheratzSetting};
@@ -63,22 +62,42 @@ async fn save_photo_memo_cmd(filename: String, memo: String) -> Result<(), Strin
 }
 
 #[tauri::command]
+async fn set_photo_favorite_cmd(filename: String, is_favorite: bool) -> Result<(), String> {
+    db::set_photo_favorite(&filename, is_favorite)
+}
+
+#[tauri::command]
+async fn add_photo_tag_cmd(filename: String, tag: String) -> Result<(), String> {
+    db::add_photo_tag(&filename, &tag)
+}
+
+#[tauri::command]
+async fn remove_photo_tag_cmd(filename: String, tag: String) -> Result<(), String> {
+    db::remove_photo_tag(&filename, &tag)
+}
+
+#[tauri::command]
 async fn open_world_url(app: AppHandle, world_id: String) -> Result<(), String> {
     let url = format!("https://vrchat.com/home/world/{}/info", world_id);
-    app.shell().open(url, None).map_err(|e| e.to_string())?;
+    app.shell()
+        .open(url, None)
+        .map_err(|e| format!("Failed to open world URL: {}", e))?;
     Ok(())
 }
 
 #[tauri::command]
 async fn show_in_explorer(path: String) -> Result<(), String> {
-    opener::reveal(path).map_err(|e| e.to_string())
+    opener::reveal(path).map_err(|e| format!("Failed to reveal path in explorer: {}", e))
 }
 
 #[tauri::command]
 async fn get_rotated_phashes(path: String) -> Result<Vec<String>, String> {
-    use base64::{engine::general_purpose, Engine as _};
-
-    let img = image::open(&path).map_err(|e| e.to_string())?;
+    let img = image::open(&path).map_err(|e| {
+        format!(
+            "Failed to open image for rotated pHash ({}): {}",
+            path, e
+        )
+    })?;
     let mut hashes = Vec::new();
     let hasher = image_hasher::HasherConfig::new().to_hasher();
 
@@ -106,14 +125,6 @@ fn save_setting_cmd(setting: AlpheratzSetting) -> Result<(), String> {
     save_setting(&setting)
 }
 
-#[tauri::command]
-async fn register_to_stella_record() -> Result<String, String> {
-    stella_record_ext::register_self(
-        "Alpheratz",
-        "VR写真とワールド情報を紐付けるギャラリーツール",
-    )
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if let Err(err) = init_alpheratz_db() {
@@ -133,10 +144,12 @@ pub fn run() {
             get_photos,
             create_thumbnail,
             save_photo_memo_cmd,
+            set_photo_favorite_cmd,
+            add_photo_tag_cmd,
+            remove_photo_tag_cmd,
             open_world_url,
             show_in_explorer,
             get_rotated_phashes,
-            register_to_stella_record,
         ])
         .run(tauri::generate_context!());
 

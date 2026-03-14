@@ -37,23 +37,13 @@ pub fn get_alpheratz_install_dir() -> Option<PathBuf> {
     get_install_dir_by_component("Alpheratz")
 }
 
-pub fn get_stella_record_install_dir() -> Option<PathBuf> {
-    for component in ["STELLA_RECORD", "StellaRecord"] {
-        if let Some(path) = get_install_dir_by_component(component) {
-            if path.exists() {
-                return Some(path);
-            }
-        }
-    }
-    None
-}
-
 pub fn log_msg(level: &str, msg: &str) {
     if let Some(path) = get_alpheratz_install_dir().map(|p| p.join("info.log")) {
         match OpenOptions::new().create(true).append(true).open(&path) {
             Ok(mut f) => {
                 let now = Local::now().format("%Y-%m-%d %H:%M:%S");
                 if let Err(err) = writeln!(f, "[{}] [{}] {}", now, level, msg) {
+                    // Intentional: fallback to stderr to avoid recursive log errors.
                     eprintln!(
                         "[Alpheratz][WARN] log write failed [{}]: {}",
                         path.display(),
@@ -62,6 +52,7 @@ pub fn log_msg(level: &str, msg: &str) {
                 }
             }
             Err(err) => {
+                // Intentional: fallback to stderr to avoid recursive log errors.
                 eprintln!(
                     "[Alpheratz][WARN] log open failed [{}]: {}",
                     path.display(),
@@ -106,9 +97,16 @@ pub fn create_thumbnail_file(path: &str) -> Result<String, String> {
         return Ok(cache_path.to_string_lossy().to_string());
     }
 
-    let img = image::open(path).map_err(|e| e.to_string())?;
+    let img = image::open(path)
+        .map_err(|e| format!("Failed to open image for thumbnail ({}): {}", path, e))?;
     let thumb = img.thumbnail(360, 360);
-    thumb.save(&cache_path).map_err(|e| e.to_string())?;
+    thumb.save(&cache_path).map_err(|e| {
+        format!(
+            "Failed to save thumbnail ({}): {}",
+            cache_path.display(),
+            e
+        )
+    })?;
 
     Ok(cache_path.to_string_lossy().to_string())
 }

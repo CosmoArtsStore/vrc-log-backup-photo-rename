@@ -6,12 +6,20 @@ export interface Photo {
     timestamp: string;
     memo: string;
     phash: string | null;
+    width?: number | null;
+    height?: number | null;
+    orientation?: "portrait" | "landscape" | "square" | "unknown" | null;
+    histogram?: number[] | null;
+    is_favorite: boolean;
+    tags: string[];
+    match_source?: "metadata" | "title" | "phash" | null;
 }
 
 export interface ScanProgress {
     processed: number;
     total: number;
     current_world: string;
+    phase: string;
 }
 
 export interface MonthGroup {

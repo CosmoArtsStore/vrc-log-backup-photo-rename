@@ -4,16 +4,38 @@ use std::path::PathBuf;
 use winreg::enums::HKEY_CURRENT_USER;
 use winreg::RegKey;
 
+use crate::utils;
+
 fn get_alpheratz_install_dir() -> Option<PathBuf> {
     let root = RegKey::predef(HKEY_CURRENT_USER);
-    let key = root
-        .open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Alpheratz")
-        .ok()?;
-    let path: String = key.get_value("InstallLocation").ok()?;
+    let key = match root.open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Alpheratz") {
+        Ok(key) => key,
+        Err(err) => {
+            utils::log_warn(&format!(
+                "registry open failed [Software\\CosmoArtsStore\\STELLAProject\\Alpheratz]: {}",
+                err
+            ));
+            return None;
+        }
+    };
+    let path: String = match key.get_value("InstallLocation") {
+        Ok(path) => path,
+        Err(err) => {
+            utils::log_warn(&format!(
+                "registry value read failed [Software\\CosmoArtsStore\\STELLAProject\\Alpheratz\\InstallLocation]: {}",
+                err
+            ));
+            return None;
+        }
+    };
     let path_buf = PathBuf::from(path);
     if path_buf.exists() {
         Some(path_buf)
     } else {
+        utils::log_warn(&format!(
+            "install dir does not exist: {}",
+            path_buf.display()
+        ));
         None
     }
 }
@@ -40,9 +62,23 @@ fn get_setting_path() -> Option<PathBuf> {
 pub fn load_setting() -> AlpheratzSetting {
     if let Some(path) = get_setting_path() {
         if path.exists() {
-            if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(s) = serde_json::from_str::<AlpheratzSetting>(&content) {
-                    return s;
+            match fs::read_to_string(&path) {
+                Ok(content) => match serde_json::from_str::<AlpheratzSetting>(&content) {
+                    Ok(s) => return s,
+                    Err(err) => {
+                        utils::log_warn(&format!(
+                            "Failed to parse settings JSON ({}): {}",
+                            path.display(),
+                            err
+                        ));
+                    }
+                },
+                Err(err) => {
+                    utils::log_warn(&format!(
+                        "Failed to read settings file ({}): {}",
+                        path.display(),
+                        err
+                    ));
                 }
             }
         }

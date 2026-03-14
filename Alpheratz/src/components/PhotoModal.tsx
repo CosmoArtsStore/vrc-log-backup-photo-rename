@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { KeyboardEvent, useMemo, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { Photo } from "../types";
 import { Icons } from "./Icons";
@@ -15,6 +15,9 @@ interface PhotoModalProps {
     onSelectSimilar: (photo: Photo) => void;
     canGoBack?: boolean;
     onGoBack?: () => void;
+    onToggleFavorite: () => void;
+    onAddTag: (tag: string) => void;
+    onRemoveTag: (tag: string) => void;
 }
 
 const POPCNT_TABLE = new Uint8Array(256);
@@ -94,8 +97,12 @@ export const PhotoModal = ({
     onSelectSimilar,
     canGoBack,
     onGoBack,
+    onToggleFavorite,
+    onAddTag,
+    onRemoveTag,
 }: PhotoModalProps) => {
     const unknownWorld = !photo.world_id;
+    const [tagDraft, setTagDraft] = useState("");
 
     const [similarPhotos, setSimilarPhotos] = useState<SimilarPhotoEntry[]>([]);
     const [isSearchingSimilar, setIsSearchingSimilar] = useState(false);
@@ -161,9 +168,22 @@ export const PhotoModal = ({
     const confident = suggestions.filter(s => s.min_dist <= 6);
     const possible = suggestions.filter(s => s.min_dist > 6 && s.min_dist <= 10);
 
-
     const handleOpenWorldId = async (id: string) => {
         await invoke("open_world_url", { worldId: id });
+    };
+
+    const submitTag = () => {
+        const normalized = tagDraft.trim();
+        if (!normalized) return;
+        onAddTag(normalized);
+        setTagDraft("");
+    };
+
+    const handleTagKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            submitTag();
+        }
     };
 
     return (
@@ -198,9 +218,21 @@ export const PhotoModal = ({
                             </h2>
                             <div className="info-meta">
                                 <span className="timestamp">{photo.timestamp}</span>
+                                {photo.world_id && <span className="timestamp">World ID: {photo.world_id}</span>}
+                                {(photo.width || photo.height) && (
+                                    <span className="timestamp">
+                                        {[photo.width, photo.height].filter(Boolean).join(" x ")}
+                                    </span>
+                                )}
+                                {photo.match_source === "phash" && (
+                                    <span className="timestamp">推測一致 ?</span>
+                                )}
                             </div>
                         </div>
                         <div className="action-buttons-section" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <button className={`world-link-button ${photo.is_favorite ? "favorite-active" : ""}`} onClick={onToggleFavorite}>
+                                {photo.is_favorite ? "★ お気に入り解除" : "☆ お気に入り追加"}
+                            </button>
                             {photo.world_id && (
                                 <button className="world-link-button" onClick={handleOpenWorld}>
                                     <svg className="world-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -299,6 +331,26 @@ export const PhotoModal = ({
                         )}
 
                         <div className="memo-section">
+                            <label>タグ</label>
+                            <div className="tag-editor">
+                                <input
+                                    type="text"
+                                    value={tagDraft}
+                                    placeholder="タグを追加"
+                                    onChange={(e) => setTagDraft(e.target.value)}
+                                    onKeyDown={handleTagKeyDown}
+                                />
+                                <button className="save-button" onClick={submitTag}>追加</button>
+                            </div>
+                            {!!photo.tags?.length && (
+                                <div className="tag-list">
+                                    {photo.tags.map((tag) => (
+                                        <button key={tag} className="tag-chip" onClick={() => onRemoveTag(tag)}>
+                                            {tag} ×
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <label>メモ</label>
                             <textarea value={localMemo} onChange={(e) => setLocalMemo(e.target.value)} placeholder="メモを入力..." />
                             <button className="save-button" onClick={handleSaveMemo} disabled={isSavingMemo}>

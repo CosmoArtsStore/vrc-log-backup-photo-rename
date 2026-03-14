@@ -74,6 +74,25 @@ body {
   flex-shrink: 0;
 }
 
+.alpheratz-root .menu-button {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--a-border);
+  background: var(--a-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.alpheratz-root .menu-button:hover,
+.alpheratz-root .menu-button.active {
+  border-color: var(--a-accent-light);
+  box-shadow: var(--a-shadow-sm);
+}
+
 .alpheratz-root .logo-group h1 {
   font-size: 1.1rem;
   font-weight: 800;
@@ -209,6 +228,87 @@ body {
       transparent);
   pointer-events: none;
   z-index: 0;
+}
+
+.alpheratz-root .filter-sidebar {
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: width 0.25s ease, opacity 0.25s ease, margin-right 0.25s ease;
+  margin-right: 0;
+}
+
+.alpheratz-root .filter-sidebar.open {
+  width: 260px;
+  opacity: 1;
+  margin-right: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius);
+  background: var(--a-surface);
+  box-shadow: var(--a-shadow-sm);
+}
+
+.alpheratz-root .filter-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.alpheratz-root .filter-sidebar-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.alpheratz-root .filter-reset-button {
+  border: 1px solid var(--a-border);
+  background: var(--a-bg);
+  border-radius: 10px;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+
+.alpheratz-root .filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+
+.alpheratz-root .filter-section label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--a-text-dim);
+}
+
+.alpheratz-root .filter-section input,
+.alpheratz-root .filter-section select {
+  width: 100%;
+  border: 1px solid var(--a-border);
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.82rem;
+  background: var(--a-bg);
+}
+
+.alpheratz-root .filter-section.checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--a-text);
+}
+
+.alpheratz-root .filter-section.checkbox input {
+  width: auto;
+}
+
+.alpheratz-root .filter-note {
+  font-size: 0.72rem;
+  color: var(--a-text-dim);
+  line-height: 1.5;
+  margin: 0.5rem 0 0;
 }
 
 .alpheratz-root .month-nav-year {
@@ -467,6 +567,42 @@ body {
   padding: 0.6rem 0.75rem;
   flex: 1;
   min-height: 0;
+}
+
+.alpheratz-root .photo-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.35rem;
+}
+
+.alpheratz-root .photo-pill,
+.alpheratz-root .photo-tag-chip,
+.alpheratz-root .tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border: 1px solid rgba(99, 102, 241, 0.16);
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--a-accent);
+}
+
+.alpheratz-root .photo-pill.favorite {
+  border-color: rgba(245, 158, 11, 0.22);
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.alpheratz-root .photo-tags-preview,
+.alpheratz-root .tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
 }
 
 .alpheratz-root .photo-world {
@@ -816,6 +952,12 @@ body {
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
 
+.alpheratz-root .world-link-button.favorite-active {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.28);
+  color: #b45309;
+}
+
 .alpheratz-root .world-link-icon {
   width: 16px;
   height: 16px;
@@ -855,6 +997,25 @@ body {
 
 .alpheratz-root .memo-section textarea:focus {
   border-color: var(--a-accent-light);
+}
+
+.alpheratz-root .tag-editor {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.alpheratz-root .tag-editor input {
+  flex: 1;
+  border: 1px solid var(--a-border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  background: var(--a-surface);
+}
+
+.alpheratz-root .tag-chip {
+  cursor: pointer;
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .alpheratz-root .save-button {

@@ -1,168 +1,50 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import "./App.css";
-
-// --- Types ---
-
-interface AppCard {
-  name: string;
-  description: string;
-  path: string;
-  icon_path?: string;
-}
-
-const Icons = {
-  Analyze: () => (
-    <svg viewBox="0 0 24 24" className="icon-svg"><path d="M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8Z" /></svg>
-  ),
-  Alert: () => (
-    <svg viewBox="0 0 24 24" className="icon-svg"><path d="M13,14H11V10H13M13,18H11V16H13M1,21H23L12,2L1,21Z" /></svg>
-  ),
-  Database: () => (
-    <svg viewBox="0 0 24 24" className="icon-svg"><path d="M12,3C17.5,3 22,4.8 22,7V17C22,19.2 17.5,21 12,21C6.5,21 2,19.2 2,17V7C2,4.8 6.5,3 12,3M12,5C7,5 4,6.3 4,7C4,7.7 7,9 12,9C17,9 20,7.7 20,7C20,6.3 17,5 12,5M4,12C4,12.7 7,14 12,14C17,14 20,12.7 20,12V9.5C18.5,10.4 15.4,11 12,11C8.6,11 5.5,10.4 4,9.5V12M4,17C4,17.7 7,19 12,19C17,19 20,17.7 20,17V14.5C18.5,15.4 15.4,16 12,16C8.6,16 5.5,15.4 4,14.5V17Z" /></svg>
-  ),
-  Pleiades: () => (
-    <svg viewBox="0 0 24 24" className="icon-svg"><path d="M11,15H13V17H11V15M11,7H13V13H11V7M12,2C6.47,2 2,6.5 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20Z" /></svg>
-  ),
-  JewelBox: () => (
-    <svg viewBox="0 0 24 24" className="icon-svg"><path d="M16,9H19L14,16L9,9H12V5H16M11,2H13V4H11V2M15,19V17H17V19H15M11,19V17H13V19H11M7,19V17H9V19H7Z" /></svg>
-  ),
-  Backup: () => (
-    <svg viewBox="0 0 24 24" className="icon-svg"><path d="M19.35,10.04C18.67,6.59 15.64,4 12,4C9.11,4 6.6,5.64 5.35,8.04C2.34,8.36 0,10.91 0,14A6,6 0 0,0 6,20H19A5,5 0 0,0 24,15C24,12.36 21.95,10.22 19.35,10.04M19,18H6A4,4 0 0,1 2,14C2,11.95 3.53,10.24 5.56,10.03L6.63,9.92L7.13,8.97C8.08,7.14 9.94,6 12,6C14.65,6 16.96,7.84 17.42,10.45L17.71,12.1L19.38,12.22C20.91,12.33 22,13.63 22,15A3,3 0 0,1 19,18M13,13V16H11V13H8L12,9L16,13H13Z" /></svg>
-  ),
-  Refresh: () => (
-    <svg viewBox="0 0 24 24" className="icon-svg"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" /></svg>
-  ),
-  Sparkle: () => (
-    <svg viewBox="0 0 24 24" className="icon-svg"><path d="M12,2L14.47,7.29L20.24,8.13L16.06,12.2L17.05,17.94L12,15.29L6.95,17.94L7.94,12.2L3.76,8.13L9.53,7.29L12,2Z" /></svg>
-  ),
-  ArrowBack: () => (
-    <svg viewBox="0 0 24 24" style={{ width: '16px', height: '16px', fill: 'currentColor' }}><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg>
-  ),
-  Folder: () => (
-    <svg viewBox="0 0 24 24" className="icon-svg"><path d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z" /></svg>
-  )
-};
-
-type Section = "dashboard" | "analyze" | "pleiades" | "jewelbox" | "database";
-
-interface TableData {
-  columns: string[];
-  rows: string[][];
-}
+import { Icons } from "./components/Icons";
+import { useAnalyzeState } from "./hooks/useAnalyzeState";
+import { useArchiveSelection } from "./hooks/useArchiveSelection";
+import { useDashboardState } from "./hooks/useDashboardState";
+import { useToasts } from "./hooks/useToasts";
+import { AppCard, DangerAction, Section, TableData } from "./types";
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
-  const [pleiadesApps, setPleiadesApps] = useState<AppCard[]>([]);
-  const [jewelBoxApps, setJewelBoxApps] = useState<AppCard[]>([]);
-  const [toasts, setToasts] = useState<{ id: number, msg: string }[]>([]);
-  const [analyzeRunning, setAnalyzeRunning] = useState(false);
-  const [analyzeProgress, setAnalyzeProgress] = useState("");
-  const [analyzeStatus, setAnalyzeStatus] = useState("");
-  const [polarisRunning, setPolarisRunning] = useState(false);
-  const [storageStatus, setStorageStatus] = useState({ current: 0, limit: 0, percent: 0 });
   const [dbTables, setDbTables] = useState<string[]>([]);
   const [currentTable, setCurrentTable] = useState("");
   const [tableData, setTableData] = useState<TableData>({ columns: [], rows: [] });
   const [showEnhancedSyncModal, setShowEnhancedSyncModal] = useState(false);
   const [decompressMode, setDecompressMode] = useState(false);
   const [archiveFiles, setArchiveFiles] = useState<string[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-  const [lastSelected, setLastSelected] = useState<string | null>(null);
-  const isDraggingSelect = useRef(false);
-  const dragMode = useRef<'select' | 'deselect'>('select');
 
-  useEffect(() => {
-    const handleMouseUp = () => { isDraggingSelect.current = false; };
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, []);
-
-  type DangerAction = "deleteToday" | "wipeDatabase";
   const [dangerModal, setDangerModal] = useState<{
     action: DangerAction;
     step: 1 | 2;
   } | null>(null);
 
-  const addToast = useCallback((msg: string, duration = 3000) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, msg }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, duration);
-  }, []);
-
-  const pollStorage = useCallback(async () => {
-    try {
-      const [current, limit]: [number, number] = await invoke("get_storage_status");
-      const percent = limit > 0 ? Math.min(100, (current / limit) * 100) : 0;
-      setStorageStatus({ current, limit, percent });
-    } catch (e) {
-      console.error("Storage update failed", e);
-    }
-  }, []);
-
-  const pollStatus = useCallback(async () => {
-    try {
-      const running: boolean = await invoke("get_polaris_status");
-      setPolarisRunning(running);
-    } catch (e) {
-      console.error("Polling error", e);
-    }
-  }, []);
-
-  const loadAll = useCallback(async () => {
-    try {
-      const pl: AppCard[] = await invoke("read_launcher_json", { section: "pleiades" });
-      const jb: AppCard[] = await invoke("read_launcher_json", { section: "jewelbox" });
-      setPleiadesApps(pl);
-      setJewelBoxApps(jb);
-      await pollStorage();
-      await pollStatus();
-    } catch (e) {
-      console.error("Init failed", e);
-    }
-  }, [pollStorage, pollStatus]);
-
-  useEffect(() => {
-    loadAll();
-    const interval_storage = setInterval(pollStorage, 30000);
-    const interval_polaris = setInterval(pollStatus, 3000);
-    return () => {
-      clearInterval(interval_storage);
-      clearInterval(interval_polaris);
-    };
-  }, [loadAll, pollStorage, pollStatus]);
-
-  useEffect(() => {
-    const unlistenAnalyze = listen("analyze-progress", (event) => {
-      const payload = event.payload as { status: string, progress: string, is_running: boolean };
-      setAnalyzeStatus(payload.status);
-      setAnalyzeProgress(payload.progress);
-      setAnalyzeRunning(payload.is_running);
-      if (!payload.is_running) {
-        pollStorage();
-      }
-    });
-
-    const unlistenFinished = listen("analyze-finished", () => {
-      setAnalyzeRunning(false);
-      setAnalyzeStatus("待機中");
-      setAnalyzeProgress("");
-      pollStorage();
-    });
-
-    const unlistenPolaris = listen<boolean>("polaris-status", (event) => {
-      setPolarisRunning(event.payload);
-    });
-
-    return () => {
-      unlistenAnalyze.then(f => f());
-      unlistenFinished.then(f => f());
-      unlistenPolaris.then(f => f());
-    };
-  }, [pollStorage]);
+  const { toasts, addToast } = useToasts();
+  const {
+    pleiadesApps,
+    jewelBoxApps,
+    polarisRunning,
+    storageStatus,
+    pollStorage,
+    pollStatus,
+  } = useDashboardState();
+  const {
+    analyzeRunning,
+    analyzeProgress,
+    analyzeStatus,
+    setAnalyzeRunning,
+    handleSync,
+    handleCancelSync,
+  } = useAnalyzeState(pollStorage, addToast);
+  const {
+    selectedFiles,
+    clearSelection,
+    handleFileAction,
+    handleSelectAll,
+  } = useArchiveSelection(archiveFiles);
 
   const handleLaunch = async (app: AppCard) => {
     try {
@@ -182,16 +64,6 @@ function App() {
     }
   };
 
-  const handleSync = async () => {
-    try {
-      setAnalyzeRunning(true);
-      await invoke("launch_analyze", { mode: "import" });
-    } catch (e) {
-      setAnalyzeRunning(false);
-      addToast(`解析エラー: ${e}`);
-    }
-  };
-
   const handleStartPolaris = async () => {
     try {
       const res: string = await invoke("start_polaris");
@@ -207,68 +79,10 @@ function App() {
       const files: string[] = await invoke("list_archive_files");
       setArchiveFiles(files);
       setShowEnhancedSyncModal(true);
-      setSelectedFiles(new Set());
+      clearSelection();
       setDecompressMode(false);
     } catch (e) {
       addToast(`ファイル一覧取得失敗: ${e}`);
-    }
-  };
-
-  const handleFileAction = (e: React.MouseEvent, file: string, type: 'down' | 'enter') => {
-    if (type === 'down') {
-      if (e.shiftKey && lastSelected) {
-        // Shift + Click 範囲選択
-        const startIdx = archiveFiles.indexOf(lastSelected);
-        const endIdx = archiveFiles.indexOf(file);
-        if (startIdx !== -1 && endIdx !== -1) {
-          const min = Math.min(startIdx, endIdx);
-          const max = Math.max(startIdx, endIdx);
-          const range = archiveFiles.slice(min, max + 1);
-          setSelectedFiles(prev => {
-            const next = new Set(prev);
-            range.forEach(f => next.add(f));
-            return next;
-          });
-        }
-        return;
-      }
-
-      isDraggingSelect.current = true;
-      if (e.ctrlKey || e.metaKey) {
-        dragMode.current = selectedFiles.has(file) ? 'deselect' : 'select';
-      } else {
-        if (!selectedFiles.has(file)) {
-          setSelectedFiles(new Set([file]));
-          dragMode.current = 'select';
-        } else {
-          dragMode.current = 'select';
-        }
-      }
-
-      setSelectedFiles(prev => {
-        const next = new Set<string>(e.ctrlKey || e.metaKey ? prev : (dragMode.current === 'select' ? prev : new Set<string>()));
-        if (dragMode.current === 'select') next.add(file);
-        else next.delete(file);
-        return next;
-      });
-      setLastSelected(file);
-    } else if (type === 'enter' && isDraggingSelect.current) {
-      // マウスドラッグでなぞって選択/解除
-      setSelectedFiles(prev => {
-        const next = new Set(prev);
-        if (dragMode.current === 'select') next.add(file);
-        else next.delete(file);
-        return next;
-      });
-      setLastSelected(file);
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedFiles.size === archiveFiles.length) {
-      setSelectedFiles(new Set());
-    } else {
-      setSelectedFiles(new Set(archiveFiles));
     }
   };
 
@@ -301,7 +115,7 @@ function App() {
       const files: string[] = await invoke("list_archive_files");
       setArchiveFiles(files);
       setShowEnhancedSyncModal(true);
-      setSelectedFiles(new Set());
+      clearSelection();
       setDecompressMode(true);
     } catch (e) {
       addToast(`ファイル一覧取得失敗: ${e}`);
@@ -386,18 +200,6 @@ function App() {
     // KB単位以下の値を気にするため、小数点2桁を維持しつつ、小さい単位でもしっかり見せる
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
-
-
-
-  const handleCancelSync = async () => {
-    try {
-      await invoke("cancel_analyze");
-      addToast("解析を停止しました");
-    } catch (e) {
-      addToast(`停止エラー: ${e}`);
-    }
-  };
-
   const renderDashboard = () => (
     <div className="view-container">
       <header className="dashboard-header">
@@ -600,12 +402,6 @@ function App() {
       </div>
     </div>
   );
-  // App.tsx の renderDatabase() を以下に差し替えてください。
-  // インラインの height: 600px を削除し、新しいCSSクラスを使用します。
-
-  // App.tsx の renderDatabase() を以下に差し替えてください。
-  // インラインの height: 600px を削除し、新しいCSSクラスを使用します。
-
   const renderDatabase = () => (
     <div className="view-container" style={{ maxWidth: '100%', padding: '0' }}>
       <div className="back-link" onClick={() => setActiveSection("analyze")}>
