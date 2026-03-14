@@ -366,7 +366,7 @@ export const FilterSidebar = ({
                                     onChange={(event) => setWorldSearchQuery(event.target.value)}
                                 />
                             </div>
-                            <div className="dd-list checkbox-list">
+                            <div className="dd-list checkbox-list world-checkbox-list">
                                 <label className="dd-check-item">
                                     <input
                                         type="checkbox"
@@ -590,7 +590,7 @@ export const FilterSidebar = ({
                                     onChange={(event) => setTagSearchQuery(event.target.value)}
                                 />
                             </div>
-                            <div className="dd-list checkbox-list">
+                            <div className="dd-list checkbox-list tag-checkbox-grid">
                                 <label className="dd-check-item">
                                     <input
                                         type="checkbox"

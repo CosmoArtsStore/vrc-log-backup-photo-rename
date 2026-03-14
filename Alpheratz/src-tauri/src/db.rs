@@ -1,6 +1,7 @@
 use crate::models::PhotoRecord;
-use crate::utils::{get_alpheratz_install_dir, get_stella_record_install_dir};
+use crate::utils::{get_alpheratz_install_dir, get_alpheratz_setting_dir, get_stella_record_install_dir};
 use rusqlite::Connection;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 fn get_stella_record_db_path() -> Option<PathBuf> {
@@ -8,12 +9,37 @@ fn get_stella_record_db_path() -> Option<PathBuf> {
 }
 
 pub fn get_alpheratz_db_path() -> Option<PathBuf> {
-    Some(get_alpheratz_install_dir()?.join("alpheratz.db"))
+    Some(get_alpheratz_setting_dir()?.join("Alpheratz.db"))
+}
+
+fn get_legacy_alpheratz_db_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if let Some(install_dir) = get_alpheratz_install_dir() {
+        paths.push(install_dir.join("alpheratz.db"));
+        paths.push(install_dir.join("Alpheratz.db"));
+    }
+    paths
 }
 
 pub fn open_alpheratz_connection() -> Result<Connection, String> {
     let db_path = get_alpheratz_db_path()
         .ok_or_else(|| "Alpheratz DB の保存先を取得できません".to_string())?;
+    if !db_path.exists() {
+        for legacy_path in get_legacy_alpheratz_db_paths() {
+            if !legacy_path.exists() {
+                continue;
+            }
+            std::fs::rename(&legacy_path, &db_path).map_err(|err| {
+                format!(
+                    "旧 Alpheratz DB を setting へ移動できません ({} -> {}): {}",
+                    legacy_path.display(),
+                    db_path.display(),
+                    err
+                )
+            })?;
+            break;
+        }
+    }
     Connection::open(&db_path)
         .map_err(|e| format!("Alpheratz DB を開けません ({}): {}", db_path.display(), e))
 }
@@ -195,6 +221,36 @@ pub fn get_photos(
             Ok(record) => results.push(record),
             Err(err) => crate::utils::log_warn(&format!("photo row decode failed: {}", err)),
         }
+    }
+
+    if results.is_empty() {
+        return Ok(results);
+    }
+
+    let mut tag_stmt = conn
+        .prepare(
+            "SELECT pt.photo_filename, t.name
+             FROM photo_tags pt
+             INNER JOIN tags t ON t.id = pt.tag_id
+             ORDER BY t.name COLLATE NOCASE ASC",
+        )
+        .map_err(|e| format!("タグ一覧クエリを準備できません: {}", e))?;
+    let tag_rows = tag_stmt
+        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .map_err(|e| format!("タグ一覧クエリを実行できません: {}", e))?;
+
+    let mut tags_by_photo: HashMap<String, Vec<String>> = HashMap::new();
+    for row in tag_rows {
+        match row {
+            Ok((filename, tag)) => tags_by_photo.entry(filename).or_default().push(tag),
+            Err(err) => crate::utils::log_warn(&format!("photo tag row decode failed: {}", err)),
+        }
+    }
+
+    for record in &mut results {
+        record.tags = tags_by_photo
+            .remove(&record.photo_filename)
+            .unwrap_or_default();
     }
     Ok(results)
 }

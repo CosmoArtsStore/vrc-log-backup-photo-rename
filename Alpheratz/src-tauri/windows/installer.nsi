@@ -637,6 +637,9 @@ Section Install
 
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
+  ; Alpheratz の DB / 設定 JSON は install dir\setting 配下へ集約する。
+  CreateDirectory "$INSTDIR\setting"
+
   ; Copy main executable
   File "${MAINBINARYSRCPATH}"
 
@@ -895,8 +898,15 @@ SectionEnd
 
 Function RestorePreviousInstallLocation
   ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
-  StrCmp $4 "" +2 0
+  ${If} $4 == ""
+    Return
+  ${EndIf}
+
+  ${StrCase} $5 "$4" "U"
+  ${StrLoc} $6 $5 "\STELLARECORD\ALPHERATZ" ">"
+  ${If} $6 == ""
     StrCpy $INSTDIR $4
+  ${EndIf}
 FunctionEnd
 
 Function Skip

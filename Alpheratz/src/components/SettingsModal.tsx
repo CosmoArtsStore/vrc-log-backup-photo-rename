@@ -26,14 +26,14 @@ export const SettingsModal = ({
                         <div className="info-header"><h2>設定</h2></div>
                         <div className="memo-section">
                             <label>VRChat写真フォルダ</label>
-                            <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <div className="settings-path-row">
                                 <input
+                                    className="settings-path-input"
                                     type="text"
                                     value={photoFolderPath}
                                     readOnly
-                                    style={{ flex: 1, padding: "0.8rem", borderRadius: "12px", border: "1px solid var(--a-border)", background: "rgba(0,0,0,0.03)", fontFamily: "var(--a-font-mono)", fontSize: "0.82rem" }}
                                 />
-                                <button className="save-button" onClick={handleChooseFolder} style={{ width: "100px" }}>変更</button>
+                                <button className="save-button settings-action-button" onClick={handleChooseFolder}>変更</button>
                             </div>
                         </div>
                         <div className="memo-section">

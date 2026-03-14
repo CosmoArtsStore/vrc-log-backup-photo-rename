@@ -71,7 +71,6 @@ function App() {
   const [worldFilters, setWorldFilters] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [startupEnabled, setStartupEnabled] = useState(false);
-  const [startupPreferenceSet, setStartupPreferenceSet] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
@@ -100,6 +99,7 @@ function App() {
 
   const {
     selectedPhoto,
+    setSelectedPhoto,
     closePhotoModal,
     photoHistory,
     goBackPhoto,
@@ -155,6 +155,11 @@ function App() {
       ?? photos.find((photo) => photo.photo_filename === selectedPhoto.photo_filename)
       ?? selectedPhoto;
   }, [selectedPhoto, filteredPhotos, photos]);
+  const selectedPhotoIndex = useMemo(() => (
+    selectedPhotoView
+      ? filteredPhotos.findIndex((photo) => photo.photo_filename === selectedPhotoView.photo_filename)
+      : -1
+  ), [filteredPhotos, selectedPhotoView]);
 
   const updatePhoto = (filename: string, updater: (photo: Photo) => Photo) => {
     setPhotos((prev) => prev.map((photo) => (
@@ -263,7 +268,6 @@ function App() {
         setting: {
           photoFolderPath: newPath,
           enableStartup: startupEnabled,
-          startupPreferenceSet,
           themeMode,
         },
       });
@@ -279,7 +283,6 @@ function App() {
     try {
       await invoke("save_startup_preference_cmd", { enabled });
       setStartupEnabled(enabled);
-      setStartupPreferenceSet(true);
       addToast(enabled ? "Alpheratz をログイン時に起動する設定にしました。" : "Alpheratz のログイン時起動を無効にしました。");
     } catch (err) {
       addToast(`自動起動設定の更新に失敗しました: ${String(err)}`, "error");
@@ -291,7 +294,6 @@ function App() {
       try {
         const setting = await invoke<AppSetting>("get_setting_cmd");
         setStartupEnabled(!!setting.enableStartup);
-        setStartupPreferenceSet(!!setting.startupPreferenceSet);
         setThemeMode(setting.themeMode === "dark" ? "dark" : "light");
       } catch (err) {
         addToast(`設定の読み込みに失敗しました: ${String(err)}`, "error");
@@ -308,7 +310,6 @@ function App() {
         setting: {
           photoFolderPath,
           enableStartup: startupEnabled,
-          startupPreferenceSet,
           themeMode: nextTheme,
         },
       });
@@ -362,7 +363,7 @@ function App() {
         setShowSettings={setShowSettings}
       />
 
-      <main className="main-content">
+      <main className={`main-content ${isFilterOpen ? "filter-open" : ""}`}>
         {scanStatus === "scanning" && (
           <ScanningOverlay
             progress={scanProgress}
@@ -446,6 +447,7 @@ function App() {
       {selectedPhotoView && (
         <PhotoModal
           photo={selectedPhotoView}
+          allTags={tagOptions}
           onClose={closePhotoModal}
           localMemo={localMemo}
           setLocalMemo={setLocalMemo}
@@ -454,6 +456,18 @@ function App() {
           handleOpenWorld={handleOpenWorld}
           canGoBack={photoHistory.length > 0}
           onGoBack={goBackPhoto}
+          canGoPrev={selectedPhotoIndex > 0}
+          canGoNext={selectedPhotoIndex >= 0 && selectedPhotoIndex < filteredPhotos.length - 1}
+          onGoPrev={() => {
+            if (selectedPhotoIndex > 0) {
+              setSelectedPhoto(filteredPhotos[selectedPhotoIndex - 1]);
+            }
+          }}
+          onGoNext={() => {
+            if (selectedPhotoIndex >= 0 && selectedPhotoIndex < filteredPhotos.length - 1) {
+              setSelectedPhoto(filteredPhotos[selectedPhotoIndex + 1]);
+            }
+          }}
           onToggleFavorite={() => toggleFavorite(selectedPhotoView.photo_filename, selectedPhotoView.is_favorite)}
           onAddTag={(tag) => addTag(selectedPhotoView.photo_filename, tag)}
           onRemoveTag={(tag) => removeTag(selectedPhotoView.photo_filename, tag)}
@@ -472,31 +486,6 @@ function App() {
           onToggleTheme={handleThemeToggle}
         />
       )}
-
-      {!startupPreferenceSet && (
-        <div className="modal-overlay">
-          <div className="modal-content startup-choice-modal" onClick={(event) => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => handleStartupPreference(false)} aria-label="閉じる">×</button>
-            <div className="modal-body" style={{ gridTemplateColumns: "1fr" }}>
-              <div className="modal-info">
-                <div className="info-header"><h2>起動設定</h2></div>
-                <p style={{ marginTop: 0, color: "var(--a-text-dim)" }}>
-                  Windows ログイン時に Alpheratz を起動するか選べます。後から設定で変更できます。
-                </p>
-                <div className="startup-toggle-row">
-                  <button className="save-button" onClick={() => handleStartupPreference(false)}>
-                    今は不要
-                  </button>
-                  <button className="save-button" onClick={() => handleStartupPreference(true)}>
-                    自動起動する
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="toast-container">
         {toasts.map((toast) => (
           <div key={toast.id} className="toast">

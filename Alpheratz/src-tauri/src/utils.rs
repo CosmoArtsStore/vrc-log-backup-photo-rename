@@ -91,6 +91,22 @@ pub fn get_alpheratz_install_dir() -> Option<PathBuf> {
     get_registry_component_install_dir("Alpheratz")
 }
 
+pub fn get_alpheratz_setting_dir() -> Option<PathBuf> {
+    let setting_dir = get_alpheratz_install_dir()?.join("setting");
+    if let Err(err) = fs::create_dir_all(&setting_dir) {
+        write_bootstrap_log(
+            "WARN",
+            &format!(
+                "setting dir create failed [{}]: {}",
+                setting_dir.display(),
+                err
+            ),
+        );
+        return None;
+    }
+    Some(setting_dir)
+}
+
 pub fn get_stella_record_install_dir() -> Option<PathBuf> {
     get_registry_component_install_dir("STELLA_RECORD")
         .or_else(|| get_registry_component_install_dir("StellaRecord"))

@@ -33,8 +33,11 @@ export const Header = ({
                     <Icons.Menu />
                 </button>
                 <div className="wordmark-group" aria-label="Alpheratz">
-                    <span className="wordmark-title">ALPHERATZ</span>
-                    <span className="wordmark-subtitle">Photo Registry</span>
+                    <img
+                        className="header-logo-image"
+                        src="/Alpheratz-logo.png"
+                        alt="Alpheratz"
+                    />
                 </div>
             </div>
             <div className="search-bar">

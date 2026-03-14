@@ -16,7 +16,7 @@ use crate::models::ScanProgress;
 use crate::utils;
 use crate::ScanCancelStatus;
 
-const SUPPORTED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp"];
+const SUPPORTED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "psd", "clip", "xcf"];
 const PHOTO_UPSERT_BATCH_SIZE: usize = 25;
 const MAX_ITXT_SIZE: usize = 4 * 1024 * 1024;
 const SKIP_DIRS: &[&str] = &[
@@ -397,23 +397,162 @@ fn lookup_world_name_from_stella_record(timestamp: &str) -> Option<String> {
 }
 
 fn read_image_orientation(path: &Path) -> Option<String> {
-    let image = match image::open(path) {
-        Ok(image) => image,
-        Err(err) => {
-            crate::utils::log_warn(&format!(
-                "Failed to open image [{}]: {}",
-                path.display(),
-                err
-            ));
-            return None;
-        }
+    let (width, height) = match read_image_dimensions(path) {
+        Some(size) => size,
+        None => return None,
     };
 
-    Some(if image.height() > image.width() {
+    Some(if height > width {
         "portrait".to_string()
     } else {
         "landscape".to_string()
     })
+}
+
+fn read_image_dimensions(path: &Path) -> Option<(u32, u32)> {
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase())?;
+
+    match extension.as_str() {
+        "png" => read_png_dimensions(path),
+        "jpg" | "jpeg" => read_jpeg_dimensions(path),
+        "webp" => read_webp_dimensions(path),
+        "psd" => read_psd_dimensions(path),
+        "xcf" => read_xcf_dimensions(path),
+        "clip" => None,
+        _ => None,
+    }
+}
+
+fn read_png_dimensions(path: &Path) -> Option<(u32, u32)> {
+    let mut reader = BufReader::new(fs::File::open(path).ok()?);
+    let mut header = [0u8; 24];
+    reader.read_exact(&mut header).ok()?;
+    if &header[..8] != b"\x89PNG\r\n\x1a\n" || &header[12..16] != b"IHDR" {
+        return None;
+    }
+    let width = u32::from_be_bytes([header[16], header[17], header[18], header[19]]);
+    let height = u32::from_be_bytes([header[20], header[21], header[22], header[23]]);
+    Some((width, height))
+}
+
+fn read_jpeg_dimensions(path: &Path) -> Option<(u32, u32)> {
+    let mut reader = BufReader::new(fs::File::open(path).ok()?);
+    let mut marker = [0u8; 2];
+    reader.read_exact(&mut marker).ok()?;
+    if marker != [0xFF, 0xD8] {
+        return None;
+    }
+
+    loop {
+        reader.read_exact(&mut marker[..1]).ok()?;
+        while marker[0] != 0xFF {
+            reader.read_exact(&mut marker[..1]).ok()?;
+        }
+
+        reader.read_exact(&mut marker[1..2]).ok()?;
+        while marker[1] == 0xFF {
+            reader.read_exact(&mut marker[1..2]).ok()?;
+        }
+
+        let segment_type = marker[1];
+        if segment_type == 0xD9 || segment_type == 0xDA {
+            return None;
+        }
+
+        let mut segment_len_buf = [0u8; 2];
+        reader.read_exact(&mut segment_len_buf).ok()?;
+        let segment_len = u16::from_be_bytes(segment_len_buf);
+        if segment_len < 2 {
+            return None;
+        }
+
+        if matches!(
+            segment_type,
+            0xC0 | 0xC1 | 0xC2 | 0xC3 | 0xC5 | 0xC6 | 0xC7 | 0xC9 | 0xCA | 0xCB | 0xCD | 0xCE | 0xCF
+        ) {
+            let mut sof = vec![0u8; usize::from(segment_len) - 2];
+            reader.read_exact(&mut sof).ok()?;
+            if sof.len() < 5 {
+                return None;
+            }
+            let height = u16::from_be_bytes([sof[1], sof[2]]) as u32;
+            let width = u16::from_be_bytes([sof[3], sof[4]]) as u32;
+            return Some((width, height));
+        }
+
+        reader
+            .seek(SeekFrom::Current(i64::from(segment_len) - 2))
+            .ok()?;
+    }
+}
+
+fn read_webp_dimensions(path: &Path) -> Option<(u32, u32)> {
+    let mut reader = BufReader::new(fs::File::open(path).ok()?);
+    let mut header = [0u8; 30];
+    reader.read_exact(&mut header).ok()?;
+    if &header[0..4] != b"RIFF" || &header[8..12] != b"WEBP" {
+        return None;
+    }
+
+    match &header[12..16] {
+        b"VP8X" => {
+            let width = 1 + u32::from_le_bytes([header[24], header[25], header[26], 0]);
+            let height = 1 + u32::from_le_bytes([header[27], header[28], header[29], 0]);
+            Some((width, height))
+        }
+        b"VP8 " => {
+            let width = u16::from_le_bytes([header[26], header[27]]) as u32 & 0x3FFF;
+            let height = u16::from_le_bytes([header[28], header[29]]) as u32 & 0x3FFF;
+            Some((width, height))
+        }
+        b"VP8L" => {
+            let bits = u32::from_le_bytes([header[21], header[22], header[23], header[24]]);
+            let width = (bits & 0x3FFF) + 1;
+            let height = ((bits >> 14) & 0x3FFF) + 1;
+            Some((width, height))
+        }
+        _ => None,
+    }
+}
+
+fn read_psd_dimensions(path: &Path) -> Option<(u32, u32)> {
+    let mut reader = BufReader::new(fs::File::open(path).ok()?);
+    let mut header = [0u8; 26];
+    reader.read_exact(&mut header).ok()?;
+    if &header[0..4] != b"8BPS" {
+        return None;
+    }
+    let height = u32::from_be_bytes([header[14], header[15], header[16], header[17]]);
+    let width = u32::from_be_bytes([header[18], header[19], header[20], header[21]]);
+    Some((width, height))
+}
+
+fn read_xcf_dimensions(path: &Path) -> Option<(u32, u32)> {
+    let bytes = fs::read(path).ok()?;
+    if !bytes.starts_with(b"gimp xcf ") {
+        return None;
+    }
+    let version_end = bytes.iter().position(|byte| *byte == 0)?;
+    let width_offset = version_end + 1;
+    if bytes.len() < width_offset + 8 {
+        return None;
+    }
+    let width = u32::from_be_bytes([
+        bytes[width_offset],
+        bytes[width_offset + 1],
+        bytes[width_offset + 2],
+        bytes[width_offset + 3],
+    ]);
+    let height = u32::from_be_bytes([
+        bytes[width_offset + 4],
+        bytes[width_offset + 5],
+        bytes[width_offset + 6],
+        bytes[width_offset + 7],
+    ]);
+    Some((width, height))
 }
 
 fn delete_missing_photos(

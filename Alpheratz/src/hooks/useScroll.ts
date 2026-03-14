@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 
 interface UseScrollArgs {
     photosLength: number;
@@ -17,14 +17,21 @@ export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }:
     const dragStartRef = useRef<{ y: number; scrollTop: number } | null>(null);
     const animationFrameRef = useRef<number | null>(null);
     const pendingScrollTopRef = useRef(0);
-    const wheelAnimationRef = useRef<number | null>(null);
-    const wheelTargetRef = useRef(0);
     const mouseMoveHandlerRef = useRef<((ev: MouseEvent) => void) | null>(null);
     const mouseUpHandlerRef = useRef<(() => void) | null>(null);
 
     const totalRows = Math.ceil(photosLength / columnCount);
     const totalHeight = totalRows * ROW_HEIGHT;
     const maxScrollTop = Math.max(0, totalHeight - gridHeight);
+
+    useLayoutEffect(() => {
+        const nextScrollTop = Math.max(0, Math.min(maxScrollTop, pendingScrollTopRef.current));
+        pendingScrollTopRef.current = nextScrollTop;
+        setScrollTop(nextScrollTop);
+        if (scrollContainerRef.current && Math.abs(scrollContainerRef.current.scrollTop - nextScrollTop) > 1) {
+            scrollContainerRef.current.scrollTop = nextScrollTop;
+        }
+    }, [maxScrollTop, photosLength, columnCount, gridHeight]);
 
     const handleGridScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
         scrollContainerRef.current = e.currentTarget;
@@ -85,9 +92,6 @@ export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }:
             if (animationFrameRef.current !== null) {
                 window.cancelAnimationFrame(animationFrameRef.current);
             }
-            if (wheelAnimationRef.current !== null) {
-                window.cancelAnimationFrame(wheelAnimationRef.current);
-            }
             if (mouseMoveHandlerRef.current) {
                 document.removeEventListener("mousemove", mouseMoveHandlerRef.current);
             }
@@ -110,8 +114,11 @@ export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }:
 
     const handleJumpToRow = useCallback((rowIndex: number) => {
         if (scrollContainerRef.current) {
+            const nextScrollTop = rowIndex * ROW_HEIGHT;
+            pendingScrollTopRef.current = nextScrollTop;
+            setScrollTop(nextScrollTop);
             scrollContainerRef.current.scrollTo({
-                top: rowIndex * ROW_HEIGHT,
+                top: nextScrollTop,
                 behavior: "smooth",
             });
         }
@@ -124,40 +131,23 @@ export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }:
 
         e.preventDefault();
         const container = scrollContainerRef.current;
-        const delta = Math.abs(e.deltaY) < 1 ? 0 : e.deltaY;
-        wheelTargetRef.current = Math.max(
-            0,
-            Math.min(maxScrollTop, wheelTargetRef.current + delta),
-        );
-
-        if (wheelAnimationRef.current !== null) {
-            return;
-        }
-
-        const animate = () => {
-            const current = container.scrollTop;
-            const target = wheelTargetRef.current;
-            const next = current + (target - current) * 0.22;
-
-            if (Math.abs(target - current) < 0.5) {
-                container.scrollTop = target;
-                wheelAnimationRef.current = null;
-                return;
-            }
-
-            container.scrollTop = next;
-            wheelAnimationRef.current = window.requestAnimationFrame(animate);
-        };
-
-        wheelAnimationRef.current = window.requestAnimationFrame(animate);
+        const nextScrollTop = Math.max(0, Math.min(maxScrollTop, container.scrollTop + e.deltaY));
+        pendingScrollTopRef.current = nextScrollTop;
+        setScrollTop(nextScrollTop);
+        container.scrollTop = nextScrollTop;
     }, [maxScrollTop]);
 
     const onGridRef = useCallback((node: HTMLDivElement | null) => {
         if (node) {
             scrollContainerRef.current = node;
-            wheelTargetRef.current = node.scrollTop;
+            const nextScrollTop = Math.max(0, Math.min(maxScrollTop, pendingScrollTopRef.current));
+            pendingScrollTopRef.current = nextScrollTop;
+            if (Math.abs(node.scrollTop - nextScrollTop) > 1) {
+                node.scrollTop = nextScrollTop;
+            }
+            setScrollTop(nextScrollTop);
         }
-    }, []);
+    }, [maxScrollTop]);
 
     return {
         scrollTop,

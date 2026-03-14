@@ -33,7 +33,16 @@ impl Default for AlpheratzSetting {
 }
 
 fn get_setting_path() -> Option<PathBuf> {
-    Some(utils::get_alpheratz_install_dir()?.join("alpheratz.json"))
+    Some(utils::get_alpheratz_setting_dir()?.join("Alpheratz.json"))
+}
+
+fn get_legacy_setting_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if let Some(install_dir) = utils::get_alpheratz_install_dir() {
+        paths.push(install_dir.join("alpheratz.json"));
+        paths.push(install_dir.join("Alpheratz.json"));
+    }
+    paths
 }
 
 pub fn load_setting() -> AlpheratzSetting {
@@ -57,6 +66,31 @@ pub fn load_setting() -> AlpheratzSetting {
                         err
                     ));
                 }
+            }
+        }
+
+        for legacy_path in get_legacy_setting_paths() {
+            if !legacy_path.exists() {
+                continue;
+            }
+
+            match fs::read_to_string(&legacy_path) {
+                Ok(content) => match serde_json::from_str::<AlpheratzSetting>(&content) {
+                    Ok(setting) => {
+                        let _ = save_setting(&setting);
+                        return setting;
+                    }
+                    Err(err) => utils::log_warn(&format!(
+                        "Failed to parse legacy settings JSON ({}): {}",
+                        legacy_path.display(),
+                        err
+                    )),
+                },
+                Err(err) => utils::log_warn(&format!(
+                    "Failed to read legacy settings file ({}): {}",
+                    legacy_path.display(),
+                    err
+                )),
             }
         }
     }

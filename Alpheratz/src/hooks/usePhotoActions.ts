@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Photo } from "../types";
 
@@ -68,8 +68,15 @@ export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<P
         setPhotoHistory([]);
     }, []);
 
+    useEffect(() => {
+        if (selectedPhoto) {
+            setLocalMemo(selectedPhoto.memo);
+        }
+    }, [selectedPhoto]);
+
     return {
         selectedPhoto,
+        setSelectedPhoto,
         closePhotoModal,
         photoHistory,
         goBackPhoto,
