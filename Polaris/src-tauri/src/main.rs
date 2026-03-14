@@ -102,7 +102,10 @@ fn wait_for_vrchat_exit(pid: u32) -> Result<(), String> {
         // 終了後にログファイルの内容が固まるので、その直後にバックアップする。
         WaitForSingleObject(process_handle, INFINITE);
         if let Err(err) = CloseHandle(process_handle) {
-            utils::log_warn(&format!("CloseHandle failed after VRChat exit wait: {}", err));
+            utils::log_warn(&format!(
+                "CloseHandle failed after VRChat exit wait: {}",
+                err
+            ));
         }
     }
 
@@ -171,7 +174,10 @@ fn backup_logs() {
         let source_size = match fs::metadata(&source_path) {
             Ok(metadata) => metadata.len(),
             Err(err) => {
-                utils::log_warn(&format!("source metadata read failed [{}]: {}", file_name, err));
+                utils::log_warn(&format!(
+                    "source metadata read failed [{}]: {}",
+                    file_name, err
+                ));
                 continue;
             }
         };

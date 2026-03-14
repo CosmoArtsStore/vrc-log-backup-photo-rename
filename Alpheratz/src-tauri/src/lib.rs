@@ -92,12 +92,8 @@ async fn show_in_explorer(path: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn get_rotated_phashes(path: String) -> Result<Vec<String>, String> {
-    let img = image::open(&path).map_err(|e| {
-        format!(
-            "Failed to open image for rotated pHash ({}): {}",
-            path, e
-        )
-    })?;
+    let img = image::open(&path)
+        .map_err(|e| format!("Failed to open image for rotated pHash ({}): {}", path, e))?;
     let mut hashes = Vec::new();
     let hasher = image_hasher::HasherConfig::new().to_hasher();
 
@@ -125,6 +121,22 @@ fn save_setting_cmd(setting: AlpheratzSetting) -> Result<(), String> {
     save_setting(&setting)
 }
 
+#[tauri::command]
+fn get_startup_preference_cmd() -> (bool, bool) {
+    let setting = load_setting();
+    (setting.enable_startup, setting.startup_preference_set)
+}
+
+#[tauri::command]
+fn save_startup_preference_cmd(enabled: bool) -> Result<(), String> {
+    let mut setting = load_setting();
+    setting.enable_startup = enabled;
+    setting.startup_preference_set = true;
+    save_setting(&setting)?;
+    utils::set_startup_enabled("Alpheratz", enabled)?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if let Err(err) = init_alpheratz_db() {
@@ -150,6 +162,8 @@ pub fn run() {
             open_world_url,
             show_in_explorer,
             get_rotated_phashes,
+            get_startup_preference_cmd,
+            save_startup_preference_cmd,
         ])
         .run(tauri::generate_context!());
 

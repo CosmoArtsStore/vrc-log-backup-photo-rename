@@ -96,6 +96,8 @@ function App() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [worldFilter, setWorldFilter] = useState("all");
   const [showSettings, setShowSettings] = useState(false);
+  const [startupEnabled, setStartupEnabled] = useState(false);
+  const [startupPreferenceSet, setStartupPreferenceSet] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -268,6 +270,32 @@ function App() {
     }
   };
 
+  const handleStartupPreference = async (enabled: boolean) => {
+    try {
+      await invoke("save_startup_preference_cmd", { enabled });
+      setStartupEnabled(enabled);
+      setStartupPreferenceSet(true);
+      addToast(enabled ? "Alpheratz をログイン時に起動する設定にしました。" : "Alpheratz のログイン時起動を無効にしました。");
+    } catch (err) {
+      console.error("Failed to update startup preference:", err);
+      addToast("自動起動設定の更新に失敗しました。");
+    }
+  };
+
+  useEffect(() => {
+    const loadStartupPreference = async () => {
+      try {
+        const [enabled, preferenceSet]: [boolean, boolean] = await invoke("get_startup_preference_cmd");
+        setStartupEnabled(enabled);
+        setStartupPreferenceSet(preferenceSet);
+      } catch (err) {
+        console.error("Failed to load startup preference:", err);
+      }
+    };
+
+    loadStartupPreference();
+  }, []);
+
   const worldNameList = useMemo(
     () => Array.from(new Set(photos.map((photo) => photo.world_name || ""))).sort(),
     [photos],
@@ -407,7 +435,33 @@ function App() {
           onClose={() => setShowSettings(false)}
           photoFolderPath={photoFolderPath}
           handleChooseFolder={handleChooseFolder}
+          startupEnabled={startupEnabled}
+          onToggleStartup={() => handleStartupPreference(!startupEnabled)}
         />
+      )}
+
+      {!startupPreferenceSet && (
+        <div className="modal-overlay">
+          <div className="modal-content startup-choice-modal" onClick={(event) => event.stopPropagation()}>
+            <button className="modal-close" onClick={() => handleStartupPreference(false)}>×</button>
+            <div className="modal-body" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="modal-info">
+                <div className="info-header"><h2>起動設定</h2></div>
+                <p style={{ marginTop: 0, color: "var(--a-text-dim)" }}>
+                  Windows ログイン時に Alpheratz を起動するか選べます。後から設定で変更できます。
+                </p>
+                <div className="startup-toggle-row">
+                  <button className="save-button" onClick={() => handleStartupPreference(false)}>
+                    今は不要
+                  </button>
+                  <button className="save-button" onClick={() => handleStartupPreference(true)}>
+                    自動起動する
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="toast-container">

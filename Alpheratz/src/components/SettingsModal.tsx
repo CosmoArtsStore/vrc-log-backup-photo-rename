@@ -1,15 +1,17 @@
-
-
 interface SettingsModalProps {
     onClose: () => void;
     photoFolderPath: string;
     handleChooseFolder: () => void;
+    startupEnabled: boolean;
+    onToggleStartup: () => void;
 }
 
 export const SettingsModal = ({
     onClose,
     photoFolderPath,
     handleChooseFolder,
+    startupEnabled,
+    onToggleStartup,
 }: SettingsModalProps) => {
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -28,6 +30,17 @@ export const SettingsModal = ({
                                     style={{ flex: 1, padding: "0.8rem", borderRadius: "12px", border: "1px solid var(--a-border)", background: "rgba(0,0,0,0.03)", fontFamily: "var(--a-font-mono)", fontSize: "0.82rem" }}
                                 />
                                 <button className="save-button" onClick={handleChooseFolder} style={{ width: "100px" }}>変更</button>
+                            </div>
+                        </div>
+                        <div className="memo-section">
+                            <label>ログイン時に起動</label>
+                            <div className="startup-toggle-row">
+                                <p className="startup-toggle-text">
+                                    Windows ログイン時に Alpheratz を自動で起動します。
+                                </p>
+                                <button className="save-button" onClick={onToggleStartup}>
+                                    {startupEnabled ? "無効にする" : "有効にする"}
+                                </button>
                             </div>
                         </div>
                     </div>

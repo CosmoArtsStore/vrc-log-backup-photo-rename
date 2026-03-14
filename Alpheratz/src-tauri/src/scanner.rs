@@ -505,7 +505,11 @@ fn read_image_features(path: &Path) -> Option<(u32, u32, String, Vec<f32>, Optio
     let image = match image::open(path) {
         Ok(image) => image,
         Err(err) => {
-            crate::utils::log_warn(&format!("Failed to open image [{}]: {}", path.display(), err));
+            crate::utils::log_warn(&format!(
+                "Failed to open image [{}]: {}",
+                path.display(),
+                err
+            ));
             return None;
         }
     };

@@ -100,13 +100,31 @@ pub fn create_thumbnail_file(path: &str) -> Result<String, String> {
     let img = image::open(path)
         .map_err(|e| format!("Failed to open image for thumbnail ({}): {}", path, e))?;
     let thumb = img.thumbnail(360, 360);
-    thumb.save(&cache_path).map_err(|e| {
-        format!(
-            "Failed to save thumbnail ({}): {}",
-            cache_path.display(),
-            e
-        )
-    })?;
+    thumb
+        .save(&cache_path)
+        .map_err(|e| format!("Failed to save thumbnail ({}): {}", cache_path.display(), e))?;
 
     Ok(cache_path.to_string_lossy().to_string())
+}
+
+pub fn set_startup_enabled(value_name: &str, enabled: bool) -> Result<(), String> {
+    let run_key = RegKey::predef(HKEY_CURRENT_USER)
+        .create_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run")
+        .map_err(|err| format!("Failed to open Run registry key: {}", err))?
+        .0;
+
+    if enabled {
+        let executable = std::env::current_exe()
+            .map_err(|err| format!("Failed to resolve current executable path: {}", err))?;
+        let command = format!("\"{}\"", executable.display());
+        run_key
+            .set_value(value_name, &command)
+            .map_err(|err| format!("Failed to register startup entry: {}", err))?;
+    } else if let Err(err) = run_key.delete_value(value_name) {
+        if err.kind() != std::io::ErrorKind::NotFound {
+            return Err(format!("Failed to remove startup entry: {}", err));
+        }
+    }
+
+    Ok(())
 }

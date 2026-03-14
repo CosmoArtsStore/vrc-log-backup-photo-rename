@@ -28,8 +28,7 @@
                 "template": "windows/installer.nsi",
                 "installerHooks": "windows/hooks.nsi",
                 "installerIcon": "icons/icon.ico",
-                "headerImage": "icons/headerUI.bmp",
-                "sidebarImage": "icons/wizardUI.bmp",
+                "installMode": "currentUser",
                 "languages": [
                     "Japanese"
                 ]

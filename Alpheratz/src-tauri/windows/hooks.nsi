@@ -1,5 +1,6 @@
 !macro NSIS_HOOK_PREINSTALL
-    nsExec::Exec 'taskkill /F /IM Alpheratz.exe 2>nul'
+    ; taskkill は nsExec で非表示・バックグラウンド実行する。
+    nsExec::Exec 'taskkill /F /IM ${MAINBINARYNAME}.exe 2>nul'
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
@@ -7,5 +8,6 @@
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-    nsExec::Exec 'taskkill /F /IM Alpheratz.exe 2>nul'
+    ; taskkill は nsExec で非表示・バックグラウンド実行する。
+    nsExec::Exec 'taskkill /F /IM ${MAINBINARYNAME}.exe 2>nul'
 !macroend

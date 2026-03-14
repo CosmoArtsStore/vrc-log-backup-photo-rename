@@ -45,12 +45,22 @@ fn get_alpheratz_install_dir() -> Option<PathBuf> {
 pub struct AlpheratzSetting {
     #[serde(default, rename = "photoFolderPath")]
     pub photo_folder_path: String,
+    #[serde(default, rename = "enableStartup", alias = "enable_startup")]
+    pub enable_startup: bool,
+    #[serde(
+        default,
+        rename = "startupPreferenceSet",
+        alias = "startup_preference_set"
+    )]
+    pub startup_preference_set: bool,
 }
 
 impl Default for AlpheratzSetting {
     fn default() -> Self {
         AlpheratzSetting {
             photo_folder_path: String::new(),
+            enable_startup: false,
+            startup_preference_set: false,
         }
     }
 }

@@ -1143,3 +1143,20 @@ body {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
+
+.alpheratz-root .startup-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.alpheratz-root .startup-toggle-text {
+  margin: 0;
+  color: var(--a-text-dim);
+  font-size: 0.82rem;
+}
+
+.alpheratz-root .startup-choice-modal {
+  max-width: 480px;
+}

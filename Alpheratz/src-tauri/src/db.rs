@@ -1,3 +1,4 @@
+use crate::models::PhotoRecord;
 use rusqlite::Connection;
 use std::path::PathBuf;
 use winreg::enums::HKEY_CURRENT_USER;
@@ -111,7 +112,6 @@ pub fn init_alpheratz_db() -> Result<(), String> {
 
     Ok(())
 }
-use crate::models::PhotoRecord;
 
 pub fn get_photos(
     start_date: Option<String>,
@@ -142,10 +142,10 @@ pub fn get_photos(
 
     sql.push_str(" ORDER BY timestamp DESC");
 
-    let row_count: usize = conn
+    let row_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM photos", [], |row| row.get(0))
         .map_err(|e| format!("Failed to count photos: {}", e))?;
-    let mut results = Vec::with_capacity(row_count.min(2_000));
+    let mut results = Vec::with_capacity((row_count.max(0) as usize).min(2_000));
     let query_val = world_query.as_ref().map(|w| format!("%{}%", w));
 
     let mut stmt = conn
@@ -178,6 +178,13 @@ pub fn get_photos(
                 timestamp: row.get(4)?,
                 memo: row.get(5)?,
                 phash: row.get(6)?,
+                width: None,
+                height: None,
+                orientation: None,
+                histogram: None,
+                is_favorite: false,
+                tags: Vec::new(),
+                match_source: None,
             })
         })
         .map_err(|e| format!("Failed to execute query: {}", e))?;
@@ -201,5 +208,56 @@ pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
     if changed == 0 {
         return Err(format!("写真が見つかりません: {}", filename));
     }
+    Ok(())
+}
+
+pub fn set_photo_favorite(filename: &str, is_favorite: bool) -> Result<(), String> {
+    let conn = open_alpheratz_connection()?;
+    let changed = conn
+        .execute(
+            "UPDATE photos SET is_favorite = ?1 WHERE photo_filename = ?2",
+            rusqlite::params![if is_favorite { 1 } else { 0 }, filename],
+        )
+        .map_err(|e| format!("Failed to update favorite for {}: {}", filename, e))?;
+    if changed == 0 {
+        return Err(format!("写真が見つかりません: {}", filename));
+    }
+    Ok(())
+}
+
+pub fn add_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
+    let conn = open_alpheratz_connection()?;
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| format!("Failed to start tag transaction for {}: {}", filename, e))?;
+
+    tx.execute(
+        "INSERT INTO tags (name) VALUES (?1) ON CONFLICT(name) DO NOTHING",
+        rusqlite::params![tag],
+    )
+    .map_err(|e| format!("Failed to insert tag [{}]: {}", tag, e))?;
+
+    tx.execute(
+        "INSERT INTO photo_tags (photo_filename, tag_id)
+         SELECT ?1, id FROM tags WHERE name = ?2
+         ON CONFLICT(photo_filename, tag_id) DO NOTHING",
+        rusqlite::params![filename, tag],
+    )
+    .map_err(|e| format!("Failed to link tag [{}] to {}: {}", tag, filename, e))?;
+
+    tx.commit()
+        .map_err(|e| format!("Failed to commit tag transaction for {}: {}", filename, e))?;
+    Ok(())
+}
+
+pub fn remove_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
+    let conn = open_alpheratz_connection()?;
+    conn.execute(
+        "DELETE FROM photo_tags
+         WHERE photo_filename = ?1
+           AND tag_id IN (SELECT id FROM tags WHERE name = ?2)",
+        rusqlite::params![filename, tag],
+    )
+    .map_err(|e| format!("Failed to remove tag [{}] from {}: {}", tag, filename, e))?;
     Ok(())
 }

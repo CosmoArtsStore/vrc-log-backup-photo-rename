@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "stella_record_ui/src-tauri"
+    "src-tauri"
 ]
 
 [workspace.dependencies]

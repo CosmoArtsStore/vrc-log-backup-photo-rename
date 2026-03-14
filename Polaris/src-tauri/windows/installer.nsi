@@ -39,8 +39,6 @@ ${StrLoc}
 !define INSTALLMODE "{{install_mode}}"
 !define LICENSE "{{license}}"
 !define INSTALLERICON "{{installer_icon}}"
-!define SIDEBARIMAGE "{{sidebar_image}}"
-!define HEADERIMAGE "{{header_image}}"
 !define MAINBINARYNAME "{{main_binary_name}}"
 !define MAINBINARYSRCPATH "{{main_binary_path}}"
 !define BUNDLEID "{{bundle_id}}"
@@ -122,17 +120,6 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 ; Installer icon
 !if "${INSTALLERICON}" != ""
   !define MUI_ICON "${INSTALLERICON}"
-!endif
-
-; Installer sidebar image
-!if "${SIDEBARIMAGE}" != ""
-  !define MUI_WELCOMEFINISHPAGE_BITMAP "${SIDEBARIMAGE}"
-!endif
-
-; Installer header image
-!if "${HEADERIMAGE}" != ""
-  !define MUI_HEADERIMAGE
-  !define MUI_HEADERIMAGE_BITMAP  "${HEADERIMAGE}"
 !endif
 
 ; Define registry key to store installer language
@@ -487,7 +474,7 @@ Function .onInit
         StrCpy $INSTDIR "$PROGRAMFILES\CosmoArtsStore\STELLAProject\${PRODUCTNAME}"
       ${EndIf}
     !else if "${INSTALLMODE}" == "currentUser"
-      StrCpy $INSTDIR "$LOCALAPPDATA\CosmoArtsStore\STELLAProject\Polaris"
+      StrCpy $INSTDIR "$LOCALAPPDATA\CosmoArtsStore\STELLAProject\${PRODUCTNAME}"
     !endif
 
     Call RestorePreviousInstallLocation
@@ -497,6 +484,36 @@ Function .onInit
   !if "${INSTALLMODE}" == "both"
     !insertmacro MULTIUSER_INIT
   !endif
+FunctionEnd
+
+Function .onVerifyInstDir
+  ${If} $INSTDIR == ""
+    Return
+  ${EndIf}
+
+  ${StrCase} $0 "$INSTDIR" "U"
+  ${StrCase} $1 "$PROGRAMFILES" "U"
+  ${StrLoc} $2 $0 $1 ">"
+  ${If} $2 == 0
+    MessageBox MB_ICONSTOP|MB_OK "このアプリは Program Files 配下へはインストールできません。LocalAppData 配下を選択してください。"
+    Abort
+  ${EndIf}
+
+  ${If} ${RunningX64}
+    ${StrCase} $3 "$PROGRAMFILES64" "U"
+    ${StrLoc} $4 $0 $3 ">"
+    ${If} $4 == 0
+      MessageBox MB_ICONSTOP|MB_OK "このアプリは Program Files 配下へはインストールできません。LocalAppData 配下を選択してください。"
+      Abort
+    ${EndIf}
+  ${EndIf}
+
+  ${StrCase} $5 "$WINDIR" "U"
+  ${StrLoc} $6 $0 $5 ">"
+  ${If} $6 == 0
+    MessageBox MB_ICONSTOP|MB_OK "Windows システム配下にはインストールできません。LocalAppData 配下を選択してください。"
+    Abort
+  ${EndIf}
 FunctionEnd
 
 
