@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alpheratz Mock - Startup Choice</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="overlay">
+    <div class="dialog small">
+      <section class="dialog-side">
+        <div class="section-head">
+          <h3>起動設定</h3>
+          <div class="menu-button" style="width:32px;height:32px;">×</div>
+        </div>
+        <p style="margin:0; color:#6b7280;">Windows ログイン時に Alpheratz を起動するか選べます。後から設定で変更できます。</p>
+        <div style="display:flex; gap:12px; margin-top:12px;">
+          <button class="ghost-button" style="flex:1;">今は不要</button>
+          <button class="primary-button" style="flex:1;">自動起動する</button>
+        </div>
+      </section>
+    </div>
+  </div>
+  <div class="caption-note">対応実装: `App.tsx` 内の初回選択モーダル。`startupPreferenceSet === false` のときに前面表示。</div>
+</body>
+</html>

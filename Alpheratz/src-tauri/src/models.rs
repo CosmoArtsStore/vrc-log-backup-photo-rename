@@ -10,11 +10,7 @@ pub struct PhotoRecord {
     #[serde(default)]
     pub memo: String,
     pub phash: Option<String>,
-    pub width: Option<i64>,
-    pub height: Option<i64>,
     pub orientation: Option<String>,
-    #[serde(default)]
-    pub histogram: Option<Vec<f32>>,
     #[serde(default)]
     pub is_favorite: bool,
     #[serde(default)]
@@ -32,10 +28,7 @@ impl Default for PhotoRecord {
             timestamp: String::new(),
             memo: String::new(),
             phash: None,
-            width: None,
-            height: None,
             orientation: None,
-            histogram: None,
             is_favorite: false,
             tags: Vec::new(),
             match_source: None,

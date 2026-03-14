@@ -23,7 +23,7 @@ export const PhotoCard = ({
         let isMounted = true;
         invoke<string>("create_thumbnail", { path: photo.photo_path })
             .then((path) => { if (isMounted) setThumbUrl(convertFileSrc(path)); })
-            .catch((err) => console.error("Thumbnail error:", err));
+            .catch(() => { if (isMounted) setThumbUrl(null); });
         return () => { isMounted = false; };
     }, [photo?.photo_path]);
 
@@ -41,18 +41,13 @@ export const PhotoCard = ({
                 <div className="photo-info">
                     <div className="photo-meta-row">
                         {photo.is_favorite && <span className="photo-pill favorite">★ Favorite</span>}
-                        {photo.match_source === "phash" && <span className="photo-pill">?</span>}
-                        {photo.orientation && photo.orientation !== "unknown" && (
+                        {photo.match_source === "stella_db" && <span className="photo-pill">DB</span>}
+                        {photo.orientation && (
                             <span className="photo-pill">{photo.orientation}</span>
                         )}
                     </div>
                     <div className="photo-world">{photo.world_name || "ワールド不明"}</div>
                     <div className="photo-date">{photo.timestamp}</div>
-                    {(photo.width || photo.height) && (
-                        <div className="photo-date">
-                            {[photo.width, photo.height].filter(Boolean).join(" x ")}
-                        </div>
-                    )}
                     {!!photo.tags?.length && (
                         <div className="photo-tags-preview">
                             {photo.tags.slice(0, 2).map((tag) => (

@@ -6,13 +6,10 @@ export interface Photo {
     timestamp: string;
     memo: string;
     phash: string | null;
-    width?: number | null;
-    height?: number | null;
-    orientation?: "portrait" | "landscape" | "square" | "unknown" | null;
-    histogram?: number[] | null;
+    orientation?: "portrait" | "landscape" | null;
     is_favorite: boolean;
     tags: string[];
-    match_source?: "metadata" | "title" | "phash" | null;
+    match_source?: "metadata" | "title" | "stella_db" | null;
 }
 
 export interface ScanProgress {

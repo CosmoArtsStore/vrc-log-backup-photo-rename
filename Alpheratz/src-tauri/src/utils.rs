@@ -7,76 +7,135 @@ use winreg::enums::HKEY_CURRENT_USER;
 use winreg::RegKey;
 
 const REGISTRY_BASE_KEY: &str = "Software\\CosmoArtsStore\\STELLAProject";
+const LOG_FILE_PREFIX: &str = "info";
 
-fn get_install_dir_by_component(component: &str) -> Option<PathBuf> {
-    let key_path = format!("{}\\{}", REGISTRY_BASE_KEY, component);
-    let key = match RegKey::predef(HKEY_CURRENT_USER).open_subkey(&key_path) {
-        Ok(key) => key,
-        Err(err) => {
-            eprintln!(
-                "[Alpheratz][WARN] registry open failed [{}]: {}",
-                key_path, err
-            );
-            return None;
-        }
-    };
-    let path: String = match key.get_value("InstallLocation") {
-        Ok(path) => path,
-        Err(err) => {
-            eprintln!(
-                "[Alpheratz][WARN] registry value read failed [{}\\InstallLocation]: {}",
-                key_path, err
-            );
-            return None;
-        }
-    };
-    Some(PathBuf::from(path))
-}
+fn write_bootstrap_log(level: &str, msg: &str) {
+    let fallback_dir = std::env::temp_dir().join("STELLAProject").join("Alpheratz");
+    if let Err(err) = fs::create_dir_all(&fallback_dir) {
+        eprintln!(
+            "[Alpheratz][WARN] bootstrap log dir create failed [{}]: {}",
+            fallback_dir.display(),
+            err
+        );
+        return;
+    }
 
-pub fn get_alpheratz_install_dir() -> Option<PathBuf> {
-    get_install_dir_by_component("Alpheratz")
-}
-
-pub fn log_msg(level: &str, msg: &str) {
-    if let Some(path) = get_alpheratz_install_dir().map(|p| p.join("info.log")) {
-        match OpenOptions::new().create(true).append(true).open(&path) {
-            Ok(mut f) => {
-                let now = Local::now().format("%Y-%m-%d %H:%M:%S");
-                if let Err(err) = writeln!(f, "[{}] [{}] {}", now, level, msg) {
-                    // Intentional: fallback to stderr to avoid recursive log errors.
-                    eprintln!(
-                        "[Alpheratz][WARN] log write failed [{}]: {}",
-                        path.display(),
-                        err
-                    );
-                }
-            }
-            Err(err) => {
-                // Intentional: fallback to stderr to avoid recursive log errors.
+    let month = Local::now().format("%Y%m");
+    let path = fallback_dir.join(format!("{LOG_FILE_PREFIX}_{month}.log"));
+    match OpenOptions::new().create(true).append(true).open(&path) {
+        Ok(mut file) => {
+            let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+            if let Err(err) = writeln!(file, "[{}] [{}] {}", now, level, msg) {
                 eprintln!(
-                    "[Alpheratz][WARN] log open failed [{}]: {}",
+                    "[Alpheratz][WARN] bootstrap log write failed [{}]: {}",
                     path.display(),
                     err
                 );
             }
         }
+        Err(err) => {
+            eprintln!(
+                "[Alpheratz][WARN] bootstrap log open failed [{}]: {}",
+                path.display(),
+                err
+            );
+        }
+    }
+}
+
+fn get_monthly_log_path(base_dir: &Path) -> PathBuf {
+    let month = Local::now().format("%Y%m");
+    base_dir.join(format!("{LOG_FILE_PREFIX}_{month}.log"))
+}
+
+pub fn get_registry_component_install_dir(component: &str) -> Option<PathBuf> {
+    let key_path = format!("{}\\{}", REGISTRY_BASE_KEY, component);
+    let key = match RegKey::predef(HKEY_CURRENT_USER).open_subkey(&key_path) {
+        Ok(key) => key,
+        Err(err) => {
+            write_bootstrap_log(
+                "WARN",
+                &format!("registry open failed [{}]: {}", key_path, err),
+            );
+            return None;
+        }
+    };
+
+    let path: String = match key.get_value("InstallLocation") {
+        Ok(path) => path,
+        Err(err) => {
+            write_bootstrap_log(
+                "WARN",
+                &format!(
+                    "registry value read failed [{}\\InstallLocation]: {}",
+                    key_path, err
+                ),
+            );
+            return None;
+        }
+    };
+
+    let path_buf = PathBuf::from(path);
+    if path_buf.exists() {
+        Some(path_buf)
+    } else {
+        write_bootstrap_log(
+            "WARN",
+            &format!("install dir does not exist: {}", path_buf.display()),
+        );
+        None
+    }
+}
+
+pub fn get_alpheratz_install_dir() -> Option<PathBuf> {
+    get_registry_component_install_dir("Alpheratz")
+}
+
+pub fn get_stella_record_install_dir() -> Option<PathBuf> {
+    get_registry_component_install_dir("STELLA_RECORD")
+        .or_else(|| get_registry_component_install_dir("StellaRecord"))
+}
+
+pub fn log_msg(level: &str, msg: &str) {
+    if let Some(install_dir) = get_alpheratz_install_dir() {
+        let path = get_monthly_log_path(&install_dir);
+        match OpenOptions::new().create(true).append(true).open(&path) {
+            Ok(mut file) => {
+                let now = Local::now().format("%Y-%m-%d %H:%M:%S");
+                if let Err(err) = writeln!(file, "[{}] [{}] {}", now, level, msg) {
+                    write_bootstrap_log(
+                        "WARN",
+                        &format!("log write failed [{}]: {}", path.display(), err),
+                    );
+                }
+            }
+            Err(err) => {
+                write_bootstrap_log(
+                    "WARN",
+                    &format!("log open failed [{}]: {}", path.display(), err),
+                );
+            }
+        }
+    } else {
+        write_bootstrap_log(level, msg);
     }
 }
 
 pub fn log_warn(msg: &str) {
     log_msg("WARN", msg);
 }
+
 pub fn log_err(msg: &str) {
     log_msg("ERROR", msg);
 }
 
 pub fn get_thumbnail_cache_dir() -> Result<PathBuf, String> {
-    let install_dir =
-        get_alpheratz_install_dir().ok_or_else(|| "Failed to get install dir".to_string())?;
+    let install_dir = get_alpheratz_install_dir()
+        .ok_or_else(|| "Alpheratz のインストール先を取得できません".to_string())?;
     let cache_dir = install_dir.join("cache");
     fs::create_dir_all(&cache_dir).map_err(|e| {
         format!(
-            "Failed to create cache directory ({}): {}",
+            "サムネイルキャッシュフォルダを作成できません ({}): {}",
             cache_dir.display(),
             e
         )
@@ -90,19 +149,23 @@ pub fn create_thumbnail_file(path: &str) -> Result<String, String> {
     let filename = path_p
         .file_name()
         .and_then(|n| n.to_str())
-        .ok_or_else(|| "Failed to resolve file name".to_string())?;
+        .ok_or_else(|| format!("サムネイル対象のファイル名を解決できません: {}", path))?;
     let cache_path = cache_dir.join(format!("{}.thumb.jpg", filename));
 
     if cache_path.exists() {
         return Ok(cache_path.to_string_lossy().to_string());
     }
 
-    let img = image::open(path)
-        .map_err(|e| format!("Failed to open image for thumbnail ({}): {}", path, e))?;
+    let img =
+        image::open(path).map_err(|e| format!("サムネイル用画像を開けません ({}): {}", path, e))?;
     let thumb = img.thumbnail(360, 360);
-    thumb
-        .save(&cache_path)
-        .map_err(|e| format!("Failed to save thumbnail ({}): {}", cache_path.display(), e))?;
+    thumb.save(&cache_path).map_err(|e| {
+        format!(
+            "サムネイルを保存できません ({}): {}",
+            cache_path.display(),
+            e
+        )
+    })?;
 
     Ok(cache_path.to_string_lossy().to_string())
 }
@@ -110,19 +173,19 @@ pub fn create_thumbnail_file(path: &str) -> Result<String, String> {
 pub fn set_startup_enabled(value_name: &str, enabled: bool) -> Result<(), String> {
     let run_key = RegKey::predef(HKEY_CURRENT_USER)
         .create_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run")
-        .map_err(|err| format!("Failed to open Run registry key: {}", err))?
+        .map_err(|err| format!("Windows の自動起動レジストリを開けません: {}", err))?
         .0;
 
     if enabled {
         let executable = std::env::current_exe()
-            .map_err(|err| format!("Failed to resolve current executable path: {}", err))?;
+            .map_err(|err| format!("実行中の Alpheratz パスを取得できません: {}", err))?;
         let command = format!("\"{}\"", executable.display());
         run_key
             .set_value(value_name, &command)
-            .map_err(|err| format!("Failed to register startup entry: {}", err))?;
+            .map_err(|err| format!("自動起動を登録できません: {}", err))?;
     } else if let Err(err) = run_key.delete_value(value_name) {
         if err.kind() != std::io::ErrorKind::NotFound {
-            return Err(format!("Failed to remove startup entry: {}", err));
+            return Err(format!("自動起動設定を削除できません: {}", err));
         }
     }
 

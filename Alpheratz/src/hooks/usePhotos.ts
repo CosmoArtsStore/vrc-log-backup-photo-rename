@@ -2,8 +2,13 @@ import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { Photo } from "../types";
+import { ToastType } from "./useToasts";
 
-export const usePhotos = (searchQuery: string, worldFilter: string) => {
+export const usePhotos = (
+    searchQuery: string,
+    worldFilter: string,
+    addToast?: (msg: string, type?: ToastType) => void,
+) => {
     const [photos, setPhotos] = useState<Photo[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -16,22 +21,29 @@ export const usePhotos = (searchQuery: string, worldFilter: string) => {
             });
             setPhotos(results);
         } catch (err) {
-            console.error("Failed to load photos:", err);
+            addToast?.(`写真一覧の読み込みに失敗しました: ${String(err)}`, "error");
         } finally {
             setIsLoading(false);
         }
-    }, [searchQuery, worldFilter]);
+    }, [addToast, searchQuery, worldFilter]);
 
     useEffect(() => {
         setIsLoading(true);
         loadPhotos();
 
-        const unlisten = listen("scan:completed", () => {
-            loadPhotos();
-        });
+        const unlistens = [
+            listen("scan:completed", () => {
+                loadPhotos();
+            }),
+            listen("scan:enrich_completed", () => {
+                loadPhotos();
+            }),
+        ];
 
         return () => {
-            unlisten.then((u: UnlistenFn) => u());
+            unlistens.forEach((promise) => {
+                promise.then((u: UnlistenFn) => u());
+            });
         };
     }, [loadPhotos]);
 

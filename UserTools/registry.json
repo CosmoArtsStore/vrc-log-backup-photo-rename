@@ -1,0 +1,126 @@
+{
+  "fastparty": [
+    {
+      "name": "Polaris",
+      "description": "VRChat ログの常駐監視と archive 保全を担当します。",
+      "path": "C:\\Users\\Public\\CosmoArtsStore\\Polaris\\Polaris.exe",
+      "icon_path": "icons/polaris.png"
+    },
+    {
+      "name": "Alpheratz",
+      "description": "写真管理と閲覧を行う STELLAProject のフォトマネージャです。",
+      "path": "C:\\Users\\Public\\CosmoArtsStore\\Alpheratz\\Alpheratz.exe",
+      "icon_path": "icons/alpheratz.png"
+    },
+    {
+      "name": "STELLA RECORD Core",
+      "description": "ログ解析とデータベース管理のコアツールです。",
+      "path": "C:\\Users\\Public\\CosmoArtsStore\\StellaRecord\\StellaRecord.exe",
+      "icon_path": "icons/stella-record-core.png"
+    },
+    {
+      "name": "Nebula Launcher",
+      "description": "CosmoArtsStore 製ツール群の起動ランチャです。",
+      "path": "C:\\Users\\Public\\CosmoArtsStore\\NebulaLauncher\\NebulaLauncher.exe",
+      "icon_path": "icons/nebula-launcher.png"
+    },
+    {
+      "name": "Comet Sync",
+      "description": "ローカル設定とバックアップの同期を補助します。",
+      "path": "C:\\Users\\Public\\CosmoArtsStore\\CometSync\\CometSync.exe",
+      "icon_path": "icons/comet-sync.png"
+    },
+    {
+      "name": "Atlas Exporter",
+      "description": "解析済みデータを外部形式へ出力します。",
+      "path": "C:\\Users\\Public\\CosmoArtsStore\\AtlasExporter\\AtlasExporter.exe",
+      "icon_path": "icons/atlas-exporter.png"
+    },
+    {
+      "name": "Orbit Inspector",
+      "description": "DB とログの内容確認を行う検査ツールです。",
+      "path": "C:\\Users\\Public\\CosmoArtsStore\\OrbitInspector\\OrbitInspector.exe",
+      "icon_path": "icons/orbit-inspector.png"
+    },
+    {
+      "name": "Meteor Notes",
+      "description": "イベント時のメモを残す簡易ノートです。",
+      "path": "C:\\Users\\Public\\CosmoArtsStore\\MeteorNotes\\MeteorNotes.exe",
+      "icon_path": "icons/meteor-notes.png"
+    },
+    {
+      "name": "Aurora Assets",
+      "description": "アセット一式の参照と整理を行います。",
+      "path": "C:\\Users\\Public\\CosmoArtsStore\\AuroraAssets\\AuroraAssets.exe",
+      "icon_path": "icons/aurora-assets.png"
+    },
+    {
+      "name": "Zenith Console",
+      "description": "保守用の開発者コンソールです。",
+      "path": "C:\\Users\\Public\\CosmoArtsStore\\ZenithConsole\\ZenithConsole.exe",
+      "icon_path": "icons/zenith-console.png"
+    }
+  ],
+  "thirdparty": [
+    {
+      "name": "VRChat",
+      "description": "ログ生成元となる VRChat クライアントです。",
+      "path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\VRChat\\VRChat.exe",
+      "icon_path": "icons/vrchat.png"
+    },
+    {
+      "name": "Steam",
+      "description": "VRChat の配信プラットフォームです。",
+      "path": "C:\\Program Files (x86)\\Steam\\steam.exe",
+      "icon_path": "icons/steam.png"
+    },
+    {
+      "name": "VRCX",
+      "description": "VRChat 向けのコミュニティ連携ツールです。",
+      "path": "C:\\Tools\\VRCX\\VRCX.exe",
+      "icon_path": "icons/vrcx.png"
+    },
+    {
+      "name": "OBS Studio",
+      "description": "録画や配信に使う配信ソフトです。",
+      "path": "C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe",
+      "icon_path": "icons/obs-studio.png"
+    },
+    {
+      "name": "Discord",
+      "description": "ボイスチャットと通知確認に使います。",
+      "path": "C:\\Users\\Public\\AppData\\Local\\Discord\\Update.exe",
+      "icon_path": "icons/discord.png"
+    },
+    {
+      "name": "Blender",
+      "description": "ワールドやモデル素材の確認用 DCC ツールです。",
+      "path": "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe",
+      "icon_path": "icons/blender.png"
+    },
+    {
+      "name": "Unity Hub",
+      "description": "Unity プロジェクト管理用ランチャです。",
+      "path": "C:\\Program Files\\Unity Hub\\Unity Hub.exe",
+      "icon_path": "icons/unity-hub.png"
+    },
+    {
+      "name": "ImageGlass",
+      "description": "画像確認を素早く行うビューアです。",
+      "path": "C:\\Program Files\\ImageGlass\\ImageGlass.exe",
+      "icon_path": "icons/imageglass.png"
+    },
+    {
+      "name": "7-Zip",
+      "description": "圧縮ファイルの確認に使うアーカイバです。",
+      "path": "C:\\Program Files\\7-Zip\\7zFM.exe",
+      "icon_path": "icons/7zip.png"
+    },
+    {
+      "name": "Notepad++",
+      "description": "ログや設定 JSON を素早く確認するためのエディタです。",
+      "path": "C:\\Program Files\\Notepad++\\notepad++.exe",
+      "icon_path": "icons/notepadpp.png"
+    }
+  ]
+}

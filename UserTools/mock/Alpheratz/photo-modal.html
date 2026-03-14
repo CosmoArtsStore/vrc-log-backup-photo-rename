@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alpheratz Mock - Photo Modal</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="overlay">
+    <div class="dialog">
+      <div class="dialog-photo">
+        <div class="dialog-image"></div>
+        <section class="dialog-side">
+          <div>
+            <h2 style="margin:0 0 6px;">The Black Cat ↗</h2>
+            <div class="meta-line">
+              <span>2026-03-14 21:18:42</span>
+              <span>World ID: wrld_example123</span>
+              <span>landscape</span>
+            </div>
+          </div>
+
+          <div class="stack">
+            <button class="primary-button">★ お気に入り解除</button>
+            <button class="primary-button">VRChat ワールドページを開く</button>
+            <button class="ghost-button">エクスプローラーで表示</button>
+          </div>
+
+          <div>
+            <div class="field-label">タグ</div>
+            <div style="display:flex; gap:8px;">
+              <input class="field" value="イベント">
+              <button class="primary-button" style="width:96px;">追加</button>
+            </div>
+            <div class="tag-list" style="margin-top:10px;">
+              <span class="tag-chip">イベント ×</span>
+              <span class="tag-chip">集合 ×</span>
+              <span class="tag-chip">夜景 ×</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="field-label">メモ</div>
+            <textarea class="textarea">フレンド集合。開始直後に撮影。あとでワールドURLを確認する。</textarea>
+            <button class="primary-button" style="margin-top:10px;">メモを保存</button>
+          </div>
+
+          <div class="suggest-box">
+            <div class="field-label" style="margin-bottom:0;">ワールド候補 / 類似写真</div>
+            <p style="margin:8px 0 0; font-size:13px; color:#6b7280;">類似写真から候補を出す領域。現行実装では unknown world 時に候補表示、既知 world 時は類似画像一覧を表示。</p>
+            <div class="suggest-card">
+              <div class="suggest-thumb"></div>
+              <div>
+                <strong style="display:block;">The Black Cat</strong>
+                <span style="font-size:12px; color:#6b7280;">高信頼度 / dist 4</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <div class="caption-note">対応実装: `PhotoModal.tsx`。画像、メタ情報、タグ、メモ、ワールド導線、類似写真の導線を集約。</div>
+</body>
+</html>

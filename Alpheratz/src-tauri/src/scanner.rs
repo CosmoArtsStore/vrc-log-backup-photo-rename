@@ -7,20 +7,18 @@ use std::sync::LazyLock;
 
 use path_slash::PathExt;
 use regex::Regex;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OpenFlags};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::config::load_setting;
 use crate::db::open_alpheratz_connection;
 use crate::models::ScanProgress;
+use crate::utils;
 use crate::ScanCancelStatus;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp"];
-const PHASH_BATCH_SIZE: usize = 50;
 const PHOTO_UPSERT_BATCH_SIZE: usize = 25;
 const MAX_ITXT_SIZE: usize = 4 * 1024 * 1024;
-const PHASH_MATCH_THRESHOLD: u32 = 6;
-const HUE_BUCKETS: usize = 12;
 const SKIP_DIRS: &[&str] = &[
     "node_modules",
     "vendor",
@@ -36,12 +34,7 @@ struct ExistingPhotoInfo {
     photo_path: String,
     world_id: Option<String>,
     world_name: Option<String>,
-    timestamp: String,
-    width: Option<u32>,
-    height: Option<u32>,
     orientation: Option<String>,
-    phash: Option<String>,
-    histogram: Option<Vec<f32>>,
 }
 
 #[derive(Clone, Debug)]
@@ -51,11 +44,7 @@ struct ScanPhotoData {
     timestamp: String,
     world_id: Option<String>,
     world_name: Option<String>,
-    width: Option<u32>,
-    height: Option<u32>,
     orientation: Option<String>,
-    histogram: Option<Vec<f32>>,
-    phash: Option<String>,
     match_source: Option<String>,
 }
 
@@ -65,12 +54,16 @@ enum ScanRefreshKind {
     PathOnly,
 }
 
+enum PhotoDirErrorKind {
+    NotConfigured,
+    Missing(PathBuf),
+}
+
 fn compile_regex(pattern: &str, name: &str) -> Regex {
     match Regex::new(pattern) {
         Ok(re) => re,
         Err(err) => {
             crate::utils::log_err(&format!("Invalid regex {name}: {err}"));
-            // Intentional: fallback regex is static; failure here means process cannot safely continue.
             Regex::new(r"^$").expect("fallback regex must be valid")
         }
     }
@@ -117,19 +110,40 @@ static RE_NAME: LazyLock<Regex> = LazyLock::new(|| {
     )
 });
 
-pub async fn do_scan(app: AppHandle) -> Result<(), String> {
+fn resolve_photo_dir() -> Result<PathBuf, PhotoDirErrorKind> {
     let setting = load_setting();
-    let photo_dir = if setting.photo_folder_path.is_empty() {
-        default_photo_dir()
-    } else {
-        Some(PathBuf::from(&setting.photo_folder_path))
-    };
+    if setting.photo_folder_path.is_empty() {
+        return match default_photo_dir() {
+            Some(path) if path.exists() => Ok(path),
+            Some(path) => Err(PhotoDirErrorKind::Missing(path)),
+            None => Err(PhotoDirErrorKind::NotConfigured),
+        };
+    }
 
-    let photo_dir = match photo_dir {
-        Some(path) if path.exists() => path,
-        _ => {
-            emit_warn(&app, "scan:error", "Photo folder not found");
-            return Err("Folder not found".into());
+    let configured_path = PathBuf::from(&setting.photo_folder_path);
+    if configured_path.exists() {
+        Ok(configured_path)
+    } else {
+        Err(PhotoDirErrorKind::Missing(configured_path))
+    }
+}
+
+pub async fn do_scan(app: AppHandle) -> Result<(), String> {
+    let photo_dir = match resolve_photo_dir() {
+        Ok(path) => path,
+        Err(PhotoDirErrorKind::NotConfigured) => {
+            let message =
+                "写真フォルダが未設定です。設定から VRChat の写真フォルダを選択してください。";
+            emit_warn(&app, "scan:error", message);
+            return Err(message.to_string());
+        }
+        Err(PhotoDirErrorKind::Missing(path)) => {
+            let message = format!(
+                "写真フォルダが見つかりません。設定を確認してください: {}",
+                path.display()
+            );
+            emit_warn(&app, "scan:error", message.clone());
+            return Err(message);
         }
     };
 
@@ -168,11 +182,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
             None => Some((filename, path, ScanRefreshKind::Full)),
             Some(existing) => {
                 let path_changed = existing.photo_path != path.to_slash_lossy();
-                let missing_features = existing.width.is_none()
-                    || existing.height.is_none()
-                    || existing.orientation.is_none()
-                    || existing.histogram.is_none()
-                    || existing.phash.is_none();
+                let missing_features = existing.orientation.is_none();
                 let missing_world = existing.world_name.is_none() && existing.world_id.is_none();
 
                 if missing_features {
@@ -209,7 +219,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
             return Ok(());
         }
 
-        if let Some(photo) = analyze_photo(&path, &filename, &existing_photos, refresh_kind) {
+        if let Some(photo) = analyze_photo(&path, &filename, &existing_photos, refresh_kind)? {
             let current_world = photo
                 .world_name
                 .clone()
@@ -244,89 +254,6 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn compute_missing_phashes_bg(app: AppHandle) -> Result<(), String> {
-    let mut conn = open_alpheratz_connection()?;
-    let rows: Vec<(String, String)> = {
-        let mut stmt = conn
-            .prepare("SELECT photo_filename, photo_path FROM photos WHERE phash IS NULL")
-            .map_err(|e| scan_err("Failed to prepare pHash select", e))?;
-
-        let mapped_rows = stmt
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| scan_err("Failed to execute pHash select", e))?;
-
-        mapped_rows
-            .filter_map(|row| warn_row_error(row, "phash row decode failed"))
-            .collect()
-    };
-
-    if rows.is_empty() {
-        emit_warn(&app, "scan:enrich_completed", ());
-        return Ok(());
-    }
-
-    emit_warn(&app, "scan:enrich_start", rows.len());
-    emit_warn(
-        &app,
-        "scan:enrich_progress",
-        ScanProgress {
-            processed: 0,
-            total: rows.len(),
-            current_world: "補足情報を準備しています".into(),
-            phase: "enrich".into(),
-        },
-    );
-    let mut update_batch: Vec<(String, String)> = Vec::with_capacity(PHASH_BATCH_SIZE);
-    let total = rows.len();
-
-    for (index, (filename, path_str)) in rows.into_iter().enumerate() {
-        if app.state::<ScanCancelStatus>().0.load(Ordering::SeqCst) {
-            crate::utils::log_warn("Background pHash generation cancelled.");
-            break;
-        }
-
-        let path = PathBuf::from(path_str);
-        let computed = tauri::async_runtime::spawn_blocking(move || compute_phash(&path))
-            .await
-            .map_err(|e| format!("pHash task join error: {}", e))?;
-
-        match computed {
-            Some(phash) => {
-                update_batch.push((phash, filename.clone()));
-                if update_batch.len() >= PHASH_BATCH_SIZE {
-                    apply_phash_updates(&mut conn, &update_batch)?;
-                    update_batch.clear();
-                }
-            }
-            None => {
-                crate::utils::log_warn("Failed to compute pHash in background task");
-            }
-        }
-
-        if index % 10 == 0 || index == total.saturating_sub(1) {
-            emit_warn(
-                &app,
-                "scan:enrich_progress",
-                ScanProgress {
-                    processed: index + 1,
-                    total,
-                    current_world: format!("補足情報を更新中: {}", filename),
-                    phase: "enrich".into(),
-                },
-            );
-        }
-    }
-
-    if !update_batch.is_empty() {
-        apply_phash_updates(&mut conn, &update_batch)?;
-    }
-
-    emit_warn(&app, "scan:enrich_completed", ());
-    Ok(())
-}
-
 fn default_photo_dir() -> Option<PathBuf> {
     let user_dirs = directories::UserDirs::new()?;
     Some(user_dirs.picture_dir()?.join("VRChat"))
@@ -335,26 +262,18 @@ fn default_photo_dir() -> Option<PathBuf> {
 fn get_existing_photos(conn: &Connection) -> Result<HashMap<String, ExistingPhotoInfo>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT photo_filename, photo_path, world_id, world_name, timestamp, width, height, orientation, phash, histogram
+            "SELECT photo_filename, photo_path, world_id, world_name, timestamp, orientation
              FROM photos",
         )
         .map_err(|e| scan_err("Failed to prepare existing photo query", e))?;
     let rows = stmt
         .query_map([], |row| {
-            let histogram_blob: Option<Vec<u8>> = row.get(9)?;
             Ok(ExistingPhotoInfo {
                 photo_filename: row.get(0)?,
                 photo_path: row.get(1)?,
                 world_id: row.get(2)?,
                 world_name: row.get(3)?,
-                timestamp: row.get(4)?,
-                width: row.get::<_, Option<i64>>(5)?.map(|value| value as u32),
-                height: row.get::<_, Option<i64>>(6)?.map(|value| value as u32),
-                orientation: row.get(7)?,
-                phash: row.get(8)?,
-                histogram: histogram_blob
-                    .as_deref()
-                    .and_then(|bytes| serde_json::from_slice::<Vec<f32>>(bytes).ok()),
+                orientation: row.get(5)?,
             })
         })
         .map_err(|e| scan_err("Failed to execute existing photo query", e))?;
@@ -374,68 +293,48 @@ fn analyze_photo(
     filename: &str,
     existing_photos: &HashMap<String, ExistingPhotoInfo>,
     refresh_kind: ScanRefreshKind,
-) -> Option<ScanPhotoData> {
-    let captures = RE_PARSE.captures(filename)?;
+) -> Result<Option<ScanPhotoData>, String> {
+    let Some(captures) = RE_PARSE.captures(filename) else {
+        return Ok(None);
+    };
     let timestamp = format!("{} {}", &captures[1], captures[2].replace("-", ":"));
 
     let existing = existing_photos.get(filename);
-
-    let (width, height, orientation, histogram, phash) = match refresh_kind {
-        ScanRefreshKind::Full => read_image_features(path)?,
-        ScanRefreshKind::MetadataOnly | ScanRefreshKind::PathOnly => {
-            let existing = existing?;
-            (
-                existing.width?,
-                existing.height?,
-                existing.orientation.clone()?,
-                existing.histogram.clone()?,
-                existing.phash.clone(),
-            )
-        }
-    };
-
     let (world_name, world_id, match_source) = match refresh_kind {
         ScanRefreshKind::PathOnly => (
             existing.and_then(|photo| photo.world_name.clone()),
             existing.and_then(|photo| photo.world_id.clone()),
             None,
         ),
-        ScanRefreshKind::Full | ScanRefreshKind::MetadataOnly => resolve_world_info(
-            filename,
-            path,
-            &timestamp,
-            width,
-            height,
-            phash.as_deref(),
-            existing_photos,
-        ),
+        ScanRefreshKind::Full | ScanRefreshKind::MetadataOnly => {
+            resolve_world_info_lightweight(filename, path, &timestamp, existing_photos)
+        }
+    };
+    let orientation = match refresh_kind {
+        ScanRefreshKind::PathOnly | ScanRefreshKind::MetadataOnly => {
+            existing.and_then(|photo| photo.orientation.clone())
+        }
+        ScanRefreshKind::Full => read_image_orientation(path),
     };
 
-    Some(ScanPhotoData {
+    Ok(Some(ScanPhotoData {
         filename: filename.to_string(),
         path: path.to_path_buf(),
         timestamp,
         world_id,
         world_name,
-        width: Some(width),
-        height: Some(height),
-        orientation: Some(orientation),
-        histogram: Some(histogram),
-        phash,
+        orientation,
         match_source,
-    })
+    }))
 }
 
-fn resolve_world_info(
+fn resolve_world_info_lightweight(
     filename: &str,
     path: &Path,
     timestamp: &str,
-    width: u32,
-    height: u32,
-    phash: Option<&str>,
     existing_photos: &HashMap<String, ExistingPhotoInfo>,
 ) -> (Option<String>, Option<String>, Option<String>) {
-    if filename.to_lowercase().ends_with(".png") {
+    if filename.to_ascii_lowercase().ends_with(".png") {
         let (name, id) = extract_vrc_metadata_from_png(path);
         if name.is_some() || id.is_some() {
             return (name, id, Some("metadata".to_string()));
@@ -452,56 +351,52 @@ fn resolve_world_info(
         }
     }
 
-    for existing in existing_photos.values() {
-        if existing.photo_filename == filename {
-            continue;
-        }
-        if existing.world_name.is_some()
-            && existing.timestamp == timestamp
-            && existing.width == Some(width)
-            && existing.height == Some(height)
-        {
-            return (
-                existing.world_name.clone(),
-                existing.world_id.clone(),
-                Some("metadata".to_string()),
-            );
-        }
-    }
-
-    if let Some(phash) = phash {
-        let mut best_match: Option<&ExistingPhotoInfo> = None;
-        let mut best_distance = u32::MAX;
-
-        for existing in existing_photos.values() {
-            let Some(existing_phash) = existing.phash.as_deref() else {
-                continue;
-            };
-            if existing.world_name.is_none() && existing.world_id.is_none() {
-                continue;
-            }
-
-            if let Some(distance) = phash_distance(phash, existing_phash) {
-                if distance <= PHASH_MATCH_THRESHOLD && distance < best_distance {
-                    best_distance = distance;
-                    best_match = Some(existing);
-                }
-            }
-        }
-
-        if let Some(existing) = best_match {
-            return (
-                existing.world_name.clone(),
-                existing.world_id.clone(),
-                Some("phash".to_string()),
-            );
-        }
+    if let Some(world_name) = lookup_world_name_from_stella_record(timestamp) {
+        return (Some(world_name), None, Some("stella_db".to_string()));
     }
 
     (None, None, None)
 }
 
-fn read_image_features(path: &Path) -> Option<(u32, u32, String, Vec<f32>, Option<String>)> {
+fn lookup_world_name_from_stella_record(timestamp: &str) -> Option<String> {
+    let db_path = utils::get_stella_record_install_dir()?.join("stellarecord.db");
+    if !db_path.exists() {
+        return None;
+    }
+
+    let conn = match Connection::open_with_flags(&db_path, OpenFlags::SQLITE_OPEN_READ_ONLY) {
+        Ok(conn) => conn,
+        Err(err) => {
+            crate::utils::log_warn(&format!(
+                "STELLA RECORD DB を開けません ({}): {}",
+                db_path.display(),
+                err
+            ));
+            return None;
+        }
+    };
+
+    let sql = "SELECT world_name
+        FROM world_visits
+        WHERE join_time <= ?1
+          AND (leave_time IS NULL OR leave_time >= ?1)
+        ORDER BY join_time DESC
+        LIMIT 1";
+
+    match conn.query_row(sql, params![timestamp], |row| row.get::<_, String>(0)) {
+        Ok(world_name) => Some(world_name),
+        Err(rusqlite::Error::QueryReturnedNoRows) => None,
+        Err(err) => {
+            crate::utils::log_warn(&format!(
+                "STELLA RECORD のワールド名参照に失敗しました [{}]: {}",
+                timestamp, err
+            ));
+            None
+        }
+    }
+}
+
+fn read_image_orientation(path: &Path) -> Option<String> {
     let image = match image::open(path) {
         Ok(image) => image,
         Err(err) => {
@@ -514,104 +409,11 @@ fn read_image_features(path: &Path) -> Option<(u32, u32, String, Vec<f32>, Optio
         }
     };
 
-    let width = image.width();
-    let height = image.height();
-    let orientation = if width > height {
-        "landscape".to_string()
-    } else if height > width {
+    Some(if image.height() > image.width() {
         "portrait".to_string()
     } else {
-        "square".to_string()
-    };
-    let histogram = compute_histogram(&image);
-    let phash = Some(
-        image_hasher::HasherConfig::new()
-            .to_hasher()
-            .hash_image(&image)
-            .to_base64(),
-    );
-
-    Some((width, height, orientation, histogram, phash))
-}
-
-fn compute_histogram(image: &image::DynamicImage) -> Vec<f32> {
-    let rgb = image.to_rgb8();
-    let mut hue_bins = vec![0f32; HUE_BUCKETS];
-    let mut sat_sum = 0f32;
-    let mut val_sum = 0f32;
-    let mut pixel_count = 0f32;
-
-    for pixel in rgb.pixels() {
-        let [r, g, b] = pixel.0;
-        let (h, s, v) = rgb_to_hsv(r, g, b);
-        let bucket = ((h / 360.0) * HUE_BUCKETS as f32).floor() as usize % HUE_BUCKETS;
-        hue_bins[bucket] += 1.0;
-        sat_sum += s;
-        val_sum += v;
-        pixel_count += 1.0;
-    }
-
-    if pixel_count == 0.0 {
-        return vec![0.0; HUE_BUCKETS + 2];
-    }
-
-    for value in &mut hue_bins {
-        *value /= pixel_count;
-    }
-    hue_bins.push(sat_sum / pixel_count);
-    hue_bins.push(val_sum / pixel_count);
-    hue_bins
-}
-
-fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (f32, f32, f32) {
-    let rf = r as f32 / 255.0;
-    let gf = g as f32 / 255.0;
-    let bf = b as f32 / 255.0;
-
-    let max = rf.max(gf.max(bf));
-    let min = rf.min(gf.min(bf));
-    let delta = max - min;
-
-    let hue = if delta == 0.0 {
-        0.0
-    } else if max == rf {
-        60.0 * (((gf - bf) / delta) % 6.0)
-    } else if max == gf {
-        60.0 * (((bf - rf) / delta) + 2.0)
-    } else {
-        60.0 * (((rf - gf) / delta) + 4.0)
-    };
-
-    let hue = if hue < 0.0 { hue + 360.0 } else { hue };
-    let saturation = if max == 0.0 { 0.0 } else { delta / max };
-    (hue, saturation, max)
-}
-
-fn compute_phash(path: &Path) -> Option<String> {
-    image::open(path).ok().map(|image| {
-        image_hasher::HasherConfig::new()
-            .to_hasher()
-            .hash_image(&image)
-            .to_base64()
+        "landscape".to_string()
     })
-}
-
-fn phash_distance(left: &str, right: &str) -> Option<u32> {
-    use base64::Engine as _;
-
-    let left_bytes = base64::engine::general_purpose::STANDARD
-        .decode(left)
-        .ok()?;
-    let right_bytes = base64::engine::general_purpose::STANDARD
-        .decode(right)
-        .ok()?;
-
-    let mut distance = 0u32;
-    for (lhs, rhs) in left_bytes.iter().zip(right_bytes.iter()) {
-        distance += (lhs ^ rhs).count_ones();
-    }
-
-    Some(distance)
 }
 
 fn delete_missing_photos(
@@ -667,43 +469,27 @@ fn upsert_photo_batch(conn: &mut Connection, items: &[ScanPhotoData]) -> Result<
                     world_id,
                     world_name,
                     timestamp,
-                    width,
-                    height,
                     orientation,
-                    histogram,
-                    phash,
                     match_source
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
                 ON CONFLICT(photo_filename) DO UPDATE SET
                     photo_path = excluded.photo_path,
                     world_id = COALESCE(excluded.world_id, photos.world_id),
                     world_name = COALESCE(excluded.world_name, photos.world_name),
                     timestamp = excluded.timestamp,
-                    width = COALESCE(excluded.width, photos.width),
-                    height = COALESCE(excluded.height, photos.height),
                     orientation = COALESCE(excluded.orientation, photos.orientation),
-                    histogram = COALESCE(excluded.histogram, photos.histogram),
-                    phash = COALESCE(excluded.phash, photos.phash),
                     match_source = COALESCE(excluded.match_source, photos.match_source)",
             )
             .map_err(|e| format!("Failed to prepare insert statement: {}", e))?;
 
         for item in items {
-            let histogram_blob = item
-                .histogram
-                .as_ref()
-                .and_then(|histogram| serde_json::to_vec(histogram).ok());
             stmt.execute(params![
                 item.filename,
                 item.path.to_slash_lossy().to_string(),
                 item.world_id,
                 item.world_name,
                 item.timestamp,
-                item.width.map(|value| value as i64),
-                item.height.map(|value| value as i64),
                 item.orientation,
-                histogram_blob,
-                item.phash,
                 item.match_source,
             ])
             .map_err(|e| format!("Failed to upsert photo {}: {}", item.filename, e))?;
@@ -882,22 +668,4 @@ fn is_supported_image_extension(filename: &str) -> bool {
         Some(ext) => SUPPORTED_EXTENSIONS.contains(&ext.as_str()),
         None => false,
     }
-}
-
-fn apply_phash_updates(conn: &mut Connection, updates: &[(String, String)]) -> Result<(), String> {
-    let tx = conn
-        .transaction()
-        .map_err(|e| format!("Failed to start pHash transaction: {}", e))?;
-    {
-        let mut stmt = tx
-            .prepare("UPDATE photos SET phash = ?1 WHERE photo_filename = ?2")
-            .map_err(|e| format!("Failed to prepare pHash update statement: {}", e))?;
-        for (phash, filename) in updates {
-            stmt.execute(params![phash, filename])
-                .map_err(|e| format!("Failed to update pHash for {}: {}", filename, e))?;
-        }
-    }
-    tx.commit()
-        .map_err(|e| format!("Failed to commit pHash transaction: {}", e))?;
-    Ok(())
 }

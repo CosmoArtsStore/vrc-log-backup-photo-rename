@@ -3,13 +3,17 @@
 use std::panic;
 use std::process;
 
+const APP_NAME: &str = "Alpheratz";
+
 /// Windowsネイティブのメッセージボックスを表示する
 #[cfg(target_os = "windows")]
 fn show_fatal_error(msg: &str) {
     use windows::core::PCWSTR;
     use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
 
-    let title: Vec<u16> = "Alpheratz 致命的エラー\0".encode_utf16().collect();
+    let title: Vec<u16> = format!("{APP_NAME} 致命的エラー\0")
+        .encode_utf16()
+        .collect();
     let message: Vec<u16> = format!("{msg}\0").encode_utf16().collect();
 
     // SAFETY: static UTF-16 buffers are null-terminated and valid for MessageBoxW call duration.

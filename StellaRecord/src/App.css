@@ -104,6 +104,28 @@ button,
   letter-spacing: 0.1em;
 }
 
+.logo-gear-button {
+  border: none;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  color: var(--accent);
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  padding: 0;
+}
+
+.logo-gear-button .icon-svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
 .content-area {
   flex: 1;
   padding: var(--content-pad);
@@ -1381,4 +1403,70 @@ button,
 
 .startup-choice-modal {
   max-width: 480px;
+}
+
+.settings-modal {
+  max-width: 560px;
+}
+
+.settings-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.settings-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.settings-help {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.settings-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-number-input {
+  width: 110px;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(248, 250, 252, 0.9);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.settings-unit {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.settings-danger-box {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border-radius: 18px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+}
+
+.settings-danger-actions {
+  justify-content: flex-start;
+  margin-top: 1rem;
+}
+
+.danger-text-strong {
+  color: var(--danger);
 }

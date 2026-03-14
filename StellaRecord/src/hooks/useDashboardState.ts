@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { AppCard, StartupPreference, StorageStatus } from "../types";
+import type { ManagementSettings, RegistryCatalog, StorageStatus } from "../types";
 
 export function useDashboardState() {
-  const [pleiadesApps, setPleiadesApps] = useState<AppCard[]>([]);
-  const [jewelBoxApps, setJewelBoxApps] = useState<AppCard[]>([]);
+  const [registryApps, setRegistryApps] = useState<RegistryCatalog>({
+    fastparty: [],
+    thirdparty: [],
+  });
   const [polarisRunning, setPolarisRunning] = useState(false);
-  const [startupPreference, setStartupPreference] = useState<StartupPreference>({
-    enabled: false,
-    preference_set: false,
+  const [managementSettings, setManagementSettings] = useState<ManagementSettings>({
+    startup_enabled: false,
+    startup_preference_set: false,
+    archive_limit_mb: 1000,
   });
   const [storageStatus, setStorageStatus] = useState<StorageStatus>({
     current: 0,
@@ -26,18 +29,25 @@ export function useDashboardState() {
     }
   }, []);
 
-  const loadStartupPreference = useCallback(async () => {
+  const loadManagementSettings = useCallback(async () => {
     try {
-      const startup: StartupPreference = await invoke("get_startup_preference");
-      setStartupPreference(startup);
+      const settings: ManagementSettings = await invoke("get_management_settings");
+      setManagementSettings(settings);
     } catch (err) {
-      console.error("Startup preference load failed", err);
+      console.error("Management settings load failed", err);
     }
   }, []);
 
-  const saveStartupPreference = useCallback(async (enabled: boolean) => {
-    await invoke("save_startup_preference", { enabled });
-    setStartupPreference({ enabled, preference_set: true });
+  const saveManagementSettings = useCallback(async (startupEnabled: boolean, archiveLimitMb: number) => {
+    await invoke("save_management_settings", {
+      startupEnabled,
+      archiveLimitMb,
+    });
+    setManagementSettings({
+      startup_enabled: startupEnabled,
+      startup_preference_set: true,
+      archive_limit_mb: archiveLimitMb,
+    });
   }, []);
 
   const pollStatus = useCallback(async () => {
@@ -51,17 +61,15 @@ export function useDashboardState() {
 
   const loadDashboardState = useCallback(async () => {
     try {
-      const pleiades: AppCard[] = await invoke("read_launcher_json", { section: "pleiades" });
-      const jewelbox: AppCard[] = await invoke("read_launcher_json", { section: "jewelbox" });
-      setPleiadesApps(pleiades);
-      setJewelBoxApps(jewelbox);
+      const registry: RegistryCatalog = await invoke("read_registry_catalog");
+      setRegistryApps(registry);
       await pollStorage();
       await pollStatus();
-      await loadStartupPreference();
+      await loadManagementSettings();
     } catch (err) {
       console.error("Dashboard init failed", err);
     }
-  }, [loadStartupPreference, pollStatus, pollStorage]);
+  }, [loadManagementSettings, pollStatus, pollStorage]);
 
   useEffect(() => {
     loadDashboardState();
@@ -75,13 +83,12 @@ export function useDashboardState() {
   }, [loadDashboardState, pollStatus, pollStorage]);
 
   return {
-    pleiadesApps,
-    jewelBoxApps,
+    registryApps,
     polarisRunning,
-    startupPreference,
+    managementSettings,
     storageStatus,
     pollStorage,
     pollStatus,
-    saveStartupPreference,
+    saveManagementSettings,
   };
 }

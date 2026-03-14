@@ -1,4 +1,7 @@
+use regex::Regex;
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::LazyLock;
 use tauri::{generate_handler, AppHandle, Builder, State};
 use tauri_plugin_shell::ShellExt;
 
@@ -13,6 +16,9 @@ pub mod utils;
 use config::{load_setting, save_setting, AlpheratzSetting};
 use db::init_alpheratz_db;
 use models::PhotoRecord;
+
+static WORLD_ID_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^wrld_[A-Za-z0-9_-]+$").expect("world id regex must be valid"));
 
 // --- Commands ---
 
@@ -33,10 +39,6 @@ async fn initialize_scan(
         if let Err(e) = scanner::do_scan(app_clone.clone()).await {
             crate::utils::log_err(&format!("Scanner Error: {}", e));
         }
-
-        if let Err(e) = scanner::compute_missing_phashes_bg(app_clone).await {
-            crate::utils::log_err(&format!("Phash BG Error: {}", e));
-        }
     });
     Ok(())
 }
@@ -53,7 +55,15 @@ async fn get_photos(
 
 #[tauri::command]
 async fn create_thumbnail(path: String) -> Result<String, String> {
-    utils::create_thumbnail_file(&path)
+    let display_path = path.clone();
+    tauri::async_runtime::spawn_blocking(move || utils::create_thumbnail_file(&path))
+        .await
+        .map_err(|e| {
+            format!(
+                "サムネイル生成タスクの待機に失敗しました ({}): {}",
+                display_path, e
+            )
+        })?
 }
 
 #[tauri::command]
@@ -78,37 +88,24 @@ async fn remove_photo_tag_cmd(filename: String, tag: String) -> Result<(), Strin
 
 #[tauri::command]
 async fn open_world_url(app: AppHandle, world_id: String) -> Result<(), String> {
+    if !WORLD_ID_RE.is_match(&world_id) {
+        return Err(format!("VRChat ワールドIDの形式が不正です: {}", world_id));
+    }
     let url = format!("https://vrchat.com/home/world/{}/info", world_id);
     app.shell()
-        .open(url, None)
-        .map_err(|e| format!("Failed to open world URL: {}", e))?;
+        .open(&url, None)
+        .map_err(|e| format!("ワールドURLを開けません [{}]: {}", url, e))?;
     Ok(())
 }
 
 #[tauri::command]
 async fn show_in_explorer(path: String) -> Result<(), String> {
-    opener::reveal(path).map_err(|e| format!("Failed to reveal path in explorer: {}", e))
-}
-
-#[tauri::command]
-async fn get_rotated_phashes(path: String) -> Result<Vec<String>, String> {
-    let img = image::open(&path)
-        .map_err(|e| format!("Failed to open image for rotated pHash ({}): {}", path, e))?;
-    let mut hashes = Vec::new();
-    let hasher = image_hasher::HasherConfig::new().to_hasher();
-
-    hashes.push(hasher.hash_image(&img).to_base64());
-
-    let rot90 = img.rotate90();
-    hashes.push(hasher.hash_image(&rot90).to_base64());
-
-    let rot180 = img.rotate180();
-    hashes.push(hasher.hash_image(&rot180).to_base64());
-
-    let rot270 = img.rotate270();
-    hashes.push(hasher.hash_image(&rot270).to_base64());
-
-    Ok(hashes)
+    let path_ref = Path::new(&path);
+    if !path_ref.exists() {
+        return Err(format!("対象ファイルが見つかりません: {}", path));
+    }
+    opener::reveal(path_ref)
+        .map_err(|e| format!("エクスプローラーで表示できません [{}]: {}", path, e))
 }
 
 #[tauri::command]
@@ -161,7 +158,6 @@ pub fn run() {
             remove_photo_tag_cmd,
             open_world_url,
             show_in_explorer,
-            get_rotated_phashes,
             get_startup_preference_cmd,
             save_startup_preference_cmd,
         ])

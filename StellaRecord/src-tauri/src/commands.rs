@@ -5,16 +5,18 @@ use serde::Serialize;
 use tauri::AppHandle;
 
 use crate::analyze;
-use crate::config::{self, AppCard};
+use crate::config::{self, RegistryCatalog};
 use crate::models::{AnalyzePayload, TableData};
 use crate::{platform, utils};
 
 const STELLA_RECORD_RUN_VALUE: &str = "StellaRecord";
+const HUNDRED_MB_BYTES: u64 = 100 * 1024 * 1024;
 
 #[derive(Serialize)]
-pub struct StartupPreference {
-    pub enabled: bool,
-    pub preference_set: bool,
+pub struct ManagementSettings {
+    pub startup_enabled: bool,
+    pub startup_preference_set: bool,
+    pub archive_limit_mb: u64,
 }
 
 fn emit_analyze_progress(app: &AppHandle, status: String, progress: String, is_running: bool) {
@@ -61,6 +63,88 @@ fn compress_single_file(src: &Path, dst: &Path) -> Result<(), String> {
     tar.finish()
         .map_err(|err| utils::command_err("Failed to finish tar archive", err))?;
     Ok(())
+}
+
+fn collect_pending_archive_logs(archive_dir: &Path) -> Result<Vec<PathBuf>, String> {
+    let entries = fs::read_dir(archive_dir).map_err(|err| {
+        utils::command_err(&format!("Failed to read {}", archive_dir.display()), err)
+    })?;
+    let mut paths = Vec::new();
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(err) => {
+                utils::log_warn(&format!("archive entry read failed: {}", err));
+                continue;
+            }
+        };
+
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if path.is_file() && name.starts_with("output_log_") && name.ends_with(".txt") {
+            paths.push(path);
+        }
+    }
+
+    Ok(paths)
+}
+
+fn collect_directory_size(path: &Path) -> Result<u64, String> {
+    let metadata = fs::metadata(path).map_err(|err| {
+        utils::command_err(&format!("Failed to read metadata {}", path.display()), err)
+    })?;
+
+    if metadata.is_file() {
+        return Ok(metadata.len());
+    }
+
+    let entries = fs::read_dir(path)
+        .map_err(|err| utils::command_err(&format!("Failed to read {}", path.display()), err))?;
+    let mut total = 0u64;
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(err) => {
+                utils::log_warn(&format!("storage entry read failed: {}", err));
+                continue;
+            }
+        };
+
+        total += collect_directory_size(&entry.path())?;
+    }
+
+    Ok(total)
+}
+
+fn compress_pending_logs_in_archive(archive_dir: &Path) -> Result<usize, String> {
+    let zst_dir = archive_dir.join("zst");
+    fs::create_dir_all(&zst_dir).map_err(|err| {
+        utils::command_err(&format!("Failed to create {}", zst_dir.display()), err)
+    })?;
+
+    let mut count = 0usize;
+    for path in collect_pending_archive_logs(archive_dir)? {
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+
+        let zst_path = zst_dir.join(format!("{}.tar.zst", name));
+        if zst_path.exists() {
+            continue;
+        }
+
+        compress_single_file(&path, &zst_path)?;
+        fs::remove_file(&path).map_err(|err| {
+            utils::command_err(&format!("Failed to remove {}", path.display()), err)
+        })?;
+        count += 1;
+    }
+
+    Ok(count)
 }
 
 fn sanitize_table_name(table_name: &str) -> Result<&str, String> {
@@ -114,49 +198,22 @@ pub fn compress_logs() -> Result<String, String> {
         return Err("アーカイブディレクトリが存在しません。".to_string());
     }
 
-    let zst_dir = archive_dir.join("zst");
-    fs::create_dir_all(&zst_dir).map_err(|err| {
-        utils::command_err(&format!("Failed to create {}", zst_dir.display()), err)
-    })?;
-
-    let entries = fs::read_dir(&archive_dir).map_err(|err| {
-        utils::command_err(&format!("Failed to read {}", archive_dir.display()), err)
-    })?;
-    let mut count = 0usize;
-
-    for entry in entries {
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(err) => {
-                utils::log_warn(&format!("archive entry read failed: {}", err));
-                continue;
-            }
-        };
-
-        let path = entry.path();
-        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        if !(path.is_file() && name.starts_with("output_log_") && name.ends_with(".txt")) {
-            continue;
-        }
-
-        let zst_path = zst_dir.join(format!("{}.tar.zst", name));
-        if zst_path.exists() {
-            continue;
-        }
-
-        compress_single_file(&path, &zst_path)?;
-        fs::remove_file(&path).map_err(|err| {
-            utils::command_err(&format!("Failed to remove {}", path.display()), err)
-        })?;
-        count += 1;
-    }
+    let count = compress_pending_logs_in_archive(&archive_dir)?;
 
     Ok(format!(
         "完了しました。{}個のファイルを圧縮・移動しました。",
         count
     ))
+}
+
+#[tauri::command]
+pub fn get_pending_archive_log_count() -> Result<usize, String> {
+    let archive_dir = get_archive_dir()?;
+    if !archive_dir.exists() {
+        return Ok(0);
+    }
+
+    Ok(collect_pending_archive_logs(&archive_dir)?.len())
 }
 
 #[tauri::command]
@@ -322,32 +379,53 @@ pub async fn launch_analyze(app: AppHandle, _mode: String) -> Result<String, Str
 }
 
 #[tauri::command]
+pub async fn launch_startup_archive_import(app: AppHandle) -> Result<String, String> {
+    let db_path = get_db_path()?;
+    let archive_dir = get_archive_dir()?;
+
+    std::thread::spawn(move || {
+        let result = analyze::run_diff_import(db_path, archive_dir.clone(), |status, progress| {
+            emit_analyze_progress(&app, status, progress, true);
+        });
+
+        match result {
+            Ok(()) => match compress_pending_logs_in_archive(&archive_dir) {
+                Ok(count) => emit_analyze_progress(
+                    &app,
+                    format!("取り込み完了後に {} 個のログを自動圧縮しました。", count),
+                    "100%".to_string(),
+                    false,
+                ),
+                Err(err) => emit_analyze_progress(
+                    &app,
+                    format!("取り込み後の自動圧縮に失敗しました: {}", err),
+                    "100%".to_string(),
+                    false,
+                ),
+            },
+            Err(err) => {
+                emit_analyze_progress(&app, format!("エラー: {}", err), "0%".to_string(), false)
+            }
+        }
+
+        utils::emit_event_warn(&app, "analyze-finished", ());
+    });
+
+    Ok("生ログの取り込みを開始しました。完了後に自動圧縮します。".to_string())
+}
+
+#[tauri::command]
 pub fn get_storage_status() -> Result<(u64, u64), String> {
     let setting = config::load_polaris_setting();
     let archive_dir = setting
         .get_effective_archive_dir()
         .ok_or_else(|| "アーカイブディレクトリが見つかりません。".to_string())?;
 
-    let mut total_size = 0u64;
-    if archive_dir.exists() {
-        let entries = fs::read_dir(&archive_dir).map_err(|err| {
-            utils::command_err(&format!("Failed to read {}", archive_dir.display()), err)
-        })?;
-        for entry in entries {
-            let entry = match entry {
-                Ok(entry) => entry,
-                Err(err) => {
-                    utils::log_warn(&format!("storage entry read failed: {}", err));
-                    continue;
-                }
-            };
-            match entry.metadata() {
-                Ok(metadata) if metadata.is_file() => total_size += metadata.len(),
-                Ok(_) => {}
-                Err(err) => utils::log_warn(&format!("metadata read failed: {}", err)),
-            }
-        }
-    }
+    let total_size = if archive_dir.exists() {
+        collect_directory_size(&archive_dir)?
+    } else {
+        0
+    };
 
     Ok((total_size, setting.capacity_threshold_bytes))
 }
@@ -490,13 +568,8 @@ pub fn wipe_database() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn read_launcher_json(section: &str) -> Vec<AppCard> {
-    let filename = if section == "pleiades" {
-        "pleiades.json"
-    } else {
-        "jewelbox.json"
-    };
-    config::load_launcher_json(filename)
+pub fn read_registry_catalog() -> RegistryCatalog {
+    config::load_registry_catalog()
 }
 
 #[tauri::command]
@@ -517,20 +590,36 @@ pub async fn start_polaris() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn get_startup_preference() -> StartupPreference {
-    let setting = config::load_stellarecord_setting();
-    StartupPreference {
-        enabled: setting.enable_startup,
-        preference_set: setting.startup_preference_set,
+pub fn get_management_settings() -> ManagementSettings {
+    let stella_setting = config::load_stellarecord_setting();
+    let polaris_setting = config::load_polaris_setting();
+    let archive_limit_mb =
+        ((polaris_setting.capacity_threshold_bytes / HUNDRED_MB_BYTES).max(1)) * 100;
+
+    ManagementSettings {
+        startup_enabled: stella_setting.enable_startup,
+        startup_preference_set: stella_setting.startup_preference_set,
+        archive_limit_mb,
     }
 }
 
 #[tauri::command]
-pub fn save_startup_preference(enabled: bool) -> Result<(), String> {
-    let mut setting = config::load_stellarecord_setting();
-    setting.enable_startup = enabled;
-    setting.startup_preference_set = true;
-    config::save_stellarecord_setting(&setting)?;
-    platform::set_startup_enabled(STELLA_RECORD_RUN_VALUE, enabled)?;
+pub fn save_management_settings(
+    startup_enabled: bool,
+    archive_limit_mb: u64,
+) -> Result<(), String> {
+    let normalized_limit_mb = archive_limit_mb.max(100);
+    let capacity_threshold_bytes = (normalized_limit_mb / 100).max(1) * HUNDRED_MB_BYTES;
+
+    let mut stella_setting = config::load_stellarecord_setting();
+    stella_setting.enable_startup = startup_enabled;
+    stella_setting.startup_preference_set = true;
+    config::save_stellarecord_setting(&stella_setting)?;
+    platform::set_startup_enabled(STELLA_RECORD_RUN_VALUE, startup_enabled)?;
+
+    let mut polaris_setting = config::load_polaris_setting();
+    polaris_setting.capacity_threshold_bytes = capacity_threshold_bytes;
+    config::save_polaris_setting(&polaris_setting)?;
+
     Ok(())
 }

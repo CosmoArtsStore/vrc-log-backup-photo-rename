@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 import { Icons } from "./components/Icons";
@@ -14,8 +14,13 @@ function App() {
   const [currentTable, setCurrentTable] = useState("");
   const [tableData, setTableData] = useState<TableData>({ columns: [], rows: [] });
   const [showEnhancedSyncModal, setShowEnhancedSyncModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showPendingArchiveModal, setShowPendingArchiveModal] = useState(false);
   const [decompressMode, setDecompressMode] = useState(false);
   const [archiveFiles, setArchiveFiles] = useState<string[]>([]);
+  const [archiveLimitDraft, setArchiveLimitDraft] = useState("1000");
+  const [startupEnabledDraft, setStartupEnabledDraft] = useState(false);
+  const [pendingArchiveLogCount, setPendingArchiveLogCount] = useState(0);
 
   const [dangerModal, setDangerModal] = useState<{
     action: DangerAction;
@@ -24,14 +29,13 @@ function App() {
 
   const { toasts, addToast } = useToasts();
   const {
-    pleiadesApps,
-    jewelBoxApps,
+    registryApps,
     polarisRunning,
-    startupPreference,
+    managementSettings,
     storageStatus,
     pollStorage,
     pollStatus,
-    saveStartupPreference,
+    saveManagementSettings,
   } = useDashboardState();
   const {
     analyzeRunning,
@@ -97,18 +101,6 @@ function App() {
     } catch (e) {
       setAnalyzeRunning(false);
       addToast(`強化同期エラー: ${e}`);
-    }
-  };
-
-  const handleCompressLogs = async () => {
-    addToast("アーカイブの圧縮を開始します (レベル3)...");
-    try {
-      const res: string = await invoke("compress_logs");
-      addToast(res);
-    } catch (e) {
-      addToast(`圧縮エラー: ${e}`);
-    } finally {
-      pollStorage();
     }
   };
 
@@ -193,23 +185,60 @@ function App() {
     }
   };
 
-  const handleStartupPreference = async (enabled: boolean) => {
+  const openSettingsModal = () => {
+    setArchiveLimitDraft(String(managementSettings.archive_limit_mb));
+    setStartupEnabledDraft(managementSettings.startup_enabled);
+    setShowSettingsModal(true);
+  };
+
+  const handleSaveSettings = async () => {
+    const parsed = Number(archiveLimitDraft);
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed % 100 !== 0) {
+      addToast("archive 上限は 100MB 単位の正の数で指定してください。");
+      return;
+    }
+
     try {
-      await saveStartupPreference(enabled);
-      addToast(enabled ? "STELLA RECORD をログイン時に起動する設定にしました。" : "STELLA RECORD のログイン時起動を無効にしました。");
+      await saveManagementSettings(startupEnabledDraft, parsed);
+      setShowSettingsModal(false);
+      addToast("設定を保存しました。");
+      pollStorage();
     } catch (e) {
-      addToast(`自動起動設定の更新に失敗しました: ${e}`);
+      addToast(`設定保存に失敗しました: ${e}`);
     }
   };
 
+  const handleStartupImport = async () => {
+    try {
+      setShowPendingArchiveModal(false);
+      setAnalyzeRunning(true);
+      const message: string = await invoke("launch_startup_archive_import");
+      addToast(message);
+    } catch (e) {
+      setAnalyzeRunning(false);
+      addToast(`起動時取り込みに失敗しました: ${e}`);
+    }
+  };
+
+  useEffect(() => {
+    const checkPendingArchiveLogs = async () => {
+      try {
+        const count: number = await invoke("get_pending_archive_log_count");
+        setPendingArchiveLogCount(count);
+        if (count > 0) {
+          setShowPendingArchiveModal(true);
+        }
+      } catch (e) {
+        console.error("Pending archive log check failed", e);
+      }
+    };
+
+    checkPendingArchiveLogs();
+  }, []);
+
   // --- Renderers ---
   const formatSize = (bytes: number) => {
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    if (bytes === 0) return '0 Bytes';
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    // KB単位以下の値を気にするため、小数点2桁を維持しつつ、小さい単位でもしっかり見せる
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return `${Math.round(bytes / (1024 * 1024))}MB`;
   };
   const renderDashboard = () => (
     <div className="view-container">
@@ -227,8 +256,7 @@ function App() {
             </button>
           </div>
           <div className="storage-stats">
-            {formatSize(storageStatus.current)} /
-            {Math.round(storageStatus.limit / (1024 * 1024 * 1024))} GB ({storageStatus.percent.toFixed(1)}%)
+            {formatSize(storageStatus.current)} / {formatSize(storageStatus.limit)} ({storageStatus.percent.toFixed(1)}%)
           </div>
         </div>
         <div className="storage-track">
@@ -237,21 +265,6 @@ function App() {
             style={{ width: `${storageStatus.percent}%` }}
           />
         </div>
-      </div>
-
-      <div className="card startup-card">
-        <div>
-          <h3 style={{ margin: 0 }}>起動設定</h3>
-          <p style={{ margin: "0.35rem 0 0", color: "var(--text-dim)", fontSize: "0.85rem" }}>
-            Windows へログインした直後に STELLA RECORD を自動起動するかを管理します。
-          </p>
-        </div>
-        <button
-          className={`btn-action ${startupPreference.enabled ? "primary" : ""}`}
-          onClick={() => handleStartupPreference(!startupPreference.enabled)}
-        >
-          {startupPreference.enabled ? "自動起動を無効化" : "自動起動を有効化"}
-        </button>
       </div>
 
       <div className="dashboard-grid">
@@ -266,23 +279,13 @@ function App() {
           </p>
         </div>
 
-        <div className="feature-card" onClick={() => setActiveSection("pleiades")}>
+        <div className="feature-card" onClick={() => setActiveSection("registry")}>
           <div className="feature-header">
             <div className="feature-icon"><Icons.Pleiades /></div>
-            <div className="feature-title">Pleiades</div>
+            <div className="feature-title">レジストリ</div>
           </div>
           <p className="feature-desc">
-            CosmoArtsStore製の専用拡張ツール。
-          </p>
-        </div>
-
-        <div className="feature-card" onClick={() => setActiveSection("jewelbox")}>
-          <div className="feature-header">
-            <div className="feature-icon"><Icons.JewelBox /></div>
-            <div className="feature-title">JewelBox</div>
-          </div>
-          <p className="feature-desc">
-            外部のお気に入りツール一括起動。
+            登録済みツールを、ファーストパーティ製とサードパーティ製に分けて管理します。
           </p>
         </div>
       </div>
@@ -312,8 +315,8 @@ function App() {
             <button className="btn-action primary" onClick={handleOpenDatabase} style={{ flex: 1 }}>
               <Icons.Database /> DB開く
             </button>
-            <button className="btn-action danger" onClick={handleDeleteTodayData} style={{ flex: 1, padding: '0.5rem' }}>
-              今日分削除
+            <button className="btn-action" onClick={openSettingsModal} style={{ flex: 1, padding: '0.5rem' }}>
+              設定を開く
             </button>
           </div>
         </div>
@@ -343,16 +346,7 @@ function App() {
             </button>
           </div>
 
-          {/* カード2: 圧縮 */}
-          <div className="sync-card">
-            <h4>ログアーカイブ最適化</h4>
-            <p>過去のログを tar.zst で圧縮し、zstフォルダへ移動。圧縮後は元ファイルを削除します。</p>
-            <button className="btn-action" style={{ width: '100%' }} onClick={handleCompressLogs}>
-              過去ログを圧縮
-            </button>
-          </div>
-
-          {/* カード3: zipからも読み取る */}
+          {/* カード2: zipからも読み取る */}
           <div className="sync-card">
             <h4>zipからも読み取る</h4>
             <p>圧縮済み (.tar.zst) を指定してDBを更新。複数選択・ Shift/Ctrl/ドラッグ対応。</p>
@@ -366,7 +360,7 @@ function App() {
             </button>
           </div>
 
-          {/* カード4: 解凍 */}
+          {/* カード3: 解凍 */}
           <div className="sync-card">
             <h4>アーカイブを解凍</h4>
             <p>zst フォルダ内の .tar.zst を archive フォルダに .txt として復元。展開確認後に .tar.zst を削除します。</p>
@@ -405,27 +399,6 @@ function App() {
         )}
       </div>
 
-      {/* デンジャーゾーンはページ下部に配置—スクロールすると出てくる */}
-      <div className="danger-zone-spacer" />
-      <div className="warning-zone">
-        <div className="warning-header">
-          <div className="danger-badge">DANGER</div>
-          <Icons.Alert />
-          <h4>デンジャーゾーン</h4>
-        </div>
-        <p className="danger-text">
-          これらの操作はデータベースの整合性に影響を与えたり、データを永久に削除する可能性があります。<br />
-          通常の使用では実行する必要はありません。
-        </p>
-        <div className="warning-actions">
-          <button className="btn-action danger" onClick={handleDeleteTodayData}>
-            今日分の記録を削除
-          </button>
-          <button className="btn-action danger wipe" onClick={handleWipeDatabase}>
-            データベースを完全に初期化
-          </button>
-        </div>
-      </div>
     </div>
   );
   const renderDatabase = () => (
@@ -498,43 +471,45 @@ function App() {
     switch (activeSection) {
       case "dashboard": return renderDashboard();
       case "analyze": return renderPlanetarium();
-      case "pleiades": return (
+      case "registry": return (
         <div className="view-container">
           <div className="back-link" onClick={() => setActiveSection("dashboard")}>
             <Icons.ArrowBack /> Dashboardに戻る
           </div>
-          <div className="section-header"><h2>Pleiades Tools</h2><p>Extension management</p></div>
-          <div className="launcher-grid">
-            {pleiadesApps.map(app => (
-              <div key={app.name} className="launcher-card">
-                <div className="launcher-main" onClick={() => handleLaunch(app)}>
-                  <div className="launcher-icon">
-                    {app.icon_path ? <img src={`https://asset.localhost/${app.icon_path}`} alt="" /> : <Icons.Pleiades />}
+          <div className="section-header"><h2>レジストリ</h2><p>登録済みツール一覧</p></div>
+
+          <div className="card" style={{ marginBottom: "1rem" }}>
+            <h3 style={{ marginTop: 0 }}>ファーストパーティ製</h3>
+            <p style={{ color: "var(--text-dim)", marginTop: "0.35rem" }}>CosmoArtsStore 製ツール。</p>
+            <div className="launcher-grid">
+              {registryApps.fastparty.map(app => (
+                <div key={app.name} className="launcher-card">
+                  <div className="launcher-main" onClick={() => handleLaunch(app)}>
+                    <div className="launcher-icon">
+                      {app.icon_path ? <img src={`https://asset.localhost/${app.icon_path}`} alt="" /> : <Icons.Pleiades />}
+                    </div>
+                    <div className="launcher-info"><h3>{app.name}</h3><p>{app.description}</p></div>
                   </div>
-                  <div className="launcher-info"><h3>{app.name}</h3><p>{app.description}</p></div>
+                  <button className="btn-folder" onClick={() => handleOpenFolder(app)} title="フォルダを開く"><Icons.Folder /></button>
                 </div>
-                <button className="btn-folder" onClick={() => handleOpenFolder(app)} title="フォルダを開く"><Icons.Folder /></button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      );
-      case "jewelbox": return (
-        <div className="view-container">
-          <div className="back-link" onClick={() => setActiveSection("dashboard")}>
-            <Icons.ArrowBack /> Dashboardに戻る
-          </div>
-          <div className="section-header"><h2>JewelBox</h2><p>External tool integration</p></div>
-          <div className="launcher-grid">
-            {jewelBoxApps.map(app => (
-              <div key={app.name} className="launcher-card">
-                <div className="launcher-main" onClick={() => handleLaunch(app)}>
-                  <div className="launcher-icon"><Icons.JewelBox /></div>
-                  <div className="launcher-info"><h3>{app.name}</h3><p>{app.description}</p></div>
+
+          <div className="card">
+            <h3 style={{ marginTop: 0 }}>サードパーティ製</h3>
+            <p style={{ color: "var(--text-dim)", marginTop: "0.35rem" }}>外部ツールや連携アプリ。</p>
+            <div className="launcher-grid">
+              {registryApps.thirdparty.map(app => (
+                <div key={app.name} className="launcher-card">
+                  <div className="launcher-main" onClick={() => handleLaunch(app)}>
+                    <div className="launcher-icon"><Icons.JewelBox /></div>
+                    <div className="launcher-info"><h3>{app.name}</h3><p>{app.description}</p></div>
+                  </div>
+                  <button className="btn-folder" onClick={() => handleOpenFolder(app)} title="フォルダを開く"><Icons.Folder /></button>
                 </div>
-                <button className="btn-folder" onClick={() => handleOpenFolder(app)} title="フォルダを開く"><Icons.Folder /></button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       );
@@ -548,6 +523,9 @@ function App() {
       <nav className="top-navigation">
         <div className="logo">
           <Icons.Sparkle /> STELLA RECORD
+          <button className="logo-gear-button" onClick={openSettingsModal} title="設定">
+            <Icons.Gear />
+          </button>
         </div>
         <div className={`survival-group ${polarisRunning ? 'online' : 'offline'}`}>
           <div className="status-lamp">
@@ -589,7 +567,7 @@ function App() {
               {archiveFiles.length === 0 ? (
                 <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-dim)' }}>
                   zst フォルダ内にアーカイブファイルが見つかりません。<br />
-                  先に「過去ログを圧縮」を実行してください。
+                  起動時取り込み後の自動圧縮、または既存アーカイブを確認してください。
                 </div>
               ) : (
                 archiveFiles.map(file => (
@@ -665,20 +643,82 @@ function App() {
         );
       })()}
 
-      {!startupPreference.preference_set && (
+      {showSettingsModal && (
+        <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
+          <div className="modal-content settings-modal" onClick={(event) => event.stopPropagation()}>
+            <h3>STELLA RECORD 設定</h3>
+            <p>起動設定、DB 操作、archive ストレージ上限をここで管理します。</p>
+
+            <div className="settings-section">
+              <div>
+                <div className="settings-label">ログイン時に起動</div>
+                <div className="settings-help">Windows ログイン直後に STELLA RECORD を起動します。</div>
+              </div>
+              <button
+                className={`btn-action ${startupEnabledDraft ? "primary" : ""}`}
+                onClick={() => setStartupEnabledDraft((prev) => !prev)}
+              >
+                {startupEnabledDraft ? "有効" : "無効"}
+              </button>
+            </div>
+
+            <div className="settings-section">
+              <div>
+                <div className="settings-label">archive 上限目安</div>
+                <div className="settings-help">archive フォルダ全体の容量を MB 単位で監視します。100MB 単位で指定します。</div>
+              </div>
+              <div className="settings-input-row">
+                <input
+                  className="settings-number-input"
+                  type="number"
+                  min={100}
+                  step={100}
+                  value={archiveLimitDraft}
+                  onChange={(event) => setArchiveLimitDraft(event.target.value)}
+                />
+                <span className="settings-unit">MB</span>
+              </div>
+            </div>
+
+            <div className="settings-danger-box">
+              <div className="settings-label danger-text-strong">データベース削除</div>
+              <div className="settings-help">通常利用では不要です。削除後は再解析が必要です。</div>
+              <div className="modal-actions settings-danger-actions">
+                <button className="btn-action danger" onClick={handleDeleteTodayData}>
+                  今日分削除
+                </button>
+                <button className="btn-action danger wipe" onClick={handleWipeDatabase}>
+                  DBを完全初期化
+                </button>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn-action" onClick={() => setShowSettingsModal(false)}>
+                閉じる
+              </button>
+              <button className="btn-action primary" onClick={handleSaveSettings}>
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPendingArchiveModal && (
         <div className="modal-overlay">
           <div className="modal-content startup-choice-modal">
-            <h3>ログイン時に STELLA RECORD を起動しますか？</h3>
+            <h3>archive に未圧縮ログがあります</h3>
             <p>
-              Polaris と連携する管理画面のため、必要なら Windows ログイン直後に開けます。
-              不要なら後から設定で変更できます。
+              `archive` フォルダに未取り込みの `.txt` ログが {pendingArchiveLogCount} 件あります。
+              取り込み後は自動で `tar.zst` へ圧縮します。今すぐ処理しますか。
             </p>
             <div className="modal-actions">
-              <button className="btn-action" onClick={() => handleStartupPreference(false)}>
-                今は不要
+              <button className="btn-action" onClick={() => setShowPendingArchiveModal(false)}>
+                後で行う
               </button>
-              <button className="btn-action primary" onClick={() => handleStartupPreference(true)}>
-                自動起動する
+              <button className="btn-action primary" onClick={handleStartupImport}>
+                取り込む
               </button>
             </div>
           </div>

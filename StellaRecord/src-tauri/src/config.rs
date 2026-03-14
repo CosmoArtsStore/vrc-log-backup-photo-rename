@@ -68,7 +68,7 @@ pub struct PolarisSetting {
 }
 
 fn default_capacity() -> u64 {
-    10_737_418_240
+    1_048_576_000
 }
 
 fn default_true() -> bool {
@@ -115,6 +115,14 @@ pub struct AppCard {
     pub icon_path: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct RegistryCatalog {
+    #[serde(default)]
+    pub fastparty: Vec<AppCard>,
+    #[serde(default)]
+    pub thirdparty: Vec<AppCard>,
+}
+
 pub fn load_polaris_setting() -> PolarisSetting {
     let Some(base) = get_setting_base() else {
         utils::log_warn(
@@ -129,6 +137,19 @@ pub fn load_polaris_setting() -> PolarisSetting {
     }
 
     read_json_file(&path).unwrap_or_default()
+}
+
+pub fn save_polaris_setting(setting: &PolarisSetting) -> Result<(), String> {
+    let Some(base) = get_setting_base() else {
+        return Err(
+            "StellaRecord install directory not found while saving PolarisSetting.json".to_string(),
+        );
+    };
+
+    let path = base.join("PolarisSetting.json");
+    let content = serde_json::to_string_pretty(setting)
+        .map_err(|err| format!("Failed to serialize PolarisSetting.json: {}", err))?;
+    fs::write(&path, content).map_err(|err| format!("Failed to write {}: {}", path.display(), err))
 }
 
 pub fn load_stellarecord_setting() -> StellaRecordSetting {
@@ -176,6 +197,23 @@ pub fn load_launcher_json(filename: &str) -> Vec<AppCard> {
     }
 
     read_json_file(&path).unwrap_or_default()
+}
+
+pub fn load_registry_catalog() -> RegistryCatalog {
+    let Some(base) = get_setting_base() else {
+        utils::log_warn("StellaRecord install directory not found while loading registry.json");
+        return RegistryCatalog::default();
+    };
+
+    let registry_path = base.join("registry.json");
+    if registry_path.exists() {
+        return read_json_file(&registry_path).unwrap_or_default();
+    }
+
+    RegistryCatalog {
+        fastparty: load_launcher_json("pleiades.json"),
+        thirdparty: load_launcher_json("jewelbox.json"),
+    }
 }
 
 impl PolarisSetting {

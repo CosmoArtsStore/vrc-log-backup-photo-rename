@@ -8,12 +8,17 @@ interface UseScrollArgs {
 }
 
 const SCROLLBAR_PADDING = 8;
+const SCROLLBAR_MIN_THUMB_HEIGHT = 32;
 
 export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }: UseScrollArgs) => {
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const [scrollTop, setScrollTop] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const dragStartRef = useRef<{ y: number; scrollTop: number } | null>(null);
+    const animationFrameRef = useRef<number | null>(null);
+    const pendingScrollTopRef = useRef(0);
+    const wheelAnimationRef = useRef<number | null>(null);
+    const wheelTargetRef = useRef(0);
     const mouseMoveHandlerRef = useRef<((ev: MouseEvent) => void) | null>(null);
     const mouseUpHandlerRef = useRef<(() => void) | null>(null);
 
@@ -23,11 +28,20 @@ export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }:
 
     const handleGridScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
         scrollContainerRef.current = e.currentTarget;
-        setScrollTop(e.currentTarget.scrollTop);
+        pendingScrollTopRef.current = e.currentTarget.scrollTop;
+        if (animationFrameRef.current !== null) {
+            return;
+        }
+        animationFrameRef.current = window.requestAnimationFrame(() => {
+            animationFrameRef.current = null;
+            setScrollTop(pendingScrollTopRef.current);
+        });
     }, []);
 
     const trackHeight = gridHeight - SCROLLBAR_PADDING;
-    const thumbHeight = totalHeight > 0 ? Math.max(32, trackHeight * (gridHeight / totalHeight)) : trackHeight;
+    const thumbHeight = totalHeight > 0
+        ? Math.max(SCROLLBAR_MIN_THUMB_HEIGHT, trackHeight * (gridHeight / totalHeight))
+        : trackHeight;
     const thumbTop = maxScrollTop > 0 ? (scrollTop / maxScrollTop) * (trackHeight - thumbHeight) : 0;
 
     const handleScrollbarMouseDown = useCallback((e: React.MouseEvent) => {
@@ -54,12 +68,26 @@ export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }:
 
         mouseMoveHandlerRef.current = onMouseMove;
         mouseUpHandlerRef.current = onMouseUp;
-        document.addEventListener("mousemove", onMouseMove);
-        document.addEventListener("mouseup", onMouseUp);
+        try {
+            document.addEventListener("mousemove", onMouseMove);
+            document.addEventListener("mouseup", onMouseUp);
+        } catch (err) {
+            setIsDragging(false);
+            dragStartRef.current = null;
+            mouseMoveHandlerRef.current = null;
+            mouseUpHandlerRef.current = null;
+            throw err;
+        }
     }, [scrollTop, trackHeight, maxScrollTop, thumbHeight]);
 
     useEffect(() => {
         return () => {
+            if (animationFrameRef.current !== null) {
+                window.cancelAnimationFrame(animationFrameRef.current);
+            }
+            if (wheelAnimationRef.current !== null) {
+                window.cancelAnimationFrame(wheelAnimationRef.current);
+            }
             if (mouseMoveHandlerRef.current) {
                 document.removeEventListener("mousemove", mouseMoveHandlerRef.current);
             }
@@ -74,18 +102,60 @@ export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }:
         const rect = e.currentTarget.getBoundingClientRect();
         const clickY = e.clientY - rect.top;
         const ratio = (clickY - thumbHeight / 2) / Math.max(1, trackHeight - thumbHeight);
-        scrollContainerRef.current.scrollTop = Math.max(0, Math.min(maxScrollTop, ratio * maxScrollTop));
+        scrollContainerRef.current.scrollTo({
+            top: Math.max(0, Math.min(maxScrollTop, ratio * maxScrollTop)),
+            behavior: "smooth",
+        });
     }, [thumbHeight, trackHeight, maxScrollTop]);
 
     const handleJumpToRow = useCallback((rowIndex: number) => {
         if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTop = rowIndex * ROW_HEIGHT;
+            scrollContainerRef.current.scrollTo({
+                top: rowIndex * ROW_HEIGHT,
+                behavior: "smooth",
+            });
         }
     }, [ROW_HEIGHT]);
+
+    const handleGridWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+        if (!scrollContainerRef.current || maxScrollTop <= 0) {
+            return;
+        }
+
+        e.preventDefault();
+        const container = scrollContainerRef.current;
+        const delta = Math.abs(e.deltaY) < 1 ? 0 : e.deltaY;
+        wheelTargetRef.current = Math.max(
+            0,
+            Math.min(maxScrollTop, wheelTargetRef.current + delta),
+        );
+
+        if (wheelAnimationRef.current !== null) {
+            return;
+        }
+
+        const animate = () => {
+            const current = container.scrollTop;
+            const target = wheelTargetRef.current;
+            const next = current + (target - current) * 0.22;
+
+            if (Math.abs(target - current) < 0.5) {
+                container.scrollTop = target;
+                wheelAnimationRef.current = null;
+                return;
+            }
+
+            container.scrollTop = next;
+            wheelAnimationRef.current = window.requestAnimationFrame(animate);
+        };
+
+        wheelAnimationRef.current = window.requestAnimationFrame(animate);
+    }, [maxScrollTop]);
 
     const onGridRef = useCallback((node: HTMLDivElement | null) => {
         if (node) {
             scrollContainerRef.current = node;
+            wheelTargetRef.current = node.scrollTop;
         }
     }, []);
 
@@ -97,6 +167,7 @@ export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }:
         totalHeight,
         onGridRef,
         handleGridScroll,
+        handleGridWheel,
         handleScrollbarMouseDown,
         handleTrackClick,
         handleJumpToRow,

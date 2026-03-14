@@ -1,73 +1,43 @@
-# React + TypeScript + Vite
+# StellaRecord
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+StellaRecord は、STELLAProject 内で使う記録用アプリです。  
+利用者が入力した情報や、他アプリと連携するための記録データを扱います。
 
-Currently, two official plugins are available:
+## このアプリで想定していること
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 必要な情報を入力して保存する
+- 保存した内容をあとから見返す
+- STELLAProject 内の他アプリと記録を共有する
 
-## React Compiler
+## 初めて使う人へ
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. アプリを起動します。
+2. 画面の案内に従って必要な情報を入力します。
+3. 保存したあと、一覧や詳細画面で内容を確認します。
 
-## Expanding the ESLint configuration
+## 開発者向け
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 必要なもの
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Node.js
+- Rust
+- Windows
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 開発起動
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run tauri dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### ビルド
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
+npm run tauri build
 ```
+
+## 補足
+
+- 設定や保存データの扱いは、他アプリ連携に影響するため慎重に変更してください。
+- 画面文言は、PC に詳しくない利用者でも分かる表現を優先してください。

@@ -1,5 +1,4 @@
 import { MouseEvent } from "react";
-import { MonthGroup } from "../types";
 
 interface CustomScrollbarProps {
     isDragging: boolean;
@@ -7,8 +6,6 @@ interface CustomScrollbarProps {
     thumbHeight: number;
     handleTrackClick: (e: MouseEvent<HTMLDivElement>) => void;
     handleScrollbarMouseDown: (e: MouseEvent) => void;
-    monthGroups: MonthGroup[];
-    activeMonthIndex: number;
 }
 
 export const CustomScrollbar = ({
@@ -17,8 +14,6 @@ export const CustomScrollbar = ({
     thumbHeight,
     handleTrackClick,
     handleScrollbarMouseDown,
-    monthGroups,
-    activeMonthIndex,
 }: CustomScrollbarProps) => {
     return (
         <div className={`custom-scrollbar ${isDragging ? "dragging" : ""}`}>
@@ -28,11 +23,6 @@ export const CustomScrollbar = ({
                     style={{ top: thumbTop, height: thumbHeight }}
                     onMouseDown={handleScrollbarMouseDown}
                 />
-            </div>
-            <div className="scroll-month-indicator" style={{ top: Math.max(0, thumbTop - 10) }}>
-                {monthGroups[activeMonthIndex]
-                    ? `${monthGroups[activeMonthIndex].year}年${monthGroups[activeMonthIndex].month}月`
-                    : ""}
             </div>
         </div>
     );

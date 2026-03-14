@@ -13,7 +13,6 @@ import { usePhotoActions } from "./hooks/usePhotoActions";
 
 import { Header } from "./components/Header";
 import { MonthNav } from "./components/MonthNav";
-import { ActionCards } from "./components/ActionCards";
 import { PhotoGrid } from "./components/PhotoGrid";
 import { PhotoModal } from "./components/PhotoModal";
 import { SettingsModal } from "./components/SettingsModal";
@@ -24,87 +23,63 @@ import { Photo } from "./types";
 
 const CARD_WIDTH = 270;
 const ROW_HEIGHT = 246;
-const HUE_SEGMENTS = [
-  "red",
-  "orange",
-  "yellow",
-  "green",
-  "cyan",
-  "blue",
-  "purple",
-  "pink",
-] as const;
+type DatePreset = "none" | "today" | "last7days" | "thisMonth" | "lastMonth" | "custom";
+type ThemeMode = "light" | "dark";
+type AppSetting = {
+  photoFolderPath?: string;
+  enableStartup?: boolean;
+  startupPreferenceSet?: boolean;
+  themeMode?: ThemeMode;
+};
 
-function classifyPhotoColor(photo: Photo): string {
-  const histogram = photo.histogram;
-  if (!histogram || histogram.length < 14) {
-    return "unknown";
+const formatDate = (date: Date) => date.toISOString().slice(0, 10);
+
+const getToday = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
+const getDateRangeFromPreset = (preset: Exclude<DatePreset, "none" | "custom">) => {
+  const today = getToday();
+
+  if (preset === "today") {
+    const value = formatDate(today);
+    return { from: value, to: value };
   }
 
-  const hueBins = histogram.slice(0, 12);
-  const saturation = histogram[12] ?? 0;
-  const value = histogram[13] ?? 0;
-
-  if (saturation < 0.18) {
-    return "mono";
-  }
-  if (value < 0.25) {
-    return "dark";
-  }
-  if (value > 0.82 && saturation < 0.45) {
-    return "bright";
+  if (preset === "last7days") {
+    const from = new Date(today);
+    from.setDate(today.getDate() - 6);
+    return { from: formatDate(from), to: formatDate(today) };
   }
 
-  let dominantIndex = 0;
-  for (let i = 1; i < hueBins.length; i += 1) {
-    if (hueBins[i] > hueBins[dominantIndex]) {
-      dominantIndex = i;
-    }
+  if (preset === "thisMonth") {
+    const from = new Date(today.getFullYear(), today.getMonth(), 1);
+    const to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return { from: formatDate(from), to: formatDate(to) };
   }
 
-  return HUE_SEGMENTS[Math.floor(dominantIndex / 12 * HUE_SEGMENTS.length)] ?? "unknown";
-}
-
-function matchesColorFilter(photo: Photo, colorFilter: string): boolean {
-  if (colorFilter === "all") {
-    return true;
-  }
-
-  const histogram = photo.histogram;
-  if (!histogram || histogram.length < 14) {
-    return false;
-  }
-
-  const saturation = histogram[12] ?? 0;
-  const value = histogram[13] ?? 0;
-
-  if (colorFilter === "mono") {
-    return saturation < 0.18;
-  }
-  if (colorFilter === "dark") {
-    return value < 0.25;
-  }
-  if (colorFilter === "bright") {
-    return value > 0.82;
-  }
-
-  return classifyPhotoColor(photo) === colorFilter;
-}
+  const from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const to = new Date(today.getFullYear(), today.getMonth(), 0);
+  return { from: formatDate(from), to: formatDate(to) };
+};
 
 function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [worldFilter, setWorldFilter] = useState("all");
+  const [worldFilters, setWorldFilters] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [startupEnabled, setStartupEnabled] = useState(false);
   const [startupPreferenceSet, setStartupPreferenceSet] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [datePreset, setDatePreset] = useState<DatePreset>("none");
   const [orientationFilter, setOrientationFilter] = useState("all");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [tagQuery, setTagQuery] = useState("");
-  const [colorFilter, setColorFilter] = useState("all");
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -113,12 +88,10 @@ function App() {
 
   const { rightPanelRef, gridWrapperRef, panelWidth, gridHeight, columnCount } = useGridDimensions(CARD_WIDTH);
   const { toasts, addToast } = useToasts();
-  const { photos, setPhotos, loadPhotos, isLoading } = usePhotos(debouncedQuery, worldFilter);
+  const { photos, setPhotos, loadPhotos, isLoading } = usePhotos("", "all", addToast);
   const {
     scanStatus,
     scanProgress,
-    isEnriching,
-    enrichProgress,
     photoFolderPath,
     startScan,
     refreshSettings,
@@ -139,6 +112,20 @@ function App() {
   } = usePhotoActions(setPhotos, addToast);
 
   const filteredPhotos = useMemo(() => photos.filter((photo) => {
+    if (debouncedQuery) {
+      const query = debouncedQuery.trim().toLowerCase();
+      const worldName = (photo.world_name || "").toLowerCase();
+      const worldId = (photo.world_id || "").toLowerCase();
+      if (!worldName.includes(query) && !worldId.includes(query)) {
+        return false;
+      }
+    }
+    if (worldFilters.length > 0) {
+      const worldKey = photo.world_name || "unknown";
+      if (!worldFilters.includes(worldKey)) {
+        return false;
+      }
+    }
     if (favoritesOnly && !photo.is_favorite) {
       return false;
     }
@@ -151,17 +138,14 @@ function App() {
     if (dateTo && photo.timestamp.slice(0, 10) > dateTo) {
       return false;
     }
-    if (tagQuery) {
-      const query = tagQuery.trim().toLowerCase();
-      if (query && !photo.tags.some((tag) => tag.toLowerCase().includes(query))) {
+    if (tagFilters.length > 0) {
+      const normalizedTags = photo.tags.map((tag) => tag.toLowerCase());
+      if (!tagFilters.every((tag) => normalizedTags.includes(tag.toLowerCase()))) {
         return false;
       }
     }
-    if (!matchesColorFilter(photo, colorFilter)) {
-      return false;
-    }
     return true;
-  }), [photos, favoritesOnly, orientationFilter, dateFrom, dateTo, tagQuery, colorFilter]);
+  }), [photos, debouncedQuery, worldFilters, favoritesOnly, orientationFilter, dateFrom, dateTo, tagFilters]);
 
   const selectedPhotoView = useMemo(() => {
     if (!selectedPhoto) {
@@ -184,8 +168,7 @@ function App() {
       updatePhoto(filename, (photo) => ({ ...photo, is_favorite: !current }));
       addToast(current ? "お気に入りを解除しました。" : "お気に入りに追加しました。");
     } catch (err) {
-      console.error("Failed to toggle favorite:", err);
-      addToast("お気に入りの更新に失敗しました。");
+      addToast(`お気に入りの更新に失敗しました: ${String(err)}`, "error");
     }
   };
 
@@ -208,8 +191,7 @@ function App() {
       }));
       addToast("タグを追加しました。");
     } catch (err) {
-      console.error("Failed to add tag:", err);
-      addToast("タグの追加に失敗しました。");
+      addToast(`タグの追加に失敗しました: ${String(err)}`, "error");
     }
   };
 
@@ -222,19 +204,35 @@ function App() {
       }));
       addToast("タグを削除しました。");
     } catch (err) {
-      console.error("Failed to remove tag:", err);
-      addToast("タグの削除に失敗しました。");
+      addToast(`タグの削除に失敗しました: ${String(err)}`, "error");
     }
   };
 
   const resetFilters = () => {
-    setWorldFilter("all");
+    setWorldFilters([]);
     setDateFrom("");
     setDateTo("");
+    setDatePreset("none");
     setOrientationFilter("all");
     setFavoritesOnly(false);
-    setTagQuery("");
-    setColorFilter("all");
+    setTagFilters([]);
+  };
+
+  const handleDatePresetSelect = (preset: Exclude<DatePreset, "none" | "custom">) => {
+    const range = getDateRangeFromPreset(preset);
+    setDatePreset(preset);
+    setDateFrom(range.from);
+    setDateTo(range.to);
+  };
+
+  const handleDateFromChange = (value: string) => {
+    setDatePreset("custom");
+    setDateFrom(value);
+  };
+
+  const handleDateToChange = (value: string) => {
+    setDatePreset("custom");
+    setDateTo(value);
   };
 
   const {
@@ -245,6 +243,7 @@ function App() {
     totalHeight,
     onGridRef,
     handleGridScroll,
+    handleGridWheel,
     handleScrollbarMouseDown,
     handleTrackClick,
     handleJumpToRow,
@@ -260,13 +259,19 @@ function App() {
       }
 
       const newPath = Array.isArray(selected) ? selected[0] : selected;
-      await invoke("save_setting_cmd", { setting: { photoFolderPath: newPath } });
+      await invoke("save_setting_cmd", {
+        setting: {
+          photoFolderPath: newPath,
+          enableStartup: startupEnabled,
+          startupPreferenceSet,
+          themeMode,
+        },
+      });
       await refreshSettings();
       await startScan();
       await loadPhotos();
     } catch (err) {
-      console.error("Failed to update photo folder:", err);
-      addToast("写真フォルダの更新に失敗しました。");
+      addToast(`写真フォルダの更新に失敗しました: ${String(err)}`, "error");
     }
   };
 
@@ -277,29 +282,67 @@ function App() {
       setStartupPreferenceSet(true);
       addToast(enabled ? "Alpheratz をログイン時に起動する設定にしました。" : "Alpheratz のログイン時起動を無効にしました。");
     } catch (err) {
-      console.error("Failed to update startup preference:", err);
-      addToast("自動起動設定の更新に失敗しました。");
+      addToast(`自動起動設定の更新に失敗しました: ${String(err)}`, "error");
     }
   };
 
   useEffect(() => {
-    const loadStartupPreference = async () => {
+    const loadAppSetting = async () => {
       try {
-        const [enabled, preferenceSet]: [boolean, boolean] = await invoke("get_startup_preference_cmd");
-        setStartupEnabled(enabled);
-        setStartupPreferenceSet(preferenceSet);
+        const setting = await invoke<AppSetting>("get_setting_cmd");
+        setStartupEnabled(!!setting.enableStartup);
+        setStartupPreferenceSet(!!setting.startupPreferenceSet);
+        setThemeMode(setting.themeMode === "dark" ? "dark" : "light");
       } catch (err) {
-        console.error("Failed to load startup preference:", err);
+        addToast(`設定の読み込みに失敗しました: ${String(err)}`, "error");
       }
     };
 
-    loadStartupPreference();
+    loadAppSetting();
   }, []);
+
+  const handleThemeToggle = async () => {
+    const nextTheme: ThemeMode = themeMode === "dark" ? "light" : "dark";
+    try {
+      await invoke("save_setting_cmd", {
+        setting: {
+          photoFolderPath,
+          enableStartup: startupEnabled,
+          startupPreferenceSet,
+          themeMode: nextTheme,
+        },
+      });
+      setThemeMode(nextTheme);
+    } catch (err) {
+      addToast(`テーマ設定の更新に失敗しました: ${String(err)}`, "error");
+    }
+  };
 
   const worldNameList = useMemo(
     () => Array.from(new Set(photos.map((photo) => photo.world_name || ""))).sort(),
     [photos],
   );
+  const worldCounts = useMemo(() => (
+    photos.reduce<Record<string, number>>((acc, photo) => {
+      const key = photo.world_name || "unknown";
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {})
+  ), [photos]);
+  const tagOptions = useMemo(() => (
+    Array.from(new Set(
+      photos.flatMap((photo) => photo.tags.map((tag) => tag.trim()).filter(Boolean)),
+    )).sort((left, right) => left.localeCompare(right, "ja"))
+  ), [photos]);
+  const activeFilterCount = useMemo(() => (
+    [
+      worldFilters.length > 0,
+      !!dateFrom || !!dateTo,
+      orientationFilter !== "all",
+      favoritesOnly,
+      tagFilters.length > 0,
+    ].filter(Boolean).length
+  ), [worldFilters, dateFrom, dateTo, orientationFilter, favoritesOnly, tagFilters]);
   const cellProps = useMemo(
     () => ({ data: filteredPhotos, onSelect: onSelectPhoto, columnCount }),
     [filteredPhotos, onSelectPhoto, columnCount],
@@ -307,12 +350,16 @@ function App() {
   const totalRows = Math.ceil(filteredPhotos.length / columnCount);
 
   return (
-    <div className="alpheratz-root">
+    <div className={`alpheratz-root ${themeMode === "dark" ? "theme-dark" : "theme-light"}`}>
       <Header
         isFilterOpen={isFilterOpen}
         setIsFilterOpen={setIsFilterOpen}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        scanStatus={scanStatus}
+        startScan={startScan}
+        cancelScan={cancelScan}
+        setShowSettings={setShowSettings}
       />
 
       <main className="main-content">
@@ -324,36 +371,31 @@ function App() {
             onCancel={cancelScan}
           />
         )}
-        {scanStatus !== "scanning" && isEnriching && (
-          <ScanningOverlay
-            progress={enrichProgress}
-            title="補足情報を更新中..."
-            description="ヒストグラムや類似判定用データを裏で登録しています"
-            onCancel={cancelScan}
-            canCancel={false}
-          />
-        )}
-
+        {isFilterOpen && <button className="filter-backdrop" onClick={() => setIsFilterOpen(false)} aria-label="絞り込みを閉じる" />}
+        <FilterSidebar
+          isOpen={isFilterOpen}
+          activeFilterCount={activeFilterCount}
+          filteredCount={filteredPhotos.length}
+          worldFilters={worldFilters}
+          setWorldFilters={setWorldFilters}
+          worldNameList={worldNameList}
+          worldCounts={worldCounts}
+          datePreset={datePreset}
+          onDatePresetSelect={handleDatePresetSelect}
+          dateFrom={dateFrom}
+          setDateFrom={handleDateFromChange}
+          dateTo={dateTo}
+          setDateTo={handleDateToChange}
+          orientationFilter={orientationFilter}
+          setOrientationFilter={setOrientationFilter}
+          favoritesOnly={favoritesOnly}
+          setFavoritesOnly={setFavoritesOnly}
+          tagFilters={tagFilters}
+          setTagFilters={setTagFilters}
+          tagOptions={tagOptions}
+          onReset={resetFilters}
+        />
         <div className="grid-area">
-          <FilterSidebar
-            isOpen={isFilterOpen}
-            worldFilter={worldFilter}
-            setWorldFilter={setWorldFilter}
-            worldNameList={worldNameList}
-            dateFrom={dateFrom}
-            setDateFrom={setDateFrom}
-            dateTo={dateTo}
-            setDateTo={setDateTo}
-            orientationFilter={orientationFilter}
-            setOrientationFilter={setOrientationFilter}
-            favoritesOnly={favoritesOnly}
-            setFavoritesOnly={setFavoritesOnly}
-            tagQuery={tagQuery}
-            setTagQuery={setTagQuery}
-            colorFilter={colorFilter}
-            setColorFilter={setColorFilter}
-            onReset={resetFilters}
-          />
           <MonthNav
             monthsByYear={monthsByYear}
             monthGroups={monthGroups}
@@ -362,25 +404,16 @@ function App() {
           />
 
           <div className="right-panel" ref={rightPanelRef}>
-            <ActionCards
-              startScan={startScan}
-              cancelScan={cancelScan}
-              scanStatus={scanStatus}
-              setShowSettings={setShowSettings}
-              setIsFilterOpen={setIsFilterOpen}
-            />
-
             {(scanStatus !== "scanning" && !isLoading && filteredPhotos.length === 0) && (
               <EmptyState
                 isFiltering={
                   !!searchQuery
-                  || worldFilter !== "all"
+                  || worldFilters.length > 0
                   || !!dateFrom
                   || !!dateTo
                   || favoritesOnly
-                  || !!tagQuery
+                  || tagFilters.length > 0
                   || orientationFilter !== "all"
-                  || colorFilter !== "all"
                 }
               />
             )}
@@ -395,13 +428,12 @@ function App() {
                 gridHeight={gridHeight}
                 panelWidth={panelWidth}
                 handleGridScroll={handleGridScroll}
+                handleGridWheel={handleGridWheel}
                 isDragging={isDragging}
                 thumbTop={thumbTop}
                 thumbHeight={thumbHeight}
                 handleTrackClick={handleTrackClick}
                 handleScrollbarMouseDown={handleScrollbarMouseDown}
-                monthGroups={monthGroups}
-                activeMonthIndex={activeMonthIndex}
                 totalHeight={totalHeight}
                 cellProps={cellProps}
                 onGridRef={onGridRef}
@@ -420,13 +452,12 @@ function App() {
           handleSaveMemo={handleSaveMemo}
           isSavingMemo={isSavingMemo}
           handleOpenWorld={handleOpenWorld}
-          allPhotos={photos}
-          onSelectSimilar={(photo) => onSelectPhoto(photo, true)}
           canGoBack={photoHistory.length > 0}
           onGoBack={goBackPhoto}
           onToggleFavorite={() => toggleFavorite(selectedPhotoView.photo_filename, selectedPhotoView.is_favorite)}
           onAddTag={(tag) => addTag(selectedPhotoView.photo_filename, tag)}
           onRemoveTag={(tag) => removeTag(selectedPhotoView.photo_filename, tag)}
+          addToast={addToast}
         />
       )}
 
@@ -437,13 +468,15 @@ function App() {
           handleChooseFolder={handleChooseFolder}
           startupEnabled={startupEnabled}
           onToggleStartup={() => handleStartupPreference(!startupEnabled)}
+          themeMode={themeMode}
+          onToggleTheme={handleThemeToggle}
         />
       )}
 
       {!startupPreferenceSet && (
         <div className="modal-overlay">
           <div className="modal-content startup-choice-modal" onClick={(event) => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => handleStartupPreference(false)}>×</button>
+            <button className="modal-close" onClick={() => handleStartupPreference(false)} aria-label="閉じる">×</button>
             <div className="modal-body" style={{ gridTemplateColumns: "1fr" }}>
               <div className="modal-info">
                 <div className="info-header"><h2>起動設定</h2></div>

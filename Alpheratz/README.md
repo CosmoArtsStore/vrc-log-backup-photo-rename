@@ -1,7 +1,66 @@
-# Tauri + React + Typescript
+# Alpheratz
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Alpheratz は、VRChat の写真を見やすく整理するためのアプリです。  
+写真の一覧表示、再スキャン、ワールド情報の補完、メモやタグの保存を行います。
 
-## Recommended IDE Setup
+## できること
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- VRChat の写真フォルダを読み込む
+- 写真を日付順に一覧表示する
+- ワールド名やタグ、メモで探す
+- お気に入りを付ける
+- 類似写真からワールド候補を推測する
+- 写真の向き（縦長 / 横長）を表示する
+
+## 初めて使うとき
+
+1. Alpheratz を起動します。
+2. 写真フォルダを選ぶ画面が出たら、VRChat の写真が入っているフォルダを選びます。
+3. スキャンが終わると一覧が表示されます。
+
+VRChat の標準的な保存先は、`ピクチャ` フォルダ内の `VRChat` です。  
+場所が分からないときは、エクスプローラーで `VRChat_2024-...` のような名前の画像を探してください。
+
+## よく使う操作
+
+- `Refresh`: 写真を再読み込みします
+- `Settings`: 写真フォルダや起動設定を変更します
+- `Filter`: 日付、向き、お気に入り、タグなどで絞り込みます
+
+## データの保存先
+
+- 設定ファイル: Alpheratz のインストール先に保存されます
+- データベース: `alpheratz.db`
+- ログ: `info_YYYYMM.log`
+- サムネイルキャッシュ: `cache` フォルダ
+
+## 困ったとき
+
+- 写真が表示されない
+  写真フォルダの設定を確認し、`Refresh` を押してください。
+- ワールド名が出ない
+  写真に埋め込まれた情報が無い場合があります。類似写真の候補表示を試してください。
+- エラーが出る
+  インストール先の `info_YYYYMM.log` を確認してください。
+
+## 開発者向け
+
+### 必要なもの
+
+- Node.js
+- Rust
+- Windows
+
+### 開発起動
+
+```bash
+npm install
+npm run tauri dev
+```
+
+### ビルド
+
+```bash
+npm run build
+npm run tauri build
+```

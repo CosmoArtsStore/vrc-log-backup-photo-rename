@@ -5,13 +5,11 @@ CREATE TABLE IF NOT EXISTS photos (
     world_id        TEXT,
     world_name      TEXT,
     timestamp       TEXT NOT NULL,
-    width           INTEGER,
-    height          INTEGER,
-    orientation     TEXT,
     memo            TEXT DEFAULT '',
     phash           TEXT,
-    histogram       BLOB,
-    is_favorite     INTEGER DEFAULT 0
+    orientation     TEXT,
+    is_favorite     INTEGER DEFAULT 0,
+    match_source    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS tags (
@@ -27,3 +25,4 @@ CREATE TABLE IF NOT EXISTS photo_tags (
 
 CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp);
 CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name);
+CREATE INDEX IF NOT EXISTS idx_photos_is_favorite ON photos(is_favorite);

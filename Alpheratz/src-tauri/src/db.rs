@@ -1,38 +1,9 @@
 use crate::models::PhotoRecord;
+use crate::utils::{get_alpheratz_install_dir, get_stella_record_install_dir};
 use rusqlite::Connection;
 use std::path::PathBuf;
-use winreg::enums::HKEY_CURRENT_USER;
-use winreg::RegKey;
 
-fn get_component_install_dir(candidates: &[&str]) -> Option<PathBuf> {
-    let root = RegKey::predef(HKEY_CURRENT_USER);
-    for name in candidates {
-        let key_path = format!("Software\\CosmoArtsStore\\STELLAProject\\{}", name);
-        let key = match root.open_subkey(&key_path) {
-            Ok(key) => key,
-            Err(_) => continue,
-        };
-        let path: String = match key.get_value("InstallLocation") {
-            Ok(path) => path,
-            Err(_) => continue,
-        };
-        let path_buf = PathBuf::from(path);
-        if path_buf.exists() {
-            return Some(path_buf);
-        }
-    }
-    None
-}
-
-fn get_alpheratz_install_dir() -> Option<PathBuf> {
-    get_component_install_dir(&["Alpheratz"])
-}
-
-fn get_stella_record_install_dir() -> Option<PathBuf> {
-    get_component_install_dir(&["STELLA_RECORD", "StellaRecord"])
-}
-
-pub fn get_stella_record_db_path() -> Option<PathBuf> {
+fn get_stella_record_db_path() -> Option<PathBuf> {
     Some(get_stella_record_install_dir()?.join("stellarecord.db"))
 }
 
@@ -41,23 +12,48 @@ pub fn get_alpheratz_db_path() -> Option<PathBuf> {
 }
 
 pub fn open_alpheratz_connection() -> Result<Connection, String> {
-    let db_path = get_alpheratz_db_path().ok_or_else(|| "Failed to get DB path".to_string())?;
+    let db_path = get_alpheratz_db_path()
+        .ok_or_else(|| "Alpheratz DB の保存先を取得できません".to_string())?;
     Connection::open(&db_path)
-        .map_err(|e| format!("Failed to open DB at {}: {}", db_path.display(), e))
+        .map_err(|e| format!("Alpheratz DB を開けません ({}): {}", db_path.display(), e))
 }
 
-fn add_column_if_missing(conn: &Connection, sql: &str) -> Result<(), String> {
-    match conn.execute(sql, []) {
-        Ok(_) => Ok(()),
-        Err(err) => {
-            let message = err.to_string();
-            if message.contains("duplicate column name") {
-                Ok(())
-            } else {
-                Err(message)
-            }
+fn has_column(conn: &Connection, table_name: &str, column_name: &str) -> Result<bool, String> {
+    let pragma_sql = format!("PRAGMA table_info({})", table_name);
+    let mut stmt = conn
+        .prepare(&pragma_sql)
+        .map_err(|e| format!("テーブル情報を確認できません [{}]: {}", pragma_sql, e))?;
+    let rows = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|e| format!("列情報を取得できません [{}]: {}", pragma_sql, e))?;
+
+    for row in rows {
+        let existing_name =
+            row.map_err(|e| format!("列情報の読み取りに失敗しました [{}]: {}", pragma_sql, e))?;
+        if existing_name == column_name {
+            return Ok(true);
         }
     }
+    Ok(false)
+}
+
+fn add_column_if_missing(
+    conn: &Connection,
+    table_name: &str,
+    sql: &str,
+    column_name: &str,
+) -> Result<(), String> {
+    if has_column(conn, table_name, column_name)? {
+        return Ok(());
+    }
+
+    conn.execute(sql, []).map_err(|e| {
+        format!(
+            "列追加に失敗しました [{} / {}]: {}",
+            table_name, column_name, e
+        )
+    })?;
+    Ok(())
 }
 
 pub fn init_alpheratz_db() -> Result<(), String> {
@@ -67,20 +63,18 @@ pub fn init_alpheratz_db() -> Result<(), String> {
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
          PRAGMA foreign_keys = ON;
-         
+
          CREATE TABLE IF NOT EXISTS photos (
              photo_filename  TEXT PRIMARY KEY,
              photo_path      TEXT NOT NULL,
              world_id        TEXT,
              world_name      TEXT,
              timestamp       TEXT NOT NULL,
-             width           INTEGER,
-             height          INTEGER,
-             orientation     TEXT,
              memo            TEXT DEFAULT '',
              phash           TEXT,
-             histogram       BLOB,
-             is_favorite     INTEGER DEFAULT 0
+             orientation     TEXT,
+             is_favorite     INTEGER DEFAULT 0,
+             match_source    TEXT
          );
 
          CREATE TABLE IF NOT EXISTS tags (
@@ -94,22 +88,36 @@ pub fn init_alpheratz_db() -> Result<(), String> {
              PRIMARY KEY (photo_filename, tag_id)
          );
 
-         DROP TABLE IF EXISTS photo_embeddings;
-
          CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp);
-         CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name);",
+         CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name);
+         CREATE INDEX IF NOT EXISTS idx_photos_is_favorite ON photos(is_favorite);",
     )
-    .map_err(|e| format!("Database schema initialization failed: {}", e))?;
+    .map_err(|e| format!("Alpheratz DB スキーマ初期化に失敗しました: {}", e))?;
 
-    add_column_if_missing(&conn, "ALTER TABLE photos ADD COLUMN width INTEGER")?;
-    add_column_if_missing(&conn, "ALTER TABLE photos ADD COLUMN height INTEGER")?;
-    add_column_if_missing(&conn, "ALTER TABLE photos ADD COLUMN orientation TEXT")?;
-    add_column_if_missing(&conn, "ALTER TABLE photos ADD COLUMN histogram BLOB")?;
     add_column_if_missing(
         &conn,
+        "photos",
+        "ALTER TABLE photos ADD COLUMN orientation TEXT",
+        "orientation",
+    )?;
+    add_column_if_missing(
+        &conn,
+        "photos",
         "ALTER TABLE photos ADD COLUMN is_favorite INTEGER DEFAULT 0",
+        "is_favorite",
+    )?;
+    add_column_if_missing(
+        &conn,
+        "photos",
+        "ALTER TABLE photos ADD COLUMN match_source TEXT",
+        "match_source",
     )?;
 
+    // Intentional: pre-release cleanup. We only keep the current schema and remove abandoned tables.
+    conn.execute("DROP TABLE IF EXISTS photo_embeddings", [])
+        .map_err(|e| format!("不要テーブル photo_embeddings の削除に失敗しました: {}", e))?;
+
+    let _ = get_stella_record_db_path();
     Ok(())
 }
 
@@ -121,7 +129,7 @@ pub fn get_photos(
 ) -> Result<Vec<PhotoRecord>, String> {
     let conn = open_alpheratz_connection()?;
 
-    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo, phash FROM photos WHERE 1=1".to_string();
+    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo, phash, orientation, is_favorite, match_source FROM photos WHERE 1=1".to_string();
 
     if start_date.is_some() {
         sql.push_str(" AND timestamp >= :start");
@@ -133,7 +141,7 @@ pub fn get_photos(
         sql.push_str(" AND world_name LIKE :query");
     }
     if world_exact.is_some() {
-        if world_exact.as_ref().map(|s| s.as_str()) == Some("unknown") {
+        if world_exact.as_deref() == Some("unknown") {
             sql.push_str(" AND world_name IS NULL");
         } else {
             sql.push_str(" AND world_name = :exact");
@@ -142,16 +150,11 @@ pub fn get_photos(
 
     sql.push_str(" ORDER BY timestamp DESC");
 
-    let row_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM photos", [], |row| row.get(0))
-        .map_err(|e| format!("Failed to count photos: {}", e))?;
-    let mut results = Vec::with_capacity((row_count.max(0) as usize).min(2_000));
-    let query_val = world_query.as_ref().map(|w| format!("%{}%", w));
-
     let mut stmt = conn
         .prepare(&sql)
-        .map_err(|e| format!("Failed to prepare query [{}]: {}", sql, e))?;
+        .map_err(|e| format!("写真一覧クエリを準備できません [{}]: {}", sql, e))?;
 
+    let query_val = world_query.as_ref().map(|w| format!("%{}%", w));
     let mut params = Vec::new();
     if let Some(ref s) = start_date {
         params.push((":start", s as &dyn rusqlite::ToSql));
@@ -178,20 +181,19 @@ pub fn get_photos(
                 timestamp: row.get(4)?,
                 memo: row.get(5)?,
                 phash: row.get(6)?,
-                width: None,
-                height: None,
-                orientation: None,
-                histogram: None,
-                is_favorite: false,
+                orientation: row.get(7)?,
+                is_favorite: row.get::<_, i64>(8)? != 0,
                 tags: Vec::new(),
-                match_source: None,
+                match_source: row.get(9)?,
             })
         })
-        .map_err(|e| format!("Failed to execute query: {}", e))?;
+        .map_err(|e| format!("写真一覧クエリを実行できません: {}", e))?;
 
-    for r in rows {
-        if let Ok(rec) = r {
-            results.push(rec);
+    let mut results = Vec::new();
+    for row in rows {
+        match row {
+            Ok(record) => results.push(record),
+            Err(err) => crate::utils::log_warn(&format!("photo row decode failed: {}", err)),
         }
     }
     Ok(results)
@@ -204,7 +206,7 @@ pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
             "UPDATE photos SET memo = ?1 WHERE photo_filename = ?2",
             rusqlite::params![memo, filename],
         )
-        .map_err(|e| format!("Failed to update memo for {}: {}", filename, e))?;
+        .map_err(|e| format!("写真メモを更新できません [{}]: {}", filename, e))?;
     if changed == 0 {
         return Err(format!("写真が見つかりません: {}", filename));
     }
@@ -218,7 +220,7 @@ pub fn set_photo_favorite(filename: &str, is_favorite: bool) -> Result<(), Strin
             "UPDATE photos SET is_favorite = ?1 WHERE photo_filename = ?2",
             rusqlite::params![if is_favorite { 1 } else { 0 }, filename],
         )
-        .map_err(|e| format!("Failed to update favorite for {}: {}", filename, e))?;
+        .map_err(|e| format!("お気に入り状態を更新できません [{}]: {}", filename, e))?;
     if changed == 0 {
         return Err(format!("写真が見つかりません: {}", filename));
     }
@@ -227,15 +229,18 @@ pub fn set_photo_favorite(filename: &str, is_favorite: bool) -> Result<(), Strin
 
 pub fn add_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
     let conn = open_alpheratz_connection()?;
-    let tx = conn
-        .unchecked_transaction()
-        .map_err(|e| format!("Failed to start tag transaction for {}: {}", filename, e))?;
+    let tx = conn.unchecked_transaction().map_err(|e| {
+        format!(
+            "タグ追加トランザクションを開始できません [{}]: {}",
+            filename, e
+        )
+    })?;
 
     tx.execute(
         "INSERT INTO tags (name) VALUES (?1) ON CONFLICT(name) DO NOTHING",
         rusqlite::params![tag],
     )
-    .map_err(|e| format!("Failed to insert tag [{}]: {}", tag, e))?;
+    .map_err(|e| format!("タグを追加できません [{}]: {}", tag, e))?;
 
     tx.execute(
         "INSERT INTO photo_tags (photo_filename, tag_id)
@@ -243,10 +248,19 @@ pub fn add_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
          ON CONFLICT(photo_filename, tag_id) DO NOTHING",
         rusqlite::params![filename, tag],
     )
-    .map_err(|e| format!("Failed to link tag [{}] to {}: {}", tag, filename, e))?;
+    .map_err(|e| {
+        format!(
+            "写真へタグを関連付けできません [{} / {}]: {}",
+            filename, tag, e
+        )
+    })?;
 
-    tx.commit()
-        .map_err(|e| format!("Failed to commit tag transaction for {}: {}", filename, e))?;
+    tx.commit().map_err(|e| {
+        format!(
+            "タグ追加トランザクションを確定できません [{}]: {}",
+            filename, e
+        )
+    })?;
     Ok(())
 }
 
@@ -258,6 +272,11 @@ pub fn remove_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
            AND tag_id IN (SELECT id FROM tags WHERE name = ?2)",
         rusqlite::params![filename, tag],
     )
-    .map_err(|e| format!("Failed to remove tag [{}] from {}: {}", tag, filename, e))?;
+    .map_err(|e| {
+        format!(
+            "写真からタグを削除できません [{} / {}]: {}",
+            filename, tag, e
+        )
+    })?;
     Ok(())
 }

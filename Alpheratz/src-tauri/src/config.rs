@@ -1,50 +1,16 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use winreg::enums::HKEY_CURRENT_USER;
-use winreg::RegKey;
 
 use crate::utils;
-
-fn get_alpheratz_install_dir() -> Option<PathBuf> {
-    let root = RegKey::predef(HKEY_CURRENT_USER);
-    let key = match root.open_subkey("Software\\CosmoArtsStore\\STELLAProject\\Alpheratz") {
-        Ok(key) => key,
-        Err(err) => {
-            utils::log_warn(&format!(
-                "registry open failed [Software\\CosmoArtsStore\\STELLAProject\\Alpheratz]: {}",
-                err
-            ));
-            return None;
-        }
-    };
-    let path: String = match key.get_value("InstallLocation") {
-        Ok(path) => path,
-        Err(err) => {
-            utils::log_warn(&format!(
-                "registry value read failed [Software\\CosmoArtsStore\\STELLAProject\\Alpheratz\\InstallLocation]: {}",
-                err
-            ));
-            return None;
-        }
-    };
-    let path_buf = PathBuf::from(path);
-    if path_buf.exists() {
-        Some(path_buf)
-    } else {
-        utils::log_warn(&format!(
-            "install dir does not exist: {}",
-            path_buf.display()
-        ));
-        None
-    }
-}
 
 /// 仕様書 §8.4 AlpheratzSetting.json
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AlpheratzSetting {
     #[serde(default, rename = "photoFolderPath")]
     pub photo_folder_path: String,
+    #[serde(default, rename = "themeMode", alias = "theme_mode")]
+    pub theme_mode: String,
     #[serde(default, rename = "enableStartup", alias = "enable_startup")]
     pub enable_startup: bool,
     #[serde(
@@ -59,6 +25,7 @@ impl Default for AlpheratzSetting {
     fn default() -> Self {
         AlpheratzSetting {
             photo_folder_path: String::new(),
+            theme_mode: "light".to_string(),
             enable_startup: false,
             startup_preference_set: false,
         }
@@ -66,7 +33,7 @@ impl Default for AlpheratzSetting {
 }
 
 fn get_setting_path() -> Option<PathBuf> {
-    Some(get_alpheratz_install_dir()?.join("alpheratz.json"))
+    Some(utils::get_alpheratz_install_dir()?.join("alpheratz.json"))
 }
 
 pub fn load_setting() -> AlpheratzSetting {
@@ -97,8 +64,11 @@ pub fn load_setting() -> AlpheratzSetting {
 }
 
 pub fn save_setting(s: &AlpheratzSetting) -> Result<(), String> {
-    let path = get_setting_path().ok_or_else(|| "Failed to get setting path".to_string())?;
-    let content = serde_json::to_string_pretty(s).map_err(|e| format!("Serialize error: {}", e))?;
-    fs::write(&path, content).map_err(|e| format!("Write error ({}): {}", path.display(), e))?;
+    let path =
+        get_setting_path().ok_or_else(|| "設定ファイルの保存先を取得できません".to_string())?;
+    let content = serde_json::to_string_pretty(s)
+        .map_err(|e| format!("設定を JSON に変換できません: {}", e))?;
+    fs::write(&path, content)
+        .map_err(|e| format!("設定ファイルを書き込めません ({}): {}", path.display(), e))?;
     Ok(())
 }

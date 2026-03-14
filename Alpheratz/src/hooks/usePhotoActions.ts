@@ -21,8 +21,8 @@ export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<P
             ));
             setSelectedPhoto((prev) => (prev ? { ...prev, memo: localMemo } : null));
             addToast("メモを保存しました。");
-        } catch {
-            addToast("保存に失敗しました。");
+        } catch (err) {
+            addToast(`保存に失敗しました: ${String(err)}`);
         } finally {
             setIsSavingMemo(false);
         }
@@ -30,7 +30,11 @@ export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<P
 
     const handleOpenWorld = async () => {
         if (selectedPhoto?.world_id) {
-            await invoke("open_world_url", { worldId: selectedPhoto.world_id });
+            try {
+                await invoke("open_world_url", { worldId: selectedPhoto.world_id });
+            } catch (err) {
+                addToast(`ワールドページを開けませんでした: ${String(err)}`);
+            }
         }
     };
 

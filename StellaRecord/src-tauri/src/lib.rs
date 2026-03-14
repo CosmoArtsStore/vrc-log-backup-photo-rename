@@ -17,8 +17,9 @@ pub fn run() {
             commands::decompress_logs,
             commands::launch_enhanced_import,
             commands::launch_analyze,
+            commands::launch_startup_archive_import,
             commands::cancel_analyze,
-            commands::read_launcher_json,
+            commands::read_registry_catalog,
             commands::launch_external_app,
             commands::get_polaris_logs,
             commands::start_polaris,
@@ -29,8 +30,9 @@ pub fn run() {
             commands::wipe_database,
             commands::open_folder,
             commands::get_polaris_status,
-            commands::get_startup_preference,
-            commands::save_startup_preference,
+            commands::get_management_settings,
+            commands::save_management_settings,
+            commands::get_pending_archive_log_count,
         ])
         .run(tauri::generate_context!());
 

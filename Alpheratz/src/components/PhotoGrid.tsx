@@ -1,8 +1,27 @@
-import { UIEvent, MouseEvent } from "react";
+import { UIEvent, MouseEvent, CSSProperties } from "react";
 import { Grid as FixedSizeGrid } from "react-window";
-import { Photo, MonthGroup } from "../types";
+import { Photo } from "../types";
 import { PhotoCard } from "./PhotoCard";
 import { CustomScrollbar } from "./CustomScrollbar";
+
+interface PhotoGridCellProps {
+    data: Photo[];
+    onSelect: (photo: Photo) => void;
+    columnCount: number;
+}
+
+interface FixedSizeGridComponentProps {
+    columnCount: number;
+    columnWidth: number;
+    rowCount: number;
+    rowHeight: number;
+    cellComponent: typeof PhotoCard;
+    cellProps: PhotoGridCellProps;
+    onScroll: (e: UIEvent<HTMLDivElement>) => void;
+    outerRef: (node: HTMLDivElement | null) => void;
+    style: CSSProperties;
+    className: string;
+}
 
 interface PhotoGridProps {
     photos: Photo[];
@@ -13,19 +32,18 @@ interface PhotoGridProps {
     gridHeight: number;
     panelWidth: number;
     handleGridScroll: (e: UIEvent<HTMLDivElement>) => void;
+    handleGridWheel: (e: React.WheelEvent<HTMLDivElement>) => void;
     isDragging: boolean;
     thumbTop: number;
     thumbHeight: number;
     handleTrackClick: (e: MouseEvent<HTMLDivElement>) => void;
     handleScrollbarMouseDown: (e: MouseEvent) => void;
-    monthGroups: MonthGroup[];
-    activeMonthIndex: number;
     totalHeight: number;
-    cellProps: any;
+    cellProps: PhotoGridCellProps;
     onGridRef: (node: HTMLDivElement | null) => void;
 }
 
-const FixedSizeGridComponent = FixedSizeGrid as any;
+const FixedSizeGridComponent = FixedSizeGrid as unknown as React.ComponentType<FixedSizeGridComponentProps>;
 
 export const PhotoGrid = ({
     photos,
@@ -36,19 +54,18 @@ export const PhotoGrid = ({
     gridHeight,
     panelWidth,
     handleGridScroll,
+    handleGridWheel,
     isDragging,
     thumbTop,
     thumbHeight,
     handleTrackClick,
     handleScrollbarMouseDown,
-    monthGroups,
-    activeMonthIndex,
     totalHeight,
     cellProps,
     onGridRef,
 }: PhotoGridProps) => {
     return (
-        <div className="grid-scroll-wrapper">
+        <div className="grid-scroll-wrapper" onWheel={handleGridWheel}>
             {photos.length > 0 && (
                 <>
                     <FixedSizeGridComponent
@@ -69,9 +86,7 @@ export const PhotoGrid = ({
                             thumbTop={thumbTop}
                             thumbHeight={thumbHeight}
                             handleTrackClick={handleTrackClick}
-                            handleScrollbarMouseDown={handleScrollbarMouseDown as any}
-                            monthGroups={monthGroups}
-                            activeMonthIndex={activeMonthIndex}
+                            handleScrollbarMouseDown={handleScrollbarMouseDown}
                         />
                     )}
                 </>
