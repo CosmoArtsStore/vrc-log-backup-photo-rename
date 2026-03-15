@@ -10,6 +10,7 @@ import { useScroll } from "./hooks/useScroll";
 import { useMonthGroups } from "./hooks/useMonthGroups";
 import { useToasts } from "./hooks/useToasts";
 import { usePhotoActions } from "./hooks/usePhotoActions";
+import { usePhashWorker } from "./hooks/usePhashWorker";
 
 import { Header } from "./components/Header";
 import { MonthNav } from "./components/MonthNav";
@@ -23,7 +24,7 @@ import { Photo } from "./types";
 
 const CARD_WIDTH = 270;
 const ROW_HEIGHT = 246;
-type DatePreset = "none" | "today" | "last7days" | "thisMonth" | "lastMonth" | "custom";
+type DatePreset = "none" | "today" | "last7days" | "thisMonth" | "lastMonth" | "halfYear" | "oneYear" | "custom";
 type ThemeMode = "light" | "dark";
 type AppSetting = {
   photoFolderPath?: string;
@@ -60,6 +61,18 @@ const getDateRangeFromPreset = (preset: Exclude<DatePreset, "none" | "custom">) 
     return { from: formatDate(from), to: formatDate(to) };
   }
 
+  if (preset === "halfYear") {
+    const from = new Date(today);
+    from.setMonth(today.getMonth() - 6);
+    return { from: formatDate(from), to: formatDate(today) };
+  }
+
+  if (preset === "oneYear") {
+    const from = new Date(today);
+    from.setFullYear(today.getFullYear() - 1);
+    return { from: formatDate(from), to: formatDate(today) };
+  }
+
   const from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
   const to = new Date(today.getFullYear(), today.getMonth(), 0);
   return { from: formatDate(from), to: formatDate(to) };
@@ -87,6 +100,7 @@ function App() {
 
   const { rightPanelRef, gridWrapperRef, panelWidth, gridHeight, columnCount } = useGridDimensions(CARD_WIDTH);
   const { toasts, addToast } = useToasts();
+  const { progress: phashProgress, isRunning: isPhashRunning } = usePhashWorker();
   const { photos, setPhotos, loadPhotos, isLoading } = usePhotos("", "all", addToast);
   const {
     scanStatus,
@@ -151,46 +165,46 @@ function App() {
     if (!selectedPhoto) {
       return null;
     }
-    return filteredPhotos.find((photo) => photo.photo_filename === selectedPhoto.photo_filename)
-      ?? photos.find((photo) => photo.photo_filename === selectedPhoto.photo_filename)
+    return filteredPhotos.find((photo) => photo.photo_path === selectedPhoto.photo_path)
+      ?? photos.find((photo) => photo.photo_path === selectedPhoto.photo_path)
       ?? selectedPhoto;
   }, [selectedPhoto, filteredPhotos, photos]);
   const selectedPhotoIndex = useMemo(() => (
     selectedPhotoView
-      ? filteredPhotos.findIndex((photo) => photo.photo_filename === selectedPhotoView.photo_filename)
+      ? filteredPhotos.findIndex((photo) => photo.photo_path === selectedPhotoView.photo_path)
       : -1
   ), [filteredPhotos, selectedPhotoView]);
 
-  const updatePhoto = (filename: string, updater: (photo: Photo) => Photo) => {
+  const updatePhoto = (photoPath: string, updater: (photo: Photo) => Photo) => {
     setPhotos((prev) => prev.map((photo) => (
-      photo.photo_filename === filename ? updater(photo) : photo
+      photo.photo_path === photoPath ? updater(photo) : photo
     )));
   };
 
-  const toggleFavorite = async (filename: string, current: boolean) => {
+  const toggleFavorite = async (photoPath: string, current: boolean) => {
     try {
-      await invoke("set_photo_favorite_cmd", { filename, isFavorite: !current });
-      updatePhoto(filename, (photo) => ({ ...photo, is_favorite: !current }));
+      await invoke("set_photo_favorite_cmd", { photoPath, isFavorite: !current });
+      updatePhoto(photoPath, (photo) => ({ ...photo, is_favorite: !current }));
       addToast(current ? "お気に入りを解除しました。" : "お気に入りに追加しました。");
     } catch (err) {
       addToast(`お気に入りの更新に失敗しました: ${String(err)}`, "error");
     }
   };
 
-  const addTag = async (filename: string, tag: string) => {
+  const addTag = async (photoPath: string, tag: string) => {
     const normalized = tag.trim();
     if (!normalized) {
       return;
     }
 
-    const currentPhoto = photos.find((photo) => photo.photo_filename === filename);
+    const currentPhoto = photos.find((photo) => photo.photo_path === photoPath);
     if (currentPhoto?.tags.includes(normalized)) {
       return;
     }
 
     try {
-      await invoke("add_photo_tag_cmd", { filename, tag: normalized });
-      updatePhoto(filename, (photo) => ({
+      await invoke("add_photo_tag_cmd", { photoPath, tag: normalized });
+      updatePhoto(photoPath, (photo) => ({
         ...photo,
         tags: [...photo.tags, normalized].sort((left, right) => left.localeCompare(right, "ja")),
       }));
@@ -200,10 +214,10 @@ function App() {
     }
   };
 
-  const removeTag = async (filename: string, tag: string) => {
+  const removeTag = async (photoPath: string, tag: string) => {
     try {
-      await invoke("remove_photo_tag_cmd", { filename, tag });
-      updatePhoto(filename, (photo) => ({
+      await invoke("remove_photo_tag_cmd", { photoPath, tag });
+      updatePhoto(photoPath, (photo) => ({
         ...photo,
         tags: photo.tags.filter((item) => item !== tag),
       }));
@@ -358,6 +372,7 @@ function App() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         scanStatus={scanStatus}
+        phashLabel={isPhashRunning ? `pHash 計算中... ${phashProgress.done} / ${phashProgress.total}` : null}
         startScan={startScan}
         cancelScan={cancelScan}
         setShowSettings={setShowSettings}
@@ -468,9 +483,9 @@ function App() {
               setSelectedPhoto(filteredPhotos[selectedPhotoIndex + 1]);
             }
           }}
-          onToggleFavorite={() => toggleFavorite(selectedPhotoView.photo_filename, selectedPhotoView.is_favorite)}
-          onAddTag={(tag) => addTag(selectedPhotoView.photo_filename, tag)}
-          onRemoveTag={(tag) => removeTag(selectedPhotoView.photo_filename, tag)}
+          onToggleFavorite={() => toggleFavorite(selectedPhotoView.photo_path, selectedPhotoView.is_favorite)}
+          onAddTag={(tag) => addTag(selectedPhotoView.photo_path, tag)}
+          onRemoveTag={(tag) => removeTag(selectedPhotoView.photo_path, tag)}
           addToast={addToast}
         />
       )}

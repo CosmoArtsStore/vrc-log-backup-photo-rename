@@ -82,6 +82,109 @@ fn add_column_if_missing(
     Ok(())
 }
 
+fn primary_key_column(conn: &Connection, table_name: &str) -> Result<Option<String>, String> {
+    let pragma_sql = format!("PRAGMA table_info({})", table_name);
+    let mut stmt = conn
+        .prepare(&pragma_sql)
+        .map_err(|e| format!("主キー情報を確認できません [{}]: {}", pragma_sql, e))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(5)?,
+            ))
+        })
+        .map_err(|e| format!("主キー列情報を取得できません [{}]: {}", pragma_sql, e))?;
+
+    for row in rows {
+        let (column_name, pk_order) =
+            row.map_err(|e| format!("主キー列情報の読み取りに失敗しました [{}]: {}", pragma_sql, e))?;
+        if pk_order == 1 {
+            return Ok(Some(column_name));
+        }
+    }
+
+    Ok(None)
+}
+
+fn migrate_photo_schema_if_needed(conn: &Connection) -> Result<(), String> {
+    let needs_migration = match primary_key_column(conn, "photos")? {
+        Some(column) => column != "photo_path",
+        None => false,
+    } || !has_column(conn, "photos", "is_missing")?;
+
+    if !needs_migration {
+        return Ok(());
+    }
+
+    conn.execute_batch(
+        "PRAGMA foreign_keys = OFF;
+         BEGIN IMMEDIATE;
+         ALTER TABLE photos RENAME TO photos_legacy;
+         ALTER TABLE photo_tags RENAME TO photo_tags_legacy;
+
+         CREATE TABLE photos (
+             photo_path      TEXT PRIMARY KEY,
+             photo_filename  TEXT NOT NULL,
+             world_id        TEXT,
+             world_name      TEXT,
+             timestamp       TEXT NOT NULL,
+             memo            TEXT DEFAULT '',
+             phash           TEXT,
+             orientation     TEXT,
+             is_favorite     INTEGER DEFAULT 0,
+             match_source    TEXT,
+             is_missing      INTEGER DEFAULT 0
+         );
+
+         CREATE TABLE photo_tags (
+             photo_path  TEXT REFERENCES photos(photo_path),
+             tag_id      INTEGER REFERENCES tags(id),
+             PRIMARY KEY (photo_path, tag_id)
+         );
+
+         INSERT INTO photos (
+             photo_path,
+             photo_filename,
+             world_id,
+             world_name,
+             timestamp,
+             memo,
+             phash,
+             orientation,
+             is_favorite,
+             match_source,
+             is_missing
+         )
+         SELECT
+             photo_path,
+             photo_filename,
+             world_id,
+             world_name,
+             timestamp,
+             COALESCE(memo, ''),
+             phash,
+             orientation,
+             COALESCE(is_favorite, 0),
+             match_source,
+             0
+         FROM photos_legacy;
+
+         INSERT INTO photo_tags (photo_path, tag_id)
+         SELECT p.photo_path, pt.tag_id
+         FROM photo_tags_legacy pt
+         INNER JOIN photos_legacy p ON p.photo_filename = pt.photo_filename;
+
+         DROP TABLE photo_tags_legacy;
+         DROP TABLE photos_legacy;
+         COMMIT;
+         PRAGMA foreign_keys = ON;",
+    )
+    .map_err(|e| format!("写真DBスキーマ移行に失敗しました: {}", e))?;
+
+    Ok(())
+}
+
 pub fn init_alpheratz_db() -> Result<(), String> {
     let conn = open_alpheratz_connection()?;
 
@@ -91,8 +194,8 @@ pub fn init_alpheratz_db() -> Result<(), String> {
          PRAGMA foreign_keys = ON;
 
          CREATE TABLE IF NOT EXISTS photos (
-             photo_filename  TEXT PRIMARY KEY,
-             photo_path      TEXT NOT NULL,
+             photo_path      TEXT PRIMARY KEY,
+             photo_filename  TEXT NOT NULL,
              world_id        TEXT,
              world_name      TEXT,
              timestamp       TEXT NOT NULL,
@@ -100,7 +203,8 @@ pub fn init_alpheratz_db() -> Result<(), String> {
              phash           TEXT,
              orientation     TEXT,
              is_favorite     INTEGER DEFAULT 0,
-             match_source    TEXT
+             match_source    TEXT,
+             is_missing      INTEGER DEFAULT 0
          );
 
          CREATE TABLE IF NOT EXISTS tags (
@@ -109,16 +213,19 @@ pub fn init_alpheratz_db() -> Result<(), String> {
          );
 
          CREATE TABLE IF NOT EXISTS photo_tags (
-             photo_filename  TEXT REFERENCES photos(photo_filename),
-             tag_id          INTEGER REFERENCES tags(id),
-             PRIMARY KEY (photo_filename, tag_id)
+             photo_path  TEXT REFERENCES photos(photo_path),
+             tag_id      INTEGER REFERENCES tags(id),
+             PRIMARY KEY (photo_path, tag_id)
          );
 
          CREATE INDEX IF NOT EXISTS idx_photos_timestamp ON photos(timestamp);
          CREATE INDEX IF NOT EXISTS idx_photos_world_name ON photos(world_name);
-         CREATE INDEX IF NOT EXISTS idx_photos_is_favorite ON photos(is_favorite);",
+         CREATE INDEX IF NOT EXISTS idx_photos_is_favorite ON photos(is_favorite);
+         CREATE INDEX IF NOT EXISTS idx_photos_is_missing ON photos(is_missing);",
     )
     .map_err(|e| format!("Alpheratz DB スキーマ初期化に失敗しました: {}", e))?;
+
+    migrate_photo_schema_if_needed(&conn)?;
 
     add_column_if_missing(
         &conn,
@@ -138,6 +245,12 @@ pub fn init_alpheratz_db() -> Result<(), String> {
         "ALTER TABLE photos ADD COLUMN match_source TEXT",
         "match_source",
     )?;
+    add_column_if_missing(
+        &conn,
+        "photos",
+        "ALTER TABLE photos ADD COLUMN is_missing INTEGER DEFAULT 0",
+        "is_missing",
+    )?;
 
     // Intentional: pre-release cleanup. We only keep the current schema and remove abandoned tables.
     conn.execute("DROP TABLE IF EXISTS photo_embeddings", [])
@@ -155,7 +268,7 @@ pub fn get_photos(
 ) -> Result<Vec<PhotoRecord>, String> {
     let conn = open_alpheratz_connection()?;
 
-    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo, phash, orientation, is_favorite, match_source FROM photos WHERE 1=1".to_string();
+    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo, phash, orientation, is_favorite, match_source, is_missing FROM photos WHERE is_missing = 0".to_string();
 
     if start_date.is_some() {
         sql.push_str(" AND timestamp >= :start");
@@ -211,6 +324,7 @@ pub fn get_photos(
                 is_favorite: row.get::<_, i64>(8)? != 0,
                 tags: Vec::new(),
                 match_source: row.get(9)?,
+                is_missing: row.get::<_, i64>(10)? != 0,
             })
         })
         .map_err(|e| format!("写真一覧クエリを実行できません: {}", e))?;
@@ -229,7 +343,7 @@ pub fn get_photos(
 
     let mut tag_stmt = conn
         .prepare(
-            "SELECT pt.photo_filename, t.name
+            "SELECT pt.photo_path, t.name
              FROM photo_tags pt
              INNER JOIN tags t ON t.id = pt.tag_id
              ORDER BY t.name COLLATE NOCASE ASC",
@@ -249,7 +363,7 @@ pub fn get_photos(
 
     for record in &mut results {
         record.tags = tags_by_photo
-            .remove(&record.photo_filename)
+            .remove(&record.photo_path)
             .unwrap_or_default();
     }
     Ok(results)
@@ -259,7 +373,7 @@ pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
     let conn = open_alpheratz_connection()?;
     let changed = conn
         .execute(
-            "UPDATE photos SET memo = ?1 WHERE photo_filename = ?2",
+            "UPDATE photos SET memo = ?1 WHERE photo_path = ?2",
             rusqlite::params![memo, filename],
         )
         .map_err(|e| format!("写真メモを更新できません [{}]: {}", filename, e))?;
@@ -273,7 +387,7 @@ pub fn set_photo_favorite(filename: &str, is_favorite: bool) -> Result<(), Strin
     let conn = open_alpheratz_connection()?;
     let changed = conn
         .execute(
-            "UPDATE photos SET is_favorite = ?1 WHERE photo_filename = ?2",
+            "UPDATE photos SET is_favorite = ?1 WHERE photo_path = ?2",
             rusqlite::params![if is_favorite { 1 } else { 0 }, filename],
         )
         .map_err(|e| format!("お気に入り状態を更新できません [{}]: {}", filename, e))?;
@@ -299,9 +413,9 @@ pub fn add_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
     .map_err(|e| format!("タグを追加できません [{}]: {}", tag, e))?;
 
     tx.execute(
-        "INSERT INTO photo_tags (photo_filename, tag_id)
+        "INSERT INTO photo_tags (photo_path, tag_id)
          SELECT ?1, id FROM tags WHERE name = ?2
-         ON CONFLICT(photo_filename, tag_id) DO NOTHING",
+         ON CONFLICT(photo_path, tag_id) DO NOTHING",
         rusqlite::params![filename, tag],
     )
     .map_err(|e| {
@@ -324,7 +438,7 @@ pub fn remove_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
     let conn = open_alpheratz_connection()?;
     conn.execute(
         "DELETE FROM photo_tags
-         WHERE photo_filename = ?1
+         WHERE photo_path = ?1
            AND tag_id IN (SELECT id FROM tags WHERE name = ?2)",
         rusqlite::params![filename, tag],
     )

@@ -6,7 +6,7 @@ import { useAnalyzeState } from "./hooks/useAnalyzeState";
 import { useArchiveSelection } from "./hooks/useArchiveSelection";
 import { useDashboardState } from "./hooks/useDashboardState";
 import { useToasts } from "./hooks/useToasts";
-import type { AppCard, DangerAction, Section, TableData } from "./types";
+import type { AppCard, DangerAction, LogViewerData, Section, TableData } from "./types";
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
@@ -16,8 +16,10 @@ function App() {
   const [showEnhancedSyncModal, setShowEnhancedSyncModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showPendingArchiveModal, setShowPendingArchiveModal] = useState(false);
-  const [decompressMode, setDecompressMode] = useState(false);
+  const [modalMode, setModalMode] = useState<"import" | "viewer">("import");
   const [archiveFiles, setArchiveFiles] = useState<string[]>([]);
+  const [showLogViewerModal, setShowLogViewerModal] = useState(false);
+  const [logViewerData, setLogViewerData] = useState<LogViewerData | null>(null);
   const [archiveLimitDraft, setArchiveLimitDraft] = useState("1000");
   const [startupEnabledDraft, setStartupEnabledDraft] = useState(false);
   const [pendingArchiveLogCount, setPendingArchiveLogCount] = useState(0);
@@ -86,7 +88,7 @@ function App() {
       setArchiveFiles(files);
       setShowEnhancedSyncModal(true);
       clearSelection();
-      setDecompressMode(false);
+      setModalMode("import");
     } catch (e) {
       addToast(`ファイル一覧取得失敗: ${e}`);
     }
@@ -104,29 +106,28 @@ function App() {
     }
   };
 
-  const handleOpenDecompress = async () => {
+  const handleOpenLogViewer = async () => {
     try {
       const files: string[] = await invoke("list_archive_files");
       setArchiveFiles(files);
       setShowEnhancedSyncModal(true);
       clearSelection();
-      setDecompressMode(true);
+      setModalMode("viewer");
     } catch (e) {
       addToast(`ファイル一覧取得失敗: ${e}`);
     }
   };
 
-  const handleDecompress = async () => {
-    if (selectedFiles.size === 0) return;
+  const handleOpenSelectedLogViewer = async () => {
+    const [selected] = Array.from(selectedFiles);
+    if (!selected) return;
     try {
       setShowEnhancedSyncModal(false);
-      const res: string = await invoke("decompress_logs", { fileNames: Array.from(selectedFiles) });
-      addToast(res);
-      pollStorage();
+      const data: LogViewerData = await invoke("read_archive_log_viewer", { fileName: selected });
+      setLogViewerData(data);
+      setShowLogViewerModal(true);
     } catch (e) {
-      addToast(`展開エラー: ${e}`);
-    } finally {
-      setDecompressMode(false);
+      addToast(`ログ閲覧エラー: ${e}`);
     }
   };
 
@@ -346,9 +347,9 @@ function App() {
             </button>
           </div>
 
-          {/* カード2: zipからも読み取る */}
+          {/* カード2: zstから読み取る */}
           <div className="sync-card">
-            <h4>zipからも読み取る</h4>
+            <h4>zstから取り込む</h4>
             <p>圧縮済み (.tar.zst) を指定してDBを更新。複数選択・ Shift/Ctrl/ドラッグ対応。</p>
             <button
               className="btn-action primary"
@@ -360,16 +361,16 @@ function App() {
             </button>
           </div>
 
-          {/* カード3: 解凍 */}
+          {/* カード3: ログ閲覧 */}
           <div className="sync-card">
-            <h4>アーカイブを解凍</h4>
-            <p>zst フォルダ内の .tar.zst を archive フォルダに .txt として復元。展開確認後に .tar.zst を削除します。</p>
+            <h4>ログを閲覧</h4>
+            <p>圧縮済み (.tar.zst) を直接読み込み、ワールド移動・通知・参加離脱をハイライト表示します。</p>
             <button
               className="btn-action"
               style={{ width: '100%' }}
-              onClick={handleOpenDecompress}
+              onClick={handleOpenLogViewer}
             >
-              解凍する
+              ログを開く
             </button>
           </div>
         </div>
@@ -549,10 +550,10 @@ function App() {
           <div className="modal-content archive-selector">
             <div className="archive-modal-header">
               <div>
-                <h3>{decompressMode ? 'アーカイブを解凍' : 'zipからも読み取る'}</h3>
+                <h3>{modalMode === "viewer" ? 'ログを閲覧' : 'zstから取り込む'}</h3>
                 <p>
-                  {decompressMode
-                    ? '解凍する .tar.zst ファイルを選択してください。展開確認後に .tar.zst は削除されます。'
+                  {modalMode === "viewer"
+                    ? '閲覧する .tar.zst を1件選択してください。アプリ内で直接読み込み、ハイライト付きで表示します。'
                     : '取り込む圧縮ログ（.tar.zst）を選択してください。日付新しい順に並んでいます。'}
                 </p>
               </div>
@@ -588,18 +589,61 @@ function App() {
               )}
             </div>
             <div className="modal-actions">
-              <button className="btn-action" onClick={() => { setShowEnhancedSyncModal(false); setDecompressMode(false); }}>キャンセル</button>
+              <button className="btn-action" onClick={() => { setShowEnhancedSyncModal(false); setModalMode("import"); }}>キャンセル</button>
               <button
-                className={`btn-action ${decompressMode ? '' : 'primary'}`}
+                className={`btn-action ${modalMode === "viewer" ? '' : 'primary'}`}
                 disabled={selectedFiles.size === 0}
-                onClick={decompressMode ? handleDecompress : handleExecuteEnhancedSync}
+                onClick={modalMode === "viewer" ? handleOpenSelectedLogViewer : handleExecuteEnhancedSync}
               >
                 {selectedFiles.size > 0
-                  ? decompressMode ? `${selectedFiles.size}件を解凍する` : `${selectedFiles.size}件を取り込み開始`
-                  : decompressMode ? '解凍する' : '取り込み開始'}
+                  ? modalMode === "viewer" ? `${selectedFiles.size}件から閲覧する` : `${selectedFiles.size}件を取り込み開始`
+                  : modalMode === "viewer" ? 'ログを開く' : '取り込み開始'}
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {showLogViewerModal && logViewerData && (
+        <div className="modal-overlay fullscreen-modal">
+          <div className="modal-content archive-selector log-viewer-modal">
+            <div className="archive-modal-header">
+              <div>
+                <h3>ログビューア</h3>
+                <p>{logViewerData.archive_name} / {logViewerData.source_name}</p>
+              </div>
+              <div className="archive-modal-meta">
+                <span className="archive-count">{logViewerData.lines.length} 行</span>
+              </div>
+            </div>
+
+            <div className="terminal-legend">
+              <span className="legend-item category-world">WORLD</span>
+              <span className="legend-item category-travel">MOVE</span>
+              <span className="legend-item category-notification">NOTIFY</span>
+              <span className="legend-item category-player_join">JOIN</span>
+              <span className="legend-item category-player_left">LEFT</span>
+              <span className="legend-item category-video">VIDEO</span>
+              <span className="legend-item category-warning">WARN</span>
+              <span className="legend-item category-error">ERROR</span>
+              <span className="legend-item category-debug">DEBUG</span>
+            </div>
+
+            <div className="terminal-log-list">
+              {logViewerData.lines.map((entry, index) => (
+                <div key={`${index}-${entry.timestamp}`} className={`terminal-log-line category-${entry.category} level-${entry.level}`}>
+                  <span className="terminal-log-time">{entry.timestamp || " "}</span>
+                  <span className="terminal-log-text">{entry.raw_line}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn-action" onClick={() => setShowLogViewerModal(false)}>
+                閉じる
+              </button>
+            </div>
           </div>
         </div>
       )}

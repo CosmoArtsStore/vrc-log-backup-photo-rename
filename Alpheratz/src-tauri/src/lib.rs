@@ -5,11 +5,14 @@ use std::sync::LazyLock;
 use tauri::{generate_handler, AppHandle, Builder, State};
 use tauri_plugin_shell::ShellExt;
 
+use phash::{PHashProgressPayload, PHashWorkerState};
+
 pub struct ScanCancelStatus(pub AtomicBool);
 
 pub mod config;
 pub mod db;
 pub mod models;
+pub mod phash;
 pub mod scanner;
 pub mod utils;
 
@@ -38,6 +41,8 @@ async fn initialize_scan(
     tauri::async_runtime::spawn(async move {
         if let Err(e) = scanner::do_scan(app_clone.clone()).await {
             crate::utils::log_err(&format!("Scanner Error: {}", e));
+        } else {
+            phash::start_phash_worker(app_clone.clone());
         }
     });
     Ok(())
@@ -67,23 +72,23 @@ async fn create_thumbnail(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn save_photo_memo_cmd(filename: String, memo: String) -> Result<(), String> {
-    db::save_photo_memo(&filename, &memo)
+async fn save_photo_memo_cmd(photo_path: String, memo: String) -> Result<(), String> {
+    db::save_photo_memo(&photo_path, &memo)
 }
 
 #[tauri::command]
-async fn set_photo_favorite_cmd(filename: String, is_favorite: bool) -> Result<(), String> {
-    db::set_photo_favorite(&filename, is_favorite)
+async fn set_photo_favorite_cmd(photo_path: String, is_favorite: bool) -> Result<(), String> {
+    db::set_photo_favorite(&photo_path, is_favorite)
 }
 
 #[tauri::command]
-async fn add_photo_tag_cmd(filename: String, tag: String) -> Result<(), String> {
-    db::add_photo_tag(&filename, &tag)
+async fn add_photo_tag_cmd(photo_path: String, tag: String) -> Result<(), String> {
+    db::add_photo_tag(&photo_path, &tag)
 }
 
 #[tauri::command]
-async fn remove_photo_tag_cmd(filename: String, tag: String) -> Result<(), String> {
-    db::remove_photo_tag(&filename, &tag)
+async fn remove_photo_tag_cmd(photo_path: String, tag: String) -> Result<(), String> {
+    db::remove_photo_tag(&photo_path, &tag)
 }
 
 #[tauri::command]
@@ -134,6 +139,17 @@ fn save_startup_preference_cmd(enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn start_phash_calculation_cmd(app: AppHandle) -> Result<(), String> {
+    phash::start_phash_worker(app);
+    Ok(())
+}
+
+#[tauri::command]
+fn get_phash_progress_cmd(app: AppHandle) -> PHashProgressPayload {
+    phash::get_phash_progress(&app)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if let Err(err) = init_alpheratz_db() {
@@ -145,6 +161,18 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(ScanCancelStatus(AtomicBool::new(false)))
+        .manage(PHashWorkerState {
+            running: AtomicBool::new(false),
+            progress: std::sync::Mutex::new(PHashProgressPayload::default()),
+        })
+        .setup(|app| {
+            let has_pending = phash::has_pending_phash().unwrap_or(false);
+            let has_unknown_worlds = phash::has_unknown_worlds().unwrap_or(false);
+            if has_pending || has_unknown_worlds {
+                phash::start_phash_worker(app.handle().clone());
+            }
+            Ok(())
+        })
         .invoke_handler(generate_handler![
             get_setting_cmd,
             save_setting_cmd,
@@ -160,6 +188,8 @@ pub fn run() {
             show_in_explorer,
             get_startup_preference_cmd,
             save_startup_preference_cmd,
+            start_phash_calculation_cmd,
+            get_phash_progress_cmd,
         ])
         .run(tauri::generate_context!());
 

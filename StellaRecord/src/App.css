@@ -1393,6 +1393,157 @@ button,
   min-width: 110px;
 }
 
+.log-viewer-modal {
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.legend-item {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.terminal-log-list {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 16px;
+  background: #0b1020;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  padding: 1rem;
+}
+
+.terminal-log-line {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 1rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0.1rem 0;
+}
+
+.terminal-log-time {
+  color: #64748b;
+}
+
+.terminal-log-text {
+  color: #cbd5e1;
+}
+
+.terminal-log-line.category-world .terminal-log-text,
+.legend-item.category-world {
+  color: #60a5fa;
+}
+
+.terminal-log-line.category-travel .terminal-log-text,
+.legend-item.category-travel {
+  color: #38bdf8;
+}
+
+.terminal-log-line.category-notification .terminal-log-text,
+.legend-item.category-notification {
+  color: #facc15;
+}
+
+.terminal-log-line.category-player_join .terminal-log-text,
+.terminal-log-line.category-player_ready .terminal-log-text,
+.legend-item.category-player_join {
+  color: #4ade80;
+}
+
+.terminal-log-line.category-player_left .terminal-log-text,
+.legend-item.category-player_left {
+  color: #f87171;
+}
+
+.terminal-log-line.category-video .terminal-log-text,
+.legend-item.category-video {
+  color: #c084fc;
+}
+
+.terminal-log-line.category-warning .terminal-log-text,
+.legend-item.category-warning {
+  color: #fb923c;
+}
+
+.terminal-log-line.category-error .terminal-log-text,
+.legend-item.category-error {
+  color: #ef4444;
+}
+
+.terminal-log-line.category-debug .terminal-log-text,
+.legend-item.category-debug {
+  color: #94a3b8;
+}
+
+.terminal-log-line.category-plain .terminal-log-text {
+  color: #cbd5e1;
+}
+
+.terminal-log-line.level-error .terminal-log-time {
+  color: #ef4444;
+}
+
+.terminal-log-line.level-warning .terminal-log-time {
+  color: #fb923c;
+}
+
+.terminal-log-line.level-debug .terminal-log-time {
+  color: #94a3b8;
+}
+
+.terminal-log-line.level-plain .terminal-log-time,
+.terminal-log-line.level-info .terminal-log-time {
+  color: #64748b;
+}
+
+.terminal-log-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-log-list::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+}
+
+.terminal-log-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (max-width: 900px) {
+  .terminal-log-line {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+
+  .terminal-log-time {
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .terminal-legend {
+    gap: 0.35rem;
+  }
+
+  .legend-item {
+    font-size: 0.62rem;
+  }
+}
+
 .startup-card {
   display: flex;
   align-items: center;

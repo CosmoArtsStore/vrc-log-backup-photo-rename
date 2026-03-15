@@ -38,6 +38,9 @@ export const usePhotos = (
             listen("scan:enrich_completed", () => {
                 loadPhotos();
             }),
+            listen("phash_complete", () => {
+                loadPhotos();
+            }),
         ];
 
         return () => {

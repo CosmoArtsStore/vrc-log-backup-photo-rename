@@ -14,6 +14,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::config::load_setting;
 use crate::db::open_alpheratz_connection;
 use crate::models::ScanProgress;
+use crate::phash;
 use crate::utils;
 use crate::ScanCancelStatus;
 
@@ -36,6 +37,7 @@ struct ExistingPhotoInfo {
     world_id: Option<String>,
     world_name: Option<String>,
     orientation: Option<String>,
+    is_missing: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -165,29 +167,33 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    let found_filename_set: HashSet<String> = found_files
+    let found_path_set: HashSet<String> = found_files
         .iter()
-        .map(|(filename, _)| filename.clone())
+        .map(|(_, path)| path.to_slash_lossy().to_string())
         .collect();
-    delete_missing_photos(&conn, &existing_photos, &found_filename_set)?;
+    mark_missing_photos(&conn, &existing_photos, &found_path_set)?;
 
     let candidate_files: Vec<(String, PathBuf, ScanRefreshKind)> = found_files
         .into_iter()
-        .filter_map(|(filename, path)| match existing_photos.get(&filename) {
-            None => Some((filename, path, ScanRefreshKind::Full)),
-            Some(existing) => {
-                let path_changed = existing.photo_path != path.to_slash_lossy();
-                let missing_features = existing.orientation.is_none();
-                let missing_world = existing.world_name.is_none() && existing.world_id.is_none();
+        .filter_map(|(filename, path)| {
+            let normalized_path = path.to_slash_lossy().to_string();
+            match existing_photos.get(&normalized_path) {
+                None => Some((filename, path, ScanRefreshKind::Full)),
+                Some(existing) => {
+                    let filename_changed = existing.photo_filename != filename;
+                    let missing_features = existing.orientation.is_none();
+                    let missing_world = existing.world_name.is_none() && existing.world_id.is_none();
+                    let reappeared = existing.is_missing;
 
-                if missing_features {
-                    Some((filename, path, ScanRefreshKind::Full))
-                } else if path_changed {
-                    Some((filename, path, ScanRefreshKind::PathOnly))
-                } else if missing_world && filename.to_ascii_lowercase().ends_with(".png") {
-                    Some((filename, path, ScanRefreshKind::MetadataOnly))
-                } else {
-                    None
+                    if reappeared || missing_features {
+                        Some((filename, path, ScanRefreshKind::Full))
+                    } else if filename_changed {
+                        Some((filename, path, ScanRefreshKind::PathOnly))
+                    } else if missing_world && filename.to_ascii_lowercase().ends_with(".png") {
+                        Some((filename, path, ScanRefreshKind::MetadataOnly))
+                    } else {
+                        None
+                    }
                 }
             }
         })
@@ -257,7 +263,7 @@ fn default_photo_dir() -> Option<PathBuf> {
 fn get_existing_photos(conn: &Connection) -> Result<HashMap<String, ExistingPhotoInfo>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT photo_filename, photo_path, world_id, world_name, timestamp, orientation
+            "SELECT photo_filename, photo_path, world_id, world_name, timestamp, orientation, is_missing
              FROM photos",
         )
         .map_err(|e| scan_err("Failed to prepare existing photo query", e))?;
@@ -269,6 +275,7 @@ fn get_existing_photos(conn: &Connection) -> Result<HashMap<String, ExistingPhot
                 world_id: row.get(2)?,
                 world_name: row.get(3)?,
                 orientation: row.get(5)?,
+                is_missing: row.get::<_, i64>(6)? != 0,
             })
         })
         .map_err(|e| scan_err("Failed to execute existing photo query", e))?;
@@ -276,7 +283,7 @@ fn get_existing_photos(conn: &Connection) -> Result<HashMap<String, ExistingPhot
     let mut map = HashMap::new();
     for row in rows {
         if let Some(info) = warn_row_error(row, "existing photo row decode failed") {
-            map.insert(info.photo_filename.clone(), info);
+            map.insert(info.photo_path.clone(), info);
         }
     }
 
@@ -291,7 +298,8 @@ fn analyze_photo(
 ) -> Result<Option<ScanPhotoData>, String> {
     let timestamp = resolve_photo_timestamp(path, filename)?;
 
-    let existing = existing_photos.get(filename);
+    let normalized_path = path.to_slash_lossy().to_string();
+    let existing = existing_photos.get(&normalized_path);
     let (world_name, world_id, match_source) = match refresh_kind {
         ScanRefreshKind::PathOnly => (
             existing.and_then(|photo| photo.world_name.clone()),
@@ -299,7 +307,7 @@ fn analyze_photo(
             None,
         ),
         ScanRefreshKind::Full | ScanRefreshKind::MetadataOnly => {
-            resolve_world_info_lightweight(filename, path, &timestamp, existing_photos)
+            resolve_world_info_lightweight(&normalized_path, filename, path, &timestamp, existing_photos)
         }
     };
     let orientation = match refresh_kind {
@@ -321,6 +329,7 @@ fn analyze_photo(
 }
 
 fn resolve_world_info_lightweight(
+    photo_path: &str,
     filename: &str,
     path: &Path,
     timestamp: &str,
@@ -333,7 +342,7 @@ fn resolve_world_info_lightweight(
         }
     }
 
-    if let Some(existing) = existing_photos.get(filename) {
+    if let Some(existing) = existing_photos.get(photo_path) {
         if existing.world_name.is_some() || existing.world_id.is_some() {
             return (
                 existing.world_name.clone(),
@@ -345,6 +354,24 @@ fn resolve_world_info_lightweight(
 
     if let Some(world_name) = lookup_world_name_from_stella_record(timestamp) {
         return (Some(world_name), None, Some("stella_db".to_string()));
+    }
+
+    match phash::infer_world_name_from_unknown_photo(path) {
+        Ok(Some(phash_match)) => {
+            return (
+                Some(phash_match.world_name),
+                None,
+                Some("phash".to_string()),
+            );
+        }
+        Ok(None) => {}
+        Err(err) => {
+            crate::utils::log_warn(&format!(
+                "pHash 補完に失敗しました [{}]: {}",
+                path.display(),
+                err
+            ));
+        }
     }
 
     (None, None, None)
@@ -563,14 +590,14 @@ fn read_xcf_dimensions(path: &Path) -> Option<(u32, u32)> {
     Some((width, height))
 }
 
-fn delete_missing_photos(
+fn mark_missing_photos(
     conn: &Connection,
     existing_photos: &HashMap<String, ExistingPhotoInfo>,
-    found_filenames: &HashSet<String>,
+    found_paths: &HashSet<String>,
 ) -> Result<(), String> {
     let missing: Vec<String> = existing_photos
         .keys()
-        .filter(|filename| !found_filenames.contains(*filename))
+        .filter(|path| !found_paths.contains(*path))
         .cloned()
         .collect();
 
@@ -580,26 +607,20 @@ fn delete_missing_photos(
 
     let tx = conn
         .unchecked_transaction()
-        .map_err(|e| scan_err("Failed to start delete transaction", e))?;
+        .map_err(|e| scan_err("Failed to start missing mark transaction", e))?;
     {
-        let mut delete_tags = tx
-            .prepare("DELETE FROM photo_tags WHERE photo_filename = ?1")
-            .map_err(|e| scan_err("Failed to prepare tag delete statement", e))?;
-        let mut delete_photos = tx
-            .prepare("DELETE FROM photos WHERE photo_filename = ?1")
-            .map_err(|e| scan_err("Failed to prepare photo delete statement", e))?;
+        let mut mark_missing = tx
+            .prepare("UPDATE photos SET is_missing = 1 WHERE photo_path = ?1")
+            .map_err(|e| scan_err("Failed to prepare missing mark statement", e))?;
 
-        for filename in missing {
-            delete_tags
-                .execute(params![filename])
-                .map_err(|e| scan_err("Failed to delete photo tags", e))?;
-            delete_photos
-                .execute(params![filename])
-                .map_err(|e| scan_err("Failed to delete missing photo", e))?;
+        for photo_path in missing {
+            mark_missing
+                .execute(params![photo_path])
+                .map_err(|e| scan_err("Failed to mark missing photo", e))?;
         }
     }
     tx.commit()
-        .map_err(|e| scan_err("Failed to commit delete transaction", e))?;
+        .map_err(|e| scan_err("Failed to commit missing mark transaction", e))?;
     Ok(())
 }
 
@@ -611,28 +632,30 @@ fn upsert_photo_batch(conn: &mut Connection, items: &[ScanPhotoData]) -> Result<
         let mut stmt = tx
             .prepare(
                 "INSERT INTO photos (
-                    photo_filename,
                     photo_path,
+                    photo_filename,
                     world_id,
                     world_name,
                     timestamp,
                     orientation,
-                    match_source
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-                ON CONFLICT(photo_filename) DO UPDATE SET
-                    photo_path = excluded.photo_path,
+                    match_source,
+                    is_missing
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)
+                ON CONFLICT(photo_path) DO UPDATE SET
+                    photo_filename = excluded.photo_filename,
                     world_id = COALESCE(excluded.world_id, photos.world_id),
                     world_name = COALESCE(excluded.world_name, photos.world_name),
                     timestamp = excluded.timestamp,
                     orientation = COALESCE(excluded.orientation, photos.orientation),
-                    match_source = COALESCE(excluded.match_source, photos.match_source)",
+                    match_source = COALESCE(excluded.match_source, photos.match_source),
+                    is_missing = 0",
             )
             .map_err(|e| format!("Failed to prepare insert statement: {}", e))?;
 
         for item in items {
             stmt.execute(params![
-                item.filename,
                 item.path.to_slash_lossy().to_string(),
+                item.filename,
                 item.world_id,
                 item.world_name,
                 item.timestamp,

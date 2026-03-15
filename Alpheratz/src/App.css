@@ -26,6 +26,9 @@ body {
   --a-button-text: #ffffff;
   --a-warn: #f59e0b;
   --a-danger: #ef4444;
+  --a-scrollbar-track: rgba(148, 163, 184, 0.14);
+  --a-scrollbar-thumb: rgba(99, 102, 241, 0.42);
+  --a-scrollbar-thumb-hover: rgba(99, 102, 241, 0.62);
   --a-radius: 16px;
   --a-radius-sm: 12px;
   --a-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -59,6 +62,9 @@ body {
   --a-text-dim: #cbd5e1;
   --a-text-faint: #94a3b8;
   --a-button-text: #f8fafc;
+  --a-scrollbar-track: rgba(148, 163, 184, 0.14);
+  --a-scrollbar-thumb: rgba(129, 140, 248, 0.42);
+  --a-scrollbar-thumb-hover: rgba(129, 140, 248, 0.64);
   --a-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.28);
   --a-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
   --a-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.42);
@@ -68,6 +74,33 @@ body {
 .alpheratz-root *::before,
 .alpheratz-root *::after {
   box-sizing: border-box;
+}
+
+.alpheratz-root * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--a-scrollbar-thumb) var(--a-scrollbar-track);
+}
+
+.alpheratz-root *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.alpheratz-root *::-webkit-scrollbar-track {
+  background: var(--a-scrollbar-track);
+  border-radius: 999px;
+}
+
+.alpheratz-root *::-webkit-scrollbar-thumb {
+  background: var(--a-scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.alpheratz-root *::-webkit-scrollbar-thumb:hover {
+  background: var(--a-scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 .alpheratz-root button,
@@ -82,7 +115,7 @@ body {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 0.5rem 1.5rem;
+  padding: 0.3rem 0.35rem;
   background: var(--a-surface);
   border-bottom: 1px solid var(--a-border);
   gap: 1rem;
@@ -94,7 +127,7 @@ body {
 .alpheratz-root .logo-group {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.55rem;
   flex-shrink: 0;
   min-width: 420px;
 }
@@ -109,13 +142,14 @@ body {
 
 .alpheratz-root .header-logo-image {
   display: block;
-  height: 48px;
+  height: 50px;
   width: auto;
   max-width: 320px;
   object-fit: contain;
   object-position: left center;
-  transform: scale(2);
+  transform: scale(2.08);
   transform-origin: left center;
+  margin-left: -4px;
 }
 
 .alpheratz-root .wordmark-title {
@@ -144,6 +178,20 @@ body {
   gap: 0.5rem;
   flex: 1;
   justify-content: flex-end;
+}
+
+.alpheratz-root .header-phash-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 0.8rem;
+  border: 1px solid var(--a-border);
+  border-radius: 12px;
+  background: var(--a-surface-soft);
+  color: var(--a-text-dim);
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .alpheratz-root .header-actions {
@@ -240,21 +288,20 @@ body {
   flex-direction: column;
   position: relative;
   min-height: 0;
-  padding: 0 1.5rem 1.5rem;
+  padding: 0.24rem 0.3rem 0.3rem;
 }
 
 .alpheratz-root .grid-area {
   display: flex;
   flex: 1;
   min-height: 0;
-  gap: 1rem;
+  gap: 0;
   position: relative;
-  padding-left: 0;
-  transition: padding-left 0.18s ease;
-}
-
-.alpheratz-root .main-content.filter-open .grid-area {
-  padding-left: var(--filter-sidebar-width);
+  overflow: hidden;
+  border: 1px solid var(--a-border);
+  border-radius: 18px;
+  background: var(--a-surface);
+  box-shadow: none;
 }
 
 .alpheratz-root .filter-sidebar {
@@ -266,7 +313,7 @@ body {
   opacity: 0;
   overflow: hidden;
   border: 1px solid transparent;
-  border-radius: 0 0 20px 20px;
+  border-radius: 0;
   background: var(--a-surface);
   box-shadow: 12px 0 28px rgba(15, 23, 42, 0.08);
   transform: translateX(-16px);
@@ -666,11 +713,11 @@ body {
 
 .alpheratz-root .dd-check-item::after {
   content: "";
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  border: 2px solid #d1d5e8;
-  background: transparent;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid #d1d5e8;
+  background: #fff;
   flex-shrink: 0;
   box-sizing: border-box;
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
@@ -690,10 +737,10 @@ body {
   content: "✓";
   display: grid;
   place-items: center;
-  background: var(--a-primary);
-  border-color: var(--a-primary);
+  background: var(--a-warn);
+  border-color: var(--a-warn);
   color: #fff;
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 800;
 }
 
@@ -1394,12 +1441,13 @@ body {
   width: 136px;
   flex-shrink: 0;
   padding: 0.35rem 0.35rem 0.5rem;
-  border: 1px solid var(--a-border);
-  border-radius: 24px;
-  background: var(--a-surface);
+  border: none;
+  border-right: 1px solid var(--a-border);
+  border-radius: 0;
+  background: transparent;
   overflow-y: auto;
   position: relative;
-  box-shadow: var(--a-shadow-sm);
+  box-shadow: none;
 }
 
 .alpheratz-root .month-nav::before {
@@ -1426,7 +1474,7 @@ body {
   align-items: center;
   gap: 0.65rem;
   padding: 0.58rem 0.6rem 0.58rem 0.4rem;
-  border-radius: 14px;
+  border-radius: 10px;
   cursor: pointer;
   transition: background 0.2s, transform 0.15s;
   z-index: 1;
@@ -1479,7 +1527,7 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0;
 }
 
 .alpheratz-root .action-cards-grid {
@@ -1569,10 +1617,10 @@ body {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--a-border);
-  border-radius: 28px;
-  background: var(--a-surface);
-  box-shadow: var(--a-shadow-md);
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   margin-left: 0;
 }
 
@@ -1588,7 +1636,7 @@ body {
 }
 
 .alpheratz-root .photo-card-wrapper {
-  padding: 6px;
+  padding: 3px;
 }
 
 .alpheratz-root .photo-card {
@@ -1596,7 +1644,7 @@ body {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--a-border);
-  border-radius: 20px;
+  border-radius: 12px;
   overflow: hidden;
   background: var(--a-surface);
   cursor: pointer;
@@ -1605,8 +1653,8 @@ body {
 
 .alpheratz-root .photo-card:hover {
   border-color: var(--a-border-strong);
-  transform: translateY(-2px);
-  box-shadow: var(--a-shadow-md);
+  transform: translateY(-1px);
+  box-shadow: var(--a-shadow-sm);
 }
 
 .alpheratz-root .photo-thumb-container {
@@ -1721,7 +1769,8 @@ body {
 .alpheratz-root .scrollbar-track {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--a-scrollbar-track);
+  border-radius: 999px;
 }
 
 .alpheratz-root .scrollbar-thumb {
@@ -1729,8 +1778,13 @@ body {
   left: 2px;
   right: 2px;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--a-primary), var(--a-accent));
-  box-shadow: 0 0 18px rgba(123, 147, 255, 0.28);
+  background: var(--a-scrollbar-thumb);
+  box-shadow: none;
+  transition: background 0.18s ease;
+}
+
+.alpheratz-root .scrollbar-thumb:hover {
+  background: var(--a-scrollbar-thumb-hover);
 }
 
 .alpheratz-root .overlay-loader {
@@ -1820,14 +1874,14 @@ body {
 
 .alpheratz-root .cancel-button-overlay,
 .alpheratz-root .save-button {
-  padding: 0.7rem 1.2rem;
-  border: none;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  color: var(--a-button-text);
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.25);
+    padding: 0.7rem 1.2rem;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(90deg, #7c4dff 0%, #a64dff 100%);
+    color: var(--a-button-text);
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(124, 77, 255, 0.22);
 }
 
 .alpheratz-root .cancel-button-overlay {
@@ -1840,7 +1894,8 @@ body {
 
 .alpheratz-root .save-button:hover,
 .alpheratz-root .cancel-button-overlay:hover {
-  filter: brightness(1.05);
+    opacity: 0.85;
+    filter: none;
 }
 
 .alpheratz-root .empty-state {
@@ -1950,20 +2005,6 @@ body {
   z-index: 2;
 }
 
-.alpheratz-root .photo-modal-nav {
-  position: absolute;
-  top: 0.85rem;
-  right: 3.5rem;
-  z-index: 2;
-  display: flex;
-  gap: 0.45rem;
-}
-
-.alpheratz-root .photo-modal-arrow:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 .alpheratz-root .modal-back:hover,
 .alpheratz-root .modal-close:hover {
   background: var(--a-border);
@@ -1979,10 +2020,61 @@ body {
 
 .alpheratz-root .modal-image-container,
 .alpheratz-root .modal-image-container.photo-modal-image {
-  background: #000;
+  background: #0d0d0d;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.alpheratz-root .photo-edge-button {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: clamp(56px, 9%, 84px);
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.18s ease, background 0.18s ease;
+  z-index: 2;
+  cursor: pointer;
+}
+
+.alpheratz-root .photo-edge-button-prev {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 0.9rem;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.34), transparent 78%);
+}
+
+.alpheratz-root .photo-edge-button-next {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 0.9rem;
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.34), transparent 78%);
+}
+
+.alpheratz-root .photo-modal-image:hover .photo-edge-button:not(:disabled),
+.alpheratz-root .photo-edge-button:focus-visible {
+  opacity: 1;
+}
+
+.alpheratz-root .photo-edge-button:disabled {
+  opacity: 0;
+  cursor: default;
+  pointer-events: none;
+}
+
+.alpheratz-root .photo-edge-button svg {
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.42));
+}
+
+.alpheratz-root .photo-edge-button:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.08);
 }
 
 
@@ -2004,31 +2096,28 @@ body {
 }
 
 .alpheratz-root .world-link-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.65rem 0.95rem;
-  border: 1px solid transparent;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  color: #fff;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.25);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.65rem 0.95rem;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: #7c4dff;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(124, 77, 255, 0.22);
 }
 
 .alpheratz-root.theme-dark .world-link-button {
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  color: #fff;
+    background: #7c4dff;
+    color: #fff;
 }
 
 .alpheratz-root .world-link-button.favorite-active {
-  background: rgba(248, 184, 92, 0.14);
-  border-color: rgba(248, 184, 92, 0.32);
-  color: #b45309;
-}
-
-.alpheratz-root.theme-dark .world-link-button.favorite-active {
-  color: #fff3c4;
+    background: #fac775;
+    border-color: #fac775;
+    color: #412402;
+    box-shadow: 0 8px 18px rgba(250, 199, 117, 0.18);
 }
 
 .alpheratz-root .memo-section {
@@ -2234,60 +2323,87 @@ body {
 }
 
 .alpheratz-root .world-link-button:hover {
-  border-color: transparent;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  filter: brightness(1.05);
-  transform: translateY(-1px);
+    border-color: transparent;
+    background: #9966ff;
+    filter: none;
+    transform: translateY(-1px);
 }
 
 .alpheratz-root .world-link-button-subtle {
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--a-text);
-  box-shadow: none;
+    background: #eeedfe;
+    color: #3c3489;
+    border-color: #cecbf6;
+    box-shadow: none;
 }
 
 .alpheratz-root .photo-action-primary {
-  background: linear-gradient(135deg, #7c6fe0 0%, #8f7ff0 100%);
-  color: #fff;
-  border-color: transparent;
+    background: #7c4dff;
+    color: #fff;
+    border-color: transparent;
 }
 
 .alpheratz-root .photo-action-ghost {
-  background: transparent;
-  color: #8a7eea;
-  border: 1.5px solid rgba(124, 111, 224, 0.8);
-  box-shadow: none;
+    background: #185fa5;
+    color: #fff;
+    border: 1px solid #185fa5;
+    box-shadow: none;
 }
 
 .alpheratz-root .photo-action-ghost:hover {
-  background: rgba(124, 111, 224, 0.12);
-  color: #6f61d9;
-  filter: none;
+    background: #378add;
+    color: #fff;
+    filter: none;
 }
 
 .alpheratz-root.theme-dark .photo-action-ghost {
-  color: #c4b9f5;
-  border-color: rgba(124, 111, 224, 0.85);
+    background: #185fa5;
+    color: #fff;
+    border-color: #185fa5;
 }
 
 .alpheratz-root.theme-dark .photo-action-ghost:hover {
-  background: rgba(124, 111, 224, 0.18);
-  color: #e2dff5;
+    background: #378add;
+    color: #fff;
+}
+
+.alpheratz-root.theme-dark .world-link-button.favorite-active {
+    background: #fac775;
+    border-color: #fac775;
+    color: #412402;
+}
+
+.alpheratz-root.theme-dark .world-link-button-subtle {
+    background: #26215c;
+    color: #cecbf6;
+    border-color: #534ab7;
+}
+
+.alpheratz-root.theme-dark .photo-action-text {
+    background: #26215c;
+    color: #cecbf6;
+    border: 1px solid #534ab7;
+}
+
+.alpheratz-root.theme-dark .photo-action-text:hover {
+    background: #3c3489;
+    color: #fff;
+    border-color: #534ab7;
 }
 
 .alpheratz-root .photo-action-text {
-  justify-content: flex-start;
-  padding: 0.45rem 0.3rem;
-  background: transparent;
-  color: var(--a-text-dim);
-  border: none;
-  box-shadow: none;
+    justify-content: center;
+    padding: 0.6rem 0.95rem;
+    background: #eeedfe;
+    color: #3c3489;
+    border: 1px solid #cecbf6;
+    box-shadow: none;
 }
 
 .alpheratz-root .photo-action-text:hover {
-  background: rgba(124, 111, 224, 0.08);
-  color: #8a7eea;
-  filter: none;
+    background: #cecbf6;
+    color: #3c3489;
+    border-color: #cecbf6;
+    filter: none;
 }
 
 .alpheratz-root .photo-modal-form {
@@ -2302,6 +2418,28 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+.alpheratz-root .tag-existing-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.alpheratz-root .tag-existing-picker select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--a-border);
+  border-radius: 12px;
+  background: var(--a-surface-soft);
+  color: var(--a-text);
+  outline: none;
+}
+
+.alpheratz-root .tag-existing-picker select:focus {
+  border-color: var(--a-border-strong);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
 }
 
 .alpheratz-root .photo-modal-tag-suggestion {
@@ -2459,39 +2597,6 @@ body {
   border-top-color: #fff;
 }
 
-.alpheratz-root .similar-photos-list {
-  display: flex;
-  gap: 0.6rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-  scrollbar-width: thin;
-}
-
-.alpheratz-root .similar-photo-card {
-  position: relative;
-  width: 100px;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-.alpheratz-root .similar-photo-thumb {
-  width: 100px;
-  height: 70px;
-  border-radius: 8px;
-  object-fit: cover;
-}
-
-.alpheratz-root .similar-photo-distance {
-  position: absolute;
-  right: 0.2rem;
-  bottom: 0.2rem;
-  padding: 0.12rem 0.35rem;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.68);
-  color: #fff;
-  font-size: 0.62rem;
-}
-
 .alpheratz-root .action-buttons-section,
 .alpheratz-root .suggestions-section,
 .alpheratz-root .similar-photos-section {
@@ -2500,16 +2605,21 @@ body {
   gap: 0.75rem;
 }
 
-.alpheratz-root .similar-photos-section h3 {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--a-text);
+@keyframes a-phash-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.88);
+    opacity: 0.78;
+  }
 }
 
 @media (max-width: 1120px) {
   .alpheratz-root .grid-area {
     gap: 0.75rem;
-    padding-left: var(--filter-sidebar-width);
   }
 
   .alpheratz-root .month-nav {

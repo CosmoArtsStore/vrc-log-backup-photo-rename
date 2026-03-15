@@ -42,6 +42,7 @@ export const PhotoCard = ({
                     <div className="photo-meta-row">
                         {photo.is_favorite && <span className="photo-pill favorite">★ Favorite</span>}
                         {photo.match_source === "stella_db" && <span className="photo-pill">DB</span>}
+                        {photo.match_source === "phash" && <span className="photo-pill">pHash</span>}
                         {photo.orientation && (
                             <span className="photo-pill">{photo.orientation}</span>
                         )}

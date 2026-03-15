@@ -100,6 +100,67 @@ pub static RE_NOTIFICATION: LazyLock<Regex> = LazyLock::new(|| {
     )
 });
 
+pub static RE_NOTIFICATION_WORLD_ID: LazyLock<Regex> = LazyLock::new(|| {
+    compile_regex(r"worldId=(wrld_[^,}]+)", "RE_NOTIFICATION_WORLD_ID")
+});
+
+pub static RE_NOTIFICATION_WORLD_NAME: LazyLock<Regex> = LazyLock::new(|| {
+    compile_regex(r"worldName=([^,}]+)", "RE_NOTIFICATION_WORLD_NAME")
+});
+
+pub static RE_DESTINATION_EVENT: LazyLock<Regex> = LazyLock::new(|| {
+    compile_regex(
+        r"\[Behaviour\] Destination (requested|fetching|set): (wrld_[^\s]+)",
+        "RE_DESTINATION_EVENT",
+    )
+});
+
+pub static RE_GOING_HOME: LazyLock<Regex> = LazyLock::new(|| {
+    compile_regex(
+        r"\[Behaviour\] Going to Home Location: (wrld_[^\s]+)",
+        "RE_GOING_HOME",
+    )
+});
+
+pub static RE_PLAYER_JOIN_COMPLETE: LazyLock<Regex> = LazyLock::new(|| {
+    compile_regex(
+        r"\[Behaviour\] OnPlayerJoinComplete (.+)",
+        "RE_PLAYER_JOIN_COMPLETE",
+    )
+});
+
+pub static RE_ENVIRONMENT_LINE: LazyLock<Regex> = LazyLock::new(|| {
+    compile_regex(r"^\s{4}([^:]+):\s*(.*)$", "RE_ENVIRONMENT_LINE")
+});
+
+pub static RE_DEVICE_LINE: LazyLock<Regex> = LazyLock::new(|| {
+    compile_regex(
+        r"^-- \[(\d+)\] device name = '([^']+)' min/max freq = (\d+) / (\d+)$",
+        "RE_DEVICE_LINE",
+    )
+});
+
+pub static RE_SUBSCRIPTION_STATUS: LazyLock<Regex> = LazyLock::new(|| {
+    compile_regex(
+        r"Get VRChat Subscription Details! Subscription Id:([^ ]*) active:(True|False) desc:(.*)",
+        "RE_SUBSCRIPTION_STATUS",
+    )
+});
+
+pub static RE_BEST_REGION: LazyLock<Regex> = LazyLock::new(|| {
+    compile_regex(
+        r"\[Behaviour\] Got best network region: (.+)",
+        "RE_BEST_REGION",
+    )
+});
+
+pub static RE_CURRENT_UTC: LazyLock<Regex> = LazyLock::new(|| {
+    compile_regex(
+        r"Current UTC Time is: ([^,]+), sync took ([^ ]+)s",
+        "RE_CURRENT_UTC",
+    )
+});
+
 /// usr_id 抽出（汎用）
 pub static RE_USR: LazyLock<Regex> = LazyLock::new(|| compile_regex(r"\((usr_[^)]+)\)", "RE_USR"));
 
@@ -134,4 +195,54 @@ pub fn parse_access_type(access_raw: &str) -> (Option<String>, Option<String>) {
 /// - その他: 収集
 pub fn is_collectible_notification(notif_type: &str) -> bool {
     !matches!(notif_type.trim(), "group")
+}
+
+#[derive(Clone, Default)]
+pub struct ParsedLocation {
+    pub world_id: Option<String>,
+    pub instance_id: Option<String>,
+    pub access_type: Option<String>,
+    pub instance_owner: Option<String>,
+    pub region: Option<String>,
+}
+
+pub fn parse_location(location: &str) -> ParsedLocation {
+    let trimmed = location.trim();
+    let Some(world_id_raw) = trimmed.strip_prefix("wrld_") else {
+        return ParsedLocation::default();
+    };
+    let rebuilt = format!("wrld_{}", world_id_raw);
+    let Some((world_id, tail)) = rebuilt.split_once(':') else {
+        return ParsedLocation {
+            world_id: Some(rebuilt),
+            ..ParsedLocation::default()
+        };
+    };
+
+    let mut result = ParsedLocation {
+        world_id: Some(world_id.to_string()),
+        ..ParsedLocation::default()
+    };
+
+    let mut parts = tail.split('~');
+    if let Some(instance_id) = parts.next() {
+        result.instance_id = Some(instance_id.to_string());
+    }
+
+    if let Some(access_raw) = parts.next() {
+        let (access_type, instance_owner) = parse_access_type(access_raw);
+        result.access_type = access_type;
+        result.instance_owner = instance_owner;
+    }
+
+    for part in parts {
+        if let Some(region) = part
+            .strip_prefix("region(")
+            .and_then(|value| value.strip_suffix(')'))
+        {
+            result.region = Some(region.to_string());
+        }
+    }
+
+    result
 }

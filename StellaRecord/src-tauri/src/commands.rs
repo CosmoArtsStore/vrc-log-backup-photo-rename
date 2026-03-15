@@ -1,12 +1,14 @@
 use std::fs;
+use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 
+use chrono::NaiveDateTime;
 use serde::Serialize;
 use tauri::AppHandle;
 
 use crate::analyze;
 use crate::config::{self, RegistryCatalog};
-use crate::models::{AnalyzePayload, TableData};
+use crate::models::{AnalyzePayload, LogViewerData, LogViewerLine, TableData};
 use crate::{platform, utils};
 
 const STELLA_RECORD_RUN_VALUE: &str = "StellaRecord";
@@ -43,6 +45,17 @@ fn get_db_path() -> Result<PathBuf, String> {
     setting
         .get_effective_db_path()
         .ok_or_else(|| "データベースパスが見つかりません。".to_string())
+}
+
+fn get_extends_db_path() -> Result<PathBuf, String> {
+    let setting = config::load_stellarecord_setting();
+    setting
+        .get_effective_extends_db_path()
+        .ok_or_else(|| "拡張データベースパスが見つかりません。".to_string())
+}
+
+fn get_zst_dir() -> Result<PathBuf, String> {
+    Ok(get_archive_dir()?.join("zst"))
 }
 
 fn compress_single_file(src: &Path, dst: &Path) -> Result<(), String> {
@@ -158,9 +171,135 @@ fn sanitize_table_name(table_name: &str) -> Result<&str, String> {
     }
 }
 
+fn build_log_viewer_data_payload(
+    archive_name: &str,
+    source_name: &str,
+    lines: Vec<LogViewerLine>,
+) -> LogViewerData {
+    LogViewerData {
+        archive_name: archive_name.to_string(),
+        source_name: source_name.to_string(),
+        lines,
+    }
+}
+
+fn read_archive_entry_as_string(archive_path: &Path) -> Result<(String, String), String> {
+    let file = fs::File::open(archive_path)
+        .map_err(|err| utils::command_err(&format!("Failed to open {}", archive_path.display()), err))?;
+    let decoder = zstd::stream::Decoder::new(file)
+        .map_err(|err| utils::command_err("Failed to create zstd decoder", err))?;
+    let mut archive = tar::Archive::new(decoder);
+    for entry in archive
+        .entries()
+        .map_err(|err| utils::command_err("Failed to enumerate zst entries", err))?
+    {
+        let mut entry = entry.map_err(|err| utils::command_err("Failed to read zst entry", err))?;
+        let entry_path = entry
+            .path()
+            .map_err(|err| utils::command_err("Failed to resolve zst entry path", err))?;
+        let source_name = entry_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or_else(|| "Invalid archive entry name".to_string())?
+            .to_string();
+        let mut content = String::new();
+        entry
+            .read_to_string(&mut content)
+            .map_err(|err| utils::command_err("Failed to read archive entry text", err))?;
+        return Ok((source_name, content));
+    }
+    Err(format!(
+        "アーカイブ内にログファイルがありません: {}",
+        archive_path.display()
+    ))
+}
+
+fn classify_log_line(line: &str) -> (String, String) {
+    if line.contains("[Behaviour] Entering Room:") {
+        return ("world".to_string(), "info".to_string());
+    }
+    if line.contains("[Behaviour] OnLeftRoom") {
+        return ("world".to_string(), "info".to_string());
+    }
+    if let Some(caps) = analyze::RE_DESTINATION_EVENT.captures(line) {
+        let _ = caps;
+        return ("travel".to_string(), "info".to_string());
+    }
+    if let Some(caps) = analyze::RE_GOING_HOME.captures(line) {
+        let _ = caps;
+        return ("travel".to_string(), "info".to_string());
+    }
+    if let Some(caps) = analyze::RE_PLAYER_JOIN.captures(line) {
+        let _ = caps;
+        return ("player_join".to_string(), "info".to_string());
+    }
+    if let Some(caps) = analyze::RE_PLAYER_JOIN_COMPLETE.captures(line) {
+        let _ = caps;
+        return ("player_ready".to_string(), "info".to_string());
+    }
+    if let Some(caps) = analyze::RE_PLAYER_LEFT.captures(line) {
+        let _ = caps;
+        return ("player_left".to_string(), "info".to_string());
+    }
+    if let Some(caps) = analyze::RE_NOTIFICATION.captures(line) {
+        let _ = caps;
+        return ("notification".to_string(), "info".to_string());
+    }
+    if let Some(caps) = analyze::RE_VIDEO.captures(line) {
+        let _ = caps;
+        return ("video".to_string(), "info".to_string());
+    }
+    if let Some(caps) = analyze::RE_VIDEO_ALT.captures(line) {
+        let _ = caps;
+        return ("video".to_string(), "info".to_string());
+    }
+    if line.contains("[UserInfoLogger] Environment Info:") {
+        return ("debug".to_string(), "debug".to_string());
+    }
+    if line.contains("[UserInfoLogger] User Settings Info:") {
+        return ("debug".to_string(), "debug".to_string());
+    }
+    if line.contains("Microphones installed (") {
+        return ("debug".to_string(), "debug".to_string());
+    }
+    if line.contains(" Error ") || line.contains("Error      -") {
+        return ("error".to_string(), "error".to_string());
+    }
+    if line.contains(" Warning ") || line.contains("Warning    -") {
+        return ("warning".to_string(), "warning".to_string());
+    }
+    ("plain".to_string(), "plain".to_string())
+}
+
+fn build_log_viewer_data(archive_name: &str, source_name: &str, content: &str) -> LogViewerData {
+    let reader = BufReader::new(content.as_bytes());
+    let mut lines = Vec::new();
+
+    for line in reader.lines().map_while(Result::ok) {
+        let timestamp = analyze::RE_TIME
+            .captures(&line)
+            .and_then(|caps| caps.get(1))
+            .and_then(|m| {
+                NaiveDateTime::parse_from_str(m.as_str(), "%Y.%m.%d %H:%M:%S")
+                    .ok()
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+            })
+            .unwrap_or_default();
+        let (category, level) = classify_log_line(&line);
+        lines.push(LogViewerLine {
+            timestamp,
+            level,
+            category,
+            raw_line: line,
+        });
+    }
+
+    build_log_viewer_data_payload(archive_name, source_name, lines)
+}
+
 #[tauri::command]
 pub fn list_archive_files() -> Result<Vec<String>, String> {
-    let zst_dir = get_archive_dir()?.join("zst");
+    let zst_dir = get_zst_dir()?;
     let mut files = Vec::new();
 
     if !zst_dir.exists() {
@@ -207,6 +346,17 @@ pub fn compress_logs() -> Result<String, String> {
 }
 
 #[tauri::command]
+pub fn read_archive_log_viewer(file_name: &str) -> Result<LogViewerData, String> {
+    let archive_path = get_zst_dir()?.join(file_name);
+    if !archive_path.exists() {
+        return Err(format!("ファイルが見つかりません: {}", file_name));
+    }
+
+    let (source_name, content) = read_archive_entry_as_string(&archive_path)?;
+    Ok(build_log_viewer_data(file_name, &source_name, &content))
+}
+
+#[tauri::command]
 pub fn get_pending_archive_log_count() -> Result<usize, String> {
     let archive_dir = get_archive_dir()?;
     if !archive_dir.exists() {
@@ -217,66 +367,10 @@ pub fn get_pending_archive_log_count() -> Result<usize, String> {
 }
 
 #[tauri::command]
-pub fn decompress_logs(file_names: Vec<String>) -> Result<String, String> {
-    let archive_dir = get_archive_dir()?;
-    let zst_dir = archive_dir.join("zst");
-    if !zst_dir.exists() {
-        return Err("zst フォルダが存在しません。".to_string());
-    }
-
-    let mut success_count = 0usize;
-    let mut skip_count = 0usize;
-
-    for file_name in file_names {
-        let archive_path = zst_dir.join(&file_name);
-        if !archive_path.exists() {
-            return Err(format!("ファイルが見つかりません: {}", file_name));
-        }
-
-        let restored_name = file_name.replace(".tar.zst", "");
-        let restored_path = archive_dir.join(&restored_name);
-        if restored_path.exists() {
-            skip_count += 1;
-            continue;
-        }
-
-        let input = fs::File::open(&archive_path).map_err(|err| {
-            utils::command_err(&format!("Failed to open {}", archive_path.display()), err)
-        })?;
-        let decoder = zstd::stream::Decoder::new(input)
-            .map_err(|err| utils::command_err("Failed to create zstd decoder", err))?;
-        let mut archive = tar::Archive::new(decoder);
-        archive
-            .unpack(&archive_dir)
-            .map_err(|err| utils::command_err("Failed to unpack archive", err))?;
-
-        if !restored_path.exists() {
-            return Err(format!("展開に失敗しました: {}", restored_name));
-        }
-
-        fs::remove_file(&archive_path).map_err(|err| {
-            utils::command_err(&format!("Failed to remove {}", archive_path.display()), err)
-        })?;
-        success_count += 1;
-    }
-
-    if skip_count > 0 {
-        Ok(format!(
-            "{}個を展開しました。{}個は既に展開済みでスキップしました。",
-            success_count, skip_count
-        ))
-    } else {
-        Ok(format!(
-            "{}個のアーカイブを展開し、元ファイルを削除しました。",
-            success_count
-        ))
-    }
-}
-
-#[tauri::command]
 pub fn launch_enhanced_import(app: AppHandle, file_names: Vec<String>) -> Result<String, String> {
     let db_path = get_db_path()?;
-    let zst_dir = get_archive_dir()?.join("zst");
+    let extends_db_path = get_extends_db_path()?;
+    let zst_dir = get_zst_dir()?;
 
     let mut target_paths = Vec::new();
     for file_name in &file_names {
@@ -304,9 +398,14 @@ pub fn launch_enhanced_import(app: AppHandle, file_names: Vec<String>) -> Result
             );
 
             let result =
-                analyze::run_enhanced_import(db_path.clone(), target_path, |status, progress| {
+                analyze::run_enhanced_import(
+                    db_path.clone(),
+                    extends_db_path.clone(),
+                    target_path,
+                    |status, progress| {
                     emit_analyze_progress(&app, status, progress, true);
-                });
+                    },
+                );
 
             if let Err(err) = result {
                 emit_analyze_progress(&app, format!("エラー: {}", err), "0%".to_string(), false);
@@ -358,10 +457,21 @@ pub fn get_polaris_logs() -> Result<Vec<String>, String> {
 #[tauri::command]
 pub async fn launch_analyze(app: AppHandle, _mode: String) -> Result<String, String> {
     let db_path = get_db_path()?;
+    let extends_db_path = get_extends_db_path()?;
     let archive_dir = get_archive_dir()?;
 
     std::thread::spawn(move || {
-        let result = analyze::run_diff_import(db_path, archive_dir, |status, progress| {
+        if let Err(err) = compress_pending_logs_in_archive(&archive_dir) {
+            emit_analyze_progress(
+                &app,
+                format!("圧縮に失敗しました: {}", err),
+                "0%".to_string(),
+                false,
+            );
+            utils::emit_event_warn(&app, "analyze-finished", ());
+            return;
+        }
+        let result = analyze::run_diff_import(db_path, extends_db_path, archive_dir, |status, progress| {
             emit_analyze_progress(&app, status, progress, true);
         });
 
@@ -381,28 +491,32 @@ pub async fn launch_analyze(app: AppHandle, _mode: String) -> Result<String, Str
 #[tauri::command]
 pub async fn launch_startup_archive_import(app: AppHandle) -> Result<String, String> {
     let db_path = get_db_path()?;
+    let extends_db_path = get_extends_db_path()?;
     let archive_dir = get_archive_dir()?;
 
     std::thread::spawn(move || {
-        let result = analyze::run_diff_import(db_path, archive_dir.clone(), |status, progress| {
+        if let Err(err) = compress_pending_logs_in_archive(&archive_dir) {
+            emit_analyze_progress(
+                &app,
+                format!("起動時圧縮に失敗しました: {}", err),
+                "0%".to_string(),
+                false,
+            );
+            utils::emit_event_warn(&app, "analyze-finished", ());
+            return;
+        }
+
+        let result = analyze::run_diff_import(db_path, extends_db_path, archive_dir.clone(), |status, progress| {
             emit_analyze_progress(&app, status, progress, true);
         });
 
         match result {
-            Ok(()) => match compress_pending_logs_in_archive(&archive_dir) {
-                Ok(count) => emit_analyze_progress(
-                    &app,
-                    format!("取り込み完了後に {} 個のログを自動圧縮しました。", count),
-                    "100%".to_string(),
-                    false,
-                ),
-                Err(err) => emit_analyze_progress(
-                    &app,
-                    format!("取り込み後の自動圧縮に失敗しました: {}", err),
-                    "100%".to_string(),
-                    false,
-                ),
-            },
+            Ok(()) => emit_analyze_progress(
+                &app,
+                "zst アーカイブからの取り込みが完了しました。".to_string(),
+                "100%".to_string(),
+                false,
+            ),
             Err(err) => {
                 emit_analyze_progress(&app, format!("エラー: {}", err), "0%".to_string(), false)
             }
@@ -411,7 +525,7 @@ pub async fn launch_startup_archive_import(app: AppHandle) -> Result<String, Str
         utils::emit_event_warn(&app, "analyze-finished", ());
     });
 
-    Ok("生ログの取り込みを開始しました。完了後に自動圧縮します。".to_string())
+    Ok("未圧縮ログを zst 化し、その後に zst から取り込みます。".to_string())
 }
 
 #[tauri::command]
@@ -527,12 +641,41 @@ pub fn delete_today_data() -> Result<String, String> {
 
     let conn = rusqlite::Connection::open(&db_path)
         .map_err(|err| utils::command_err(&format!("Failed to open {}", db_path.display()), err))?;
+
+    let mut visit_ids = Vec::new();
+    let mut stmt = conn
+        .prepare("SELECT id FROM world_visits WHERE date(join_time) = date('now', 'localtime')")
+        .map_err(|err| utils::command_err("Failed to prepare today's visit query", err))?;
+    let rows = stmt
+        .query_map([], |row| row.get::<_, i64>(0))
+        .map_err(|err| utils::command_err("Failed to fetch today's visits", err))?;
+    for row in rows {
+        match row {
+            Ok(visit_id) => visit_ids.push(visit_id),
+            Err(err) => utils::log_warn(&format!("today visit row decode failed: {}", err)),
+        }
+    }
+
+    for visit_id in &visit_ids {
+        conn.execute("DELETE FROM player_visit_events WHERE visit_id = ?1", [visit_id])
+            .map_err(|err| utils::command_err("Failed to delete today's player visit events", err))?;
+        conn.execute("DELETE FROM player_visits WHERE visit_id = ?1", [visit_id])
+            .map_err(|err| utils::command_err("Failed to delete today's player visits", err))?;
+        conn.execute("DELETE FROM video_playbacks WHERE visit_id = ?1", [visit_id])
+            .map_err(|err| utils::command_err("Failed to delete today's video playbacks", err))?;
+    }
+
     let affected = conn
         .execute(
             "DELETE FROM world_visits WHERE date(join_time) = date('now', 'localtime')",
             [],
         )
         .map_err(|err| utils::command_err("Failed to delete today's records", err))?;
+    conn.execute(
+        "DELETE FROM travel_events WHERE date(timestamp) = date('now', 'localtime')",
+        [],
+    )
+    .map_err(|err| utils::command_err("Failed to delete today's travel events", err))?;
 
     Ok(format!("本日分のデータ {} 件を削除しました。", affected))
 }
@@ -540,6 +683,7 @@ pub fn delete_today_data() -> Result<String, String> {
 #[tauri::command]
 pub fn wipe_database() -> Result<String, String> {
     let db_path = get_db_path()?;
+    let extends_db_path = get_extends_db_path()?;
     if !db_path.exists() {
         return Err("データベースファイルが見つかりません。".to_string());
     }
@@ -549,10 +693,14 @@ pub fn wipe_database() -> Result<String, String> {
 
     conn.execute("DELETE FROM player_visits", [])
         .map_err(|err| utils::command_err("Failed to wipe player_visits", err))?;
+    conn.execute("DELETE FROM player_visit_events", [])
+        .map_err(|err| utils::command_err("Failed to wipe player_visit_events", err))?;
     conn.execute("DELETE FROM video_playbacks", [])
         .map_err(|err| utils::command_err("Failed to wipe video_playbacks", err))?;
     conn.execute("DELETE FROM notifications", [])
         .map_err(|err| utils::command_err("Failed to wipe notifications", err))?;
+    conn.execute("DELETE FROM travel_events", [])
+        .map_err(|err| utils::command_err("Failed to wipe travel_events", err))?;
     conn.execute("DELETE FROM world_visits", [])
         .map_err(|err| utils::command_err("Failed to wipe world_visits", err))?;
     conn.execute("DELETE FROM players", [])
@@ -564,7 +712,19 @@ pub fn wipe_database() -> Result<String, String> {
         utils::log_warn(&format!("VACUUM failed after wipe: {}", err));
     }
 
-    Ok("データベースを完全に初期化しました。".to_string())
+    if extends_db_path.exists() {
+        let extends_conn = rusqlite::Connection::open(&extends_db_path).map_err(|err| {
+            utils::command_err(&format!("Failed to open {}", extends_db_path.display()), err)
+        })?;
+        extends_conn
+            .execute("DELETE FROM session_debug_snapshots", [])
+            .map_err(|err| utils::command_err("Failed to wipe session_debug_snapshots", err))?;
+        if let Err(err) = extends_conn.execute("VACUUM", []) {
+            utils::log_warn(&format!("Extends VACUUM failed after wipe: {}", err));
+        }
+    }
+
+    Ok("データベースを完全に初期化しました。拡張DBも消去しました。".to_string())
 }
 
 #[tauri::command]

@@ -6,6 +6,7 @@ interface HeaderProps {
     searchQuery: string;
     setSearchQuery: (val: string) => void;
     scanStatus: string;
+    phashLabel?: string | null;
     startScan: () => void;
     cancelScan: () => void;
     setShowSettings: (val: boolean) => void;
@@ -17,6 +18,7 @@ export const Header = ({
     searchQuery,
     setSearchQuery,
     scanStatus,
+    phashLabel,
     startScan,
     cancelScan,
     setShowSettings,
@@ -41,6 +43,7 @@ export const Header = ({
                 </div>
             </div>
             <div className="search-bar">
+                {phashLabel && <div className="header-phash-status">{phashLabel}</div>}
                 <div className="input-group">
                     <Icons.Search />
                     <input

@@ -9,7 +9,8 @@ export interface Photo {
     orientation?: "portrait" | "landscape" | null;
     is_favorite: boolean;
     tags: string[];
-    match_source?: "metadata" | "title" | "stella_db" | null;
+    match_source?: "metadata" | "title" | "stella_db" | "phash" | null;
+    is_missing?: boolean;
 }
 
 export interface ScanProgress {

@@ -13,11 +13,11 @@ export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<P
         setIsSavingMemo(true);
         try {
             await invoke("save_photo_memo_cmd", {
-                filename: selectedPhoto.photo_filename,
+                photoPath: selectedPhoto.photo_path,
                 memo: localMemo
             });
             setPhotos((prev) => prev.map((p) =>
-                p.photo_filename === selectedPhoto.photo_filename ? { ...p, memo: localMemo } : p
+                p.photo_path === selectedPhoto.photo_path ? { ...p, memo: localMemo } : p
             ));
             setSelectedPhoto((prev) => (prev ? { ...prev, memo: localMemo } : null));
             addToast("メモを保存しました。");

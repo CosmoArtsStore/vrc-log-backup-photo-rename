@@ -14,7 +14,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::list_archive_files,
             commands::compress_logs,
-            commands::decompress_logs,
+            commands::read_archive_log_viewer,
             commands::launch_enhanced_import,
             commands::launch_analyze,
             commands::launch_startup_archive_import,

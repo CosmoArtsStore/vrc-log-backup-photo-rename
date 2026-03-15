@@ -8,8 +8,8 @@ interface FilterSidebarProps {
     setWorldFilters: (vals: string[]) => void;
     worldNameList: string[];
     worldCounts: Record<string, number>;
-    datePreset: "none" | "today" | "last7days" | "thisMonth" | "lastMonth" | "custom";
-    onDatePresetSelect: (preset: "today" | "last7days" | "thisMonth" | "lastMonth") => void;
+    datePreset: "none" | "today" | "last7days" | "thisMonth" | "lastMonth" | "halfYear" | "oneYear" | "custom";
+    onDatePresetSelect: (preset: "today" | "last7days" | "thisMonth" | "lastMonth" | "halfYear" | "oneYear") => void;
     dateFrom: string;
     setDateFrom: (val: string) => void;
     dateTo: string;
@@ -275,6 +275,14 @@ export const FilterSidebar = ({
         } else if (preset === "thisMonth") {
             from = new Date(today.getFullYear(), today.getMonth(), 1);
             to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        } else if (preset === "halfYear") {
+            from = new Date(today);
+            from.setMonth(today.getMonth() - 6);
+            to = today;
+        } else if (preset === "oneYear") {
+            from = new Date(today);
+            from.setFullYear(today.getFullYear() - 1);
+            to = today;
         } else {
             from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             to = new Date(today.getFullYear(), today.getMonth(), 0);
@@ -491,6 +499,8 @@ export const FilterSidebar = ({
                                 <button type="button" className={`preset-btn ${draftPreset === "last7days" ? "active" : ""}`} onClick={() => applyPresetToDraft("last7days")}>直近7日</button>
                                 <button type="button" className={`preset-btn ${draftPreset === "thisMonth" ? "active" : ""}`} onClick={() => applyPresetToDraft("thisMonth")}>今月</button>
                                 <button type="button" className={`preset-btn ${draftPreset === "lastMonth" ? "active" : ""}`} onClick={() => applyPresetToDraft("lastMonth")}>先月</button>
+                                <button type="button" className={`preset-btn ${draftPreset === "halfYear" ? "active" : ""}`} onClick={() => applyPresetToDraft("halfYear")}>半年</button>
+                                <button type="button" className={`preset-btn ${draftPreset === "oneYear" ? "active" : ""}`} onClick={() => applyPresetToDraft("oneYear")}>一年</button>
                             </div>
 
                             <div className="cal-months single">
@@ -543,9 +553,6 @@ export const FilterSidebar = ({
                             </div>
 
                             <div className="cal-footer">
-                                <div className="cal-footer-range">
-                                    <span>{draftFrom || "---"}</span> → <span>{draftTo || "---"}</span>
-                                </div>
                                 <button type="button" className="btn-clear" onClick={handleDateClear}>クリア</button>
                                 <button type="button" className="btn-apply" onClick={handleDateApply}>確認</button>
                             </div>

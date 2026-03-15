@@ -16,6 +16,8 @@ pub struct PhotoRecord {
     #[serde(default)]
     pub tags: Vec<String>,
     pub match_source: Option<String>,
+    #[serde(default)]
+    pub is_missing: bool,
 }
 
 impl Default for PhotoRecord {
@@ -32,6 +34,7 @@ impl Default for PhotoRecord {
             is_favorite: false,
             tags: Vec::new(),
             match_source: None,
+            is_missing: false,
         }
     }
 }

@@ -239,4 +239,10 @@ impl StellaRecordSetting {
         }
         Some(utils::get_stellarecord_install_dir()?.join("stellarecord.db"))
     }
+
+    pub fn get_effective_extends_db_path(&self) -> Option<PathBuf> {
+        let base_path = self.get_effective_db_path()?;
+        let parent_dir = base_path.parent()?;
+        Some(parent_dir.join("StellaRecordExtends.db"))
+    }
 }

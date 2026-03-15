@@ -32,5 +32,18 @@ export interface ManagementSettings {
   archive_limit_mb: number;
 }
 
+export interface LogViewerLine {
+  timestamp: string;
+  level: string;
+  category: string;
+  raw_line: string;
+}
+
+export interface LogViewerData {
+  archive_name: string;
+  source_name: string;
+  lines: LogViewerLine[];
+}
+
 export type Section = "dashboard" | "analyze" | "registry" | "database";
 export type DangerAction = "deleteToday" | "wipeDatabase";
