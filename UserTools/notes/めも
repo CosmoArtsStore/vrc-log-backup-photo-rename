@@ -1,11 +1,157 @@
-3状態で作りました。
-① 閉じた状態 — 普通のselect見た目に近いですが、アイコン・サブラベル・値を持つリッチなトリガーボタンです。
-② 開いた状態 — 上部に検索input、中身はグループ分け（訪問済みワールド／その他）で構成しています。ワールド名の横に枚数を表示しているので「The Black Cat 48枚」でどこを選んでいるか把握しやすいです。選択中の項目はアクセントカラー＋チェックマークで明示。
-③ キーワード検索中 — 入力に応じてリストが絞り込まれ、一致部分がハイライトされます。ヒット件数もフッターに出ます。
-実装的にはネイティブの <select> は使わずカスタムコンポーネントになります。combobox ロールを使うとアクセシビリティも保てます。filter-sidebar-final に組み込みますか？
+いくつか方向性があります。実際に速度計測してみます。結果が明確に出ました。
 
-3状態で作りました。
-① 未選択 — 「期間を選択...」のプレースホルダーで一目でまだ何も選ばれていないことがわかります。
-② 選択済み（閉じた状態） — 2026-03-01 → 2026-03-14 をモノスペースで表示、×ボタンで即クリア。ボタン全体がアクセントカラーに変わって「フィルターが効いている」状態を伝えます。
-③ 開いた状態（本体） — 2ヶ月横並びで、3月・4月を同時に見ながら範囲指定できます。選択中の範囲は帯状ハイライトで視覚化。フッターに選択範囲と日数カウント（14日間）も出しています。左の ‹ と右の › だけ表示して、月をまたぐナビゲーションは1ボタンで両月がスライドします。
-実装は react-day-picker の mode="range" を使うとほぼそのまま乗ります。サイドバーへの組み込みもやりますか？
+---
+
+### ボトルネックはファイルI/Oとリサイズ
+
+| 方法 | 速度 |
+|---|---|
+| ベースライン（LANCZOS） | 35ms/枚 |
+| NEAREST（リサイズ高速化） | 15ms/枚 |
+| ビットパック | 35ms（変わらず） |
+| I/O除外（計算のみ） | 0.07ms/枚 |
+
+**計算自体は0.07msで終わっています。** 時間のほぼ全てがファイル読み込み＋リサイズです。
+
+---
+
+### 実用的な高速化戦略
+
+**サムネイルキャッシュと兼用する**
+
+Alpheratzは表示用サムネイルを生成しますよね。そのリサイズ処理のついでにpHashも計算すれば実質タダになります。
+
+```
+ファイル読み込み（1回）
+    ├── サムネイル生成（表示用）
+    └── 16x16グレースケール → pHash計算（0.07ms）
+```
+
+**NEARESTで精度を犠牲にするか確認が必要**
+
+15ms→35msと半分以下になりますが、精度への影響を実測してみますか？
+
+輝度（明るさ）の**周波数成分**です。
+
+具体的には：
+
+1. グレースケール変換（色情報を捨てて輝度だけにする）
+2. 16×16にリサイズ
+3. DCT変換 → 画像全体の明暗パターンを周波数に分解
+4. 低周波成分（8×8）だけ取り出す → 細かいノイズを無視
+5. 中央値より高いか低いかでbit化
+
+なので「色」は見ていなくて、**明暗のパターン・構造**を見ています。色を大幅に変えても構造が同じなら一致するのはそのためです。
+
+今回img3のスコアが落ちたのも、ズームで**明暗の構造自体が変わった**からです。
+
+
+```markdown
+# pHash バックグラウンド計算 実装指示
+
+## 概要
+写真取り込み時にpHashをバックグラウンドで計算する。
+計算中もユーザーがUIを操作できる状態を維持すること。
+対象は最大1万枚を想定。
+
+---
+
+## 対象ファイル
+- `Alpheratz/src-tauri/src/phash.rs`（新規作成）
+- `Alpheratz/src-tauri/src/main.rs`（コマンド登録・起動処理追加）
+- `Alpheratz/src/hooks/usePhashWorker.ts`（新規作成）
+
+---
+
+## 1. phash.rs（新規作成）
+
+### pHash計算関数
+- グレースケール変換 → 16x16リサイズ → DCT → 低周波8x8抽出 → 中央値でbit化
+- リサイズフィルタは `FilterType::Nearest`（速度優先）
+- 戻り値は `String`（64文字の0/1文字列）
+
+### バックグラウンド計算コマンド
+```rust
+#[tauri::command]
+pub async fn start_phash_calculation(app: AppHandle, db: State<'_, DbPool>)
+```
+
+処理フロー：
+1. `tauri::async_runtime::spawn` でメインスレッドと切り離す
+2. ループで以下を繰り返す
+   - `SELECT photo_filename, photo_path FROM photos WHERE phash IS NULL LIMIT 100` で100件取得
+   - 0件なら終了
+   - 1枚計算するたびに `UPDATE photos SET phash = ? WHERE photo_filename = ?`
+   - 計算完了ごとに `app.emit("phash_progress", filename)` を送信
+3. 全件完了したら `app.emit("phash_complete", ())` を送信
+
+### 注意事項
+- このコマンドはフロントへすぐreturnする（awaitしない）
+- DBアクセスは `spawn_blocking` でラップすること
+- 計算中にアプリが閉じられた場合は途中終了で問題なし（次回起動時にNULLの続きから再開するため）
+
+---
+
+## 2. main.rs
+
+### アプリ起動時の自動開始
+`setup` フック内で以下を実行：
+```rust
+// NULLのphashが1件以上あれば自動でバックグラウンド計算開始
+let count = db.query_scalar("SELECT COUNT(*) FROM photos WHERE phash IS NULL");
+if count > 0 {
+    start_phash_calculation(app.handle(), db).await;
+}
+```
+
+### コマンド登録
+`invoke_handler` に `start_phash_calculation` を追加すること。
+
+---
+
+## 3. usePhashWorker.ts（新規作成）
+
+```typescript
+export function usePhashWorker() {
+    const [progress, setProgress] = useState({ done: 0, total: 0 });
+    const [isRunning, setIsRunning] = useState(false);
+
+    useEffect(() => {
+        // 進捗イベント受信
+        const unlisten1 = listen("phash_progress", () => {
+            setIsRunning(true);
+            setProgress(prev => ({ ...prev, done: prev.done + 1 }));
+        });
+
+        // 完了イベント受信
+        const unlisten2 = listen("phash_complete", () => {
+            setIsRunning(false);
+        });
+
+        return () => {
+            unlisten1.then(f => f());
+            unlisten2.then(f => f());
+        };
+    }, []);
+
+    return { progress, isRunning };
+}
+```
+
+---
+
+## 4. UI表示（既存コンポーネントに追加）
+
+`usePhashWorker` を使って以下を表示：
+- 計算中のみステータスバーに `「pHash計算中... X枚完了」` を表示
+- 完了したら非表示
+- 計算中でも検索・閲覧・タグ付けなど全操作を妨げないこと
+
+---
+
+## 制約・注意事項
+- フロントからファイル名リストを渡さないこと。バックエンドが自分でNULLをクエリする
+- 二重起動防止：計算中に再度 `start_phash_calculation` が呼ばれても無視すること（フラグ管理）
+- 1万枚を想定しているため100件バッチ処理を必ず守ること
+- `spawn_blocking` なしでSQLiteを直接呼ばないこと
+```

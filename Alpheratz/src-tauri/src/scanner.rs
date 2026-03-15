@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::LazyLock;
 
+use chrono::{DateTime, Local};
 use path_slash::PathExt;
 use regex::Regex;
 use rusqlite::{params, Connection, OpenFlags};
@@ -16,7 +17,7 @@ use crate::models::ScanProgress;
 use crate::utils;
 use crate::ScanCancelStatus;
 
-const SUPPORTED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "psd", "clip", "xcf"];
+const SUPPORTED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "psd", "xcf"];
 const PHOTO_UPSERT_BATCH_SIZE: usize = 25;
 const MAX_ITXT_SIZE: usize = 4 * 1024 * 1024;
 const SKIP_DIRS: &[&str] = &[
@@ -89,12 +90,6 @@ fn warn_row_error<T, E: std::fmt::Display>(row: Result<T, E>, context: &str) -> 
     }
 }
 
-static RE_COLLECT: LazyLock<Regex> = LazyLock::new(|| {
-    compile_regex(
-        r"(?i)^VRChat_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.\d{3}",
-        "RE_COLLECT",
-    )
-});
 static RE_PARSE: LazyLock<Regex> = LazyLock::new(|| {
     compile_regex(
         r"VRChat_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})\.(\d{3})",
@@ -162,7 +157,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
 
     let existing_photos = get_existing_photos(&conn)?;
     let mut found_files = Vec::new();
-    collect_photos_recursive(&photo_dir, &mut found_files, &RE_COLLECT, &cancel_status);
+    collect_photos_recursive(&photo_dir, &mut found_files, &cancel_status);
 
     if cancel_status.0.load(Ordering::SeqCst) {
         crate::utils::log_warn("Scan cancelled during collection.");
@@ -294,10 +289,7 @@ fn analyze_photo(
     existing_photos: &HashMap<String, ExistingPhotoInfo>,
     refresh_kind: ScanRefreshKind,
 ) -> Result<Option<ScanPhotoData>, String> {
-    let Some(captures) = RE_PARSE.captures(filename) else {
-        return Ok(None);
-    };
-    let timestamp = format!("{} {}", &captures[1], captures[2].replace("-", ":"));
+    let timestamp = resolve_photo_timestamp(path, filename)?;
 
     let existing = existing_photos.get(filename);
     let (world_name, world_id, match_source) = match refresh_kind {
@@ -356,6 +348,23 @@ fn resolve_world_info_lightweight(
     }
 
     (None, None, None)
+}
+
+fn resolve_photo_timestamp(path: &Path, filename: &str) -> Result<String, String> {
+    if let Some(captures) = RE_PARSE.captures(filename) {
+        return Ok(format!("{} {}", &captures[1], captures[2].replace("-", ":")));
+    }
+
+    let metadata = fs::metadata(path)
+        .map_err(|err| scan_err(&format!("Failed to read metadata for {}", path.display()), err))?;
+    let modified = metadata.modified().map_err(|err| {
+        scan_err(
+            &format!("Failed to read modified time for {}", path.display()),
+            err,
+        )
+    })?;
+    let local_time: DateTime<Local> = DateTime::from(modified);
+    Ok(local_time.format("%Y-%m-%d %H:%M:%S").to_string())
 }
 
 fn lookup_world_name_from_stella_record(timestamp: &str) -> Option<String> {
@@ -421,7 +430,6 @@ fn read_image_dimensions(path: &Path) -> Option<(u32, u32)> {
         "webp" => read_webp_dimensions(path),
         "psd" => read_psd_dimensions(path),
         "xcf" => read_xcf_dimensions(path),
-        "clip" => None,
         _ => None,
     }
 }
@@ -735,7 +743,6 @@ fn parse_vrc_from_xmp(xmp: &str) -> (Option<String>, Option<String>) {
 fn collect_photos_recursive(
     dir: &Path,
     files: &mut Vec<(String, PathBuf)>,
-    re: &Regex,
     cancel_status: &ScanCancelStatus,
 ) {
     if cancel_status.0.load(Ordering::SeqCst) {
@@ -781,16 +788,13 @@ fn collect_photos_recursive(
                     continue;
                 }
             }
-            collect_photos_recursive(&path, files, re, cancel_status);
+            collect_photos_recursive(&path, files, cancel_status);
             if cancel_status.0.load(Ordering::SeqCst) {
                 return;
             }
         } else if path.is_file() {
             if let Some(filename) = path.file_name().and_then(|value| value.to_str()) {
-                if filename.to_lowercase().starts_with("vrchat_")
-                    && re.is_match(filename)
-                    && is_supported_image_extension(filename)
-                {
+                if is_supported_image_extension(filename) {
                     files.push((filename.to_string(), path.to_path_buf()));
                 }
             }
