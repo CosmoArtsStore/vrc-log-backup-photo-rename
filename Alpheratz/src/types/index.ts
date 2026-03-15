@@ -6,7 +6,7 @@ export interface Photo {
     timestamp: string;
     memo: string;
     phash: string | null;
-    orientation?: "portrait" | "landscape" | null;
+    orientation?: "portrait" | "landscape" | "unknown" | null;
     is_favorite: boolean;
     tags: string[];
     match_source?: "metadata" | "title" | "stella_db" | "phash" | null;

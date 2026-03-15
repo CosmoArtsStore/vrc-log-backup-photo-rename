@@ -41,6 +41,9 @@ export const usePhotos = (
             listen("phash_complete", () => {
                 loadPhotos();
             }),
+            listen("orientation_complete", () => {
+                loadPhotos();
+            }),
         ];
 
         return () => {

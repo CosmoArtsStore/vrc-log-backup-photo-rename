@@ -25,4 +25,10 @@ export const Icons = {
     Moon: () => (
         <svg viewBox="0 0 24 24" className="icon-svg"><path d="M14.77 4.09C15.8 4.24 16.78 4.61 17.64 5.17A8 8 0 0 1 10.17 19A8.14 8.14 0 0 1 6.36 18.09A9 9 0 0 0 14.77 4.09Z" /></svg>
     ),
+    Grid: () => (
+        <svg viewBox="0 0 24 24" className="icon-svg"><path d="M3 3H10V10H3V3M14 3H21V10H14V3M3 14H10V21H3V14M14 14H21V21H14V14Z" /></svg>
+    ),
+    Gallery: () => (
+        <svg viewBox="0 0 24 24" className="icon-svg"><path d="M4 5C4 3.9 4.9 3 6 3H18C19.1 3 20 3.9 20 5V19C20 20.1 19.1 21 18 21H6C4.9 21 4 20.1 4 19V5M6 5V10H10V5H6M12 5V10H18V5H12M6 12V19H9V12H6M11 12V19H18V12H11Z" /></svg>
+    ),
 };

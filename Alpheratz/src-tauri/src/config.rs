@@ -33,7 +33,7 @@ impl Default for AlpheratzSetting {
 }
 
 fn get_setting_path() -> Option<PathBuf> {
-    Some(utils::get_alpheratz_setting_dir()?.join("Alpheratz.json"))
+    Some(utils::get_alpheratz_setting_dir()?.join("cachePath.json"))
 }
 
 fn get_legacy_setting_paths() -> Vec<PathBuf> {

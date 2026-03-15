@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
+use std::collections::HashMap;
 
 use chrono::NaiveDateTime;
 use serde::Serialize;
@@ -8,7 +9,7 @@ use tauri::AppHandle;
 
 use crate::analyze;
 use crate::config::{self, RegistryCatalog};
-use crate::models::{AnalyzePayload, LogViewerData, LogViewerLine, TableData};
+use crate::models::{AnalyzePayload, ArchiveFileItem, LogViewerData, LogViewerLine, TableData};
 use crate::{platform, utils};
 
 const STELLA_RECORD_RUN_VALUE: &str = "StellaRecord";
@@ -133,6 +134,29 @@ fn collect_directory_size(path: &Path) -> Result<u64, String> {
     Ok(total)
 }
 
+fn replace_file_atomically(temp_path: &Path, target_path: &Path) -> Result<(), String> {
+    let backup_path = target_path.with_extension("bak");
+    if backup_path.exists() {
+        fs::remove_file(&backup_path)
+            .map_err(|err| utils::command_err(&format!("Failed to remove {}", backup_path.display()), err))?;
+    }
+
+    fs::rename(target_path, &backup_path)
+        .map_err(|err| utils::command_err(&format!("Failed to backup {}", target_path.display()), err))?;
+
+    if let Err(err) = fs::rename(temp_path, target_path) {
+        let _ = fs::rename(&backup_path, target_path);
+        return Err(utils::command_err(
+            &format!("Failed to replace {}", target_path.display()),
+            err,
+        ));
+    }
+
+    fs::remove_file(&backup_path)
+        .map_err(|err| utils::command_err(&format!("Failed to remove {}", backup_path.display()), err))?;
+    Ok(())
+}
+
 fn compress_pending_logs_in_archive(archive_dir: &Path) -> Result<usize, String> {
     let zst_dir = archive_dir.join("zst");
     fs::create_dir_all(&zst_dir).map_err(|err| {
@@ -147,6 +171,47 @@ fn compress_pending_logs_in_archive(archive_dir: &Path) -> Result<usize, String>
 
         let zst_path = zst_dir.join(format!("{}.tar.zst", name));
         if zst_path.exists() {
+            let (_, archived_bytes) = read_archive_entry_as_bytes(&zst_path)?;
+            let raw_bytes = fs::read(&path)
+                .map_err(|err| utils::command_err(&format!("Failed to read {}", path.display()), err))?;
+
+            if raw_bytes.len() < archived_bytes.len() {
+                utils::log_warn(&format!(
+                    "archive skip: raw log is smaller than existing zst [{}]",
+                    name
+                ));
+                continue;
+            }
+
+            if raw_bytes.len() == archived_bytes.len() {
+                if raw_bytes == archived_bytes {
+                    fs::remove_file(&path).map_err(|err| {
+                        utils::command_err(&format!("Failed to remove {}", path.display()), err)
+                    })?;
+                } else {
+                    utils::log_warn(&format!(
+                        "archive conflict: same size but different content [{}]",
+                        name
+                    ));
+                }
+                continue;
+            }
+
+            if !raw_bytes.starts_with(&archived_bytes) {
+                utils::log_warn(&format!(
+                    "archive conflict: larger raw log does not extend existing zst [{}]",
+                    name
+                ));
+                continue;
+            }
+
+            let temp_path = zst_dir.join(format!("{}.tmp", name));
+            compress_single_file(&path, &temp_path)?;
+            replace_file_atomically(&temp_path, &zst_path)?;
+            fs::remove_file(&path).map_err(|err| {
+                utils::command_err(&format!("Failed to remove {}", path.display()), err)
+            })?;
+            count += 1;
             continue;
         }
 
@@ -214,64 +279,388 @@ fn read_archive_entry_as_string(archive_path: &Path) -> Result<(String, String),
     ))
 }
 
-fn classify_log_line(line: &str) -> (String, String) {
-    if line.contains("[Behaviour] Entering Room:") {
-        return ("world".to_string(), "info".to_string());
+fn read_archive_entry_as_bytes(archive_path: &Path) -> Result<(String, Vec<u8>), String> {
+    let file = fs::File::open(archive_path)
+        .map_err(|err| utils::command_err(&format!("Failed to open {}", archive_path.display()), err))?;
+    let decoder = zstd::stream::Decoder::new(file)
+        .map_err(|err| utils::command_err("Failed to create zstd decoder", err))?;
+    let mut archive = tar::Archive::new(decoder);
+    for entry in archive
+        .entries()
+        .map_err(|err| utils::command_err("Failed to enumerate zst entries", err))?
+    {
+        let mut entry = entry.map_err(|err| utils::command_err("Failed to read zst entry", err))?;
+        let entry_path = entry
+            .path()
+            .map_err(|err| utils::command_err("Failed to resolve zst entry path", err))?;
+        let source_name = entry_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or_else(|| "Invalid archive entry name".to_string())?
+            .to_string();
+        let mut content = Vec::new();
+        entry
+            .read_to_end(&mut content)
+            .map_err(|err| utils::command_err("Failed to read archive entry bytes", err))?;
+        return Ok((source_name, content));
     }
-    if line.contains("[Behaviour] OnLeftRoom") {
-        return ("world".to_string(), "info".to_string());
-    }
-    if let Some(caps) = analyze::RE_DESTINATION_EVENT.captures(line) {
-        let _ = caps;
-        return ("travel".to_string(), "info".to_string());
-    }
-    if let Some(caps) = analyze::RE_GOING_HOME.captures(line) {
-        let _ = caps;
-        return ("travel".to_string(), "info".to_string());
-    }
-    if let Some(caps) = analyze::RE_PLAYER_JOIN.captures(line) {
-        let _ = caps;
-        return ("player_join".to_string(), "info".to_string());
-    }
-    if let Some(caps) = analyze::RE_PLAYER_JOIN_COMPLETE.captures(line) {
-        let _ = caps;
-        return ("player_ready".to_string(), "info".to_string());
-    }
-    if let Some(caps) = analyze::RE_PLAYER_LEFT.captures(line) {
-        let _ = caps;
-        return ("player_left".to_string(), "info".to_string());
-    }
-    if let Some(caps) = analyze::RE_NOTIFICATION.captures(line) {
-        let _ = caps;
-        return ("notification".to_string(), "info".to_string());
-    }
-    if let Some(caps) = analyze::RE_VIDEO.captures(line) {
-        let _ = caps;
-        return ("video".to_string(), "info".to_string());
-    }
-    if let Some(caps) = analyze::RE_VIDEO_ALT.captures(line) {
-        let _ = caps;
-        return ("video".to_string(), "info".to_string());
-    }
-    if line.contains("[UserInfoLogger] Environment Info:") {
-        return ("debug".to_string(), "debug".to_string());
-    }
-    if line.contains("[UserInfoLogger] User Settings Info:") {
-        return ("debug".to_string(), "debug".to_string());
-    }
-    if line.contains("Microphones installed (") {
-        return ("debug".to_string(), "debug".to_string());
-    }
-    if line.contains(" Error ") || line.contains("Error      -") {
-        return ("error".to_string(), "error".to_string());
-    }
-    if line.contains(" Warning ") || line.contains("Warning    -") {
-        return ("warning".to_string(), "warning".to_string());
-    }
-    ("plain".to_string(), "plain".to_string())
+    Err(format!(
+        "繧｢繝ｼ繧ｫ繧､繝門・縺ｫ繝ｭ繧ｰ繝輔ぃ繧､繝ｫ縺後≠繧翫∪縺帙ｓ: {}",
+        archive_path.display()
+    ))
 }
 
-fn build_log_viewer_data(archive_name: &str, source_name: &str, content: &str) -> LogViewerData {
+#[derive(Clone)]
+struct DbKeywordMarker {
+    category: String,
+    text: String,
+}
+
+fn classify_log_level(line: &str) -> String {
+    if line.contains("[UserInfoLogger] Environment Info:") {
+        return "debug".to_string();
+    }
+    if line.contains("[UserInfoLogger] User Settings Info:") {
+        return "debug".to_string();
+    }
+    if line.contains("Microphones installed (") {
+        return "debug".to_string();
+    }
+    if line.contains(" Error ") || line.contains("Error      -") {
+        return "error".to_string();
+    }
+    if line.contains(" Warning ") || line.contains("Warning    -") {
+        return "warning".to_string();
+    }
+    if line.contains(" Debug ") || line.contains("Debug      -") {
+        return "debug".to_string();
+    }
+
+    "plain".to_string()
+}
+
+fn extract_highlight_text(line: &str, category: &str) -> Option<String> {
+    match category {
+        "world" => {
+            if let Some(caps) = analyze::RE_ENTERING.captures(line) {
+                return caps.get(1).map(|m| m.as_str().to_string());
+            }
+            if line.contains("[Behaviour] OnLeftRoom") {
+                return Some("[Behaviour] OnLeftRoom".to_string());
+            }
+            None
+        }
+        "travel" => analyze::RE_DESTINATION_EVENT
+            .captures(line)
+            .and_then(|caps| caps.get(0))
+            .map(|m| m.as_str().to_string())
+            .or_else(|| {
+                analyze::RE_GOING_HOME
+                    .captures(line)
+                    .and_then(|caps| caps.get(0))
+                    .map(|m| m.as_str().to_string())
+            }),
+        "player_join" => analyze::RE_PLAYER_JOIN
+            .captures(line)
+            .and_then(|caps| caps.get(1))
+            .map(|m| m.as_str().to_string()),
+        "player_ready" => analyze::RE_PLAYER_JOIN_COMPLETE
+            .captures(line)
+            .and_then(|caps| caps.get(1))
+            .map(|m| m.as_str().to_string()),
+        "player_left" => analyze::RE_PLAYER_LEFT
+            .captures(line)
+            .and_then(|caps| caps.get(1))
+            .map(|m| m.as_str().to_string()),
+        "notification" => analyze::RE_NOTIFICATION
+            .captures(line)
+            .and_then(|caps| caps.get(6))
+            .map(|m| m.as_str().to_string())
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                analyze::RE_NOTIFICATION
+                    .captures(line)
+                    .and_then(|caps| caps.get(1))
+                    .map(|m| m.as_str().to_string())
+            }),
+        "video" => analyze::RE_VIDEO
+            .captures(line)
+            .and_then(|caps| caps.get(1))
+            .map(|m| m.as_str().to_string())
+            .or_else(|| {
+                analyze::RE_VIDEO_ALT
+                    .captures(line)
+                    .and_then(|caps| caps.get(1))
+                    .map(|m| m.as_str().to_string())
+            }),
+        _ => None,
+    }
+}
+
+fn collect_db_log_categories(
+    conn: &rusqlite::Connection,
+    source_name: &str,
+) -> Result<HashMap<String, Vec<String>>, String> {
+    let mut categories: HashMap<String, Vec<String>> = HashMap::new();
+
+    let mut push_rows = |sql: &str, category: &str| -> Result<(), String> {
+        let mut stmt = conn.prepare(sql).map_err(|err| {
+            utils::command_err(
+                &format!("Failed to prepare log viewer query [{}]", category),
+                err,
+            )
+        })?;
+        let rows = stmt.query_map([source_name], |row| row.get::<_, String>(0)).map_err(|err| {
+            utils::command_err(
+                &format!("Failed to execute log viewer query [{}]", category),
+                err,
+            )
+        })?;
+
+        for row in rows {
+            match row {
+                Ok(timestamp) => categories.entry(timestamp).or_default().push(category.to_string()),
+                Err(err) => utils::log_warn(&format!(
+                    "log viewer row decode failed [{}]: {}",
+                    category, err
+                )),
+            }
+        }
+
+        Ok(())
+    };
+
+    push_rows(
+        "SELECT join_time
+         FROM world_visits
+         WHERE session_id IN (SELECT id FROM app_sessions WHERE log_filename = ?1)",
+        "world",
+    )?;
+    push_rows(
+        "SELECT leave_time
+         FROM world_visits
+         WHERE leave_time IS NOT NULL
+           AND session_id IN (SELECT id FROM app_sessions WHERE log_filename = ?1)",
+        "world",
+    )?;
+    push_rows(
+        "SELECT pve.timestamp
+         FROM player_visit_events pve
+         JOIN world_visits wv ON wv.id = pve.visit_id
+         JOIN app_sessions s ON s.id = wv.session_id
+         WHERE s.log_filename = ?1
+           AND pve.event_type = 'joined'",
+        "player_join",
+    )?;
+    push_rows(
+        "SELECT pve.timestamp
+         FROM player_visit_events pve
+         JOIN world_visits wv ON wv.id = pve.visit_id
+         JOIN app_sessions s ON s.id = wv.session_id
+         WHERE s.log_filename = ?1
+           AND pve.event_type = 'join_complete'",
+        "player_ready",
+    )?;
+    push_rows(
+        "SELECT pve.timestamp
+         FROM player_visit_events pve
+         JOIN world_visits wv ON wv.id = pve.visit_id
+         JOIN app_sessions s ON s.id = wv.session_id
+         WHERE s.log_filename = ?1
+           AND pve.event_type = 'left'",
+        "player_left",
+    )?;
+    push_rows(
+        "SELECT timestamp
+         FROM video_playbacks
+         WHERE visit_id IN (
+           SELECT id FROM world_visits
+           WHERE session_id IN (SELECT id FROM app_sessions WHERE log_filename = ?1)
+         )",
+        "video",
+    )?;
+    push_rows(
+        "SELECT received_at
+         FROM notifications
+         WHERE session_id IN (SELECT id FROM app_sessions WHERE log_filename = ?1)",
+        "notification",
+    )?;
+    push_rows(
+        "SELECT timestamp
+         FROM travel_events
+         WHERE session_id IN (SELECT id FROM app_sessions WHERE log_filename = ?1)",
+        "travel",
+    )?;
+
+    Ok(categories)
+}
+
+fn collect_db_keyword_markers(
+    conn: &rusqlite::Connection,
+    source_name: &str,
+) -> Result<Vec<DbKeywordMarker>, String> {
+    let mut markers = Vec::new();
+
+    let mut push_rows = |sql: &str, category: &str| -> Result<(), String> {
+        let mut stmt = conn.prepare(sql).map_err(|err| {
+            utils::command_err(
+                &format!("Failed to prepare keyword query [{}]", category),
+                err,
+            )
+        })?;
+        let rows = stmt.query_map([source_name], |row| row.get::<_, String>(0)).map_err(|err| {
+            utils::command_err(
+                &format!("Failed to execute keyword query [{}]", category),
+                err,
+            )
+        })?;
+
+        for row in rows {
+            match row {
+                Ok(text) => {
+                    let trimmed = text.trim();
+                    if trimmed.len() >= 2 {
+                        markers.push(DbKeywordMarker {
+                            category: category.to_string(),
+                            text: trimmed.to_string(),
+                        });
+                    }
+                }
+                Err(err) => utils::log_warn(&format!(
+                    "log viewer keyword decode failed [{}]: {}",
+                    category, err
+                )),
+            }
+        }
+
+        Ok(())
+    };
+
+    push_rows(
+        "SELECT world_name
+         FROM world_visits
+         WHERE session_id IN (SELECT id FROM app_sessions WHERE log_filename = ?1)",
+        "world",
+    )?;
+    push_rows(
+        "SELECT p.display_name
+         FROM player_visit_events pve
+         JOIN players p ON p.id = pve.player_id
+         JOIN world_visits wv ON wv.id = pve.visit_id
+         JOIN app_sessions s ON s.id = wv.session_id
+         WHERE s.log_filename = ?1
+           AND pve.event_type = 'joined'",
+        "player_join",
+    )?;
+    push_rows(
+        "SELECT p.display_name
+         FROM player_visit_events pve
+         JOIN players p ON p.id = pve.player_id
+         JOIN world_visits wv ON wv.id = pve.visit_id
+         JOIN app_sessions s ON s.id = wv.session_id
+         WHERE s.log_filename = ?1
+           AND pve.event_type = 'join_complete'",
+        "player_ready",
+    )?;
+    push_rows(
+        "SELECT p.display_name
+         FROM player_visit_events pve
+         JOIN players p ON p.id = pve.player_id
+         JOIN world_visits wv ON wv.id = pve.visit_id
+         JOIN app_sessions s ON s.id = wv.session_id
+         WHERE s.log_filename = ?1
+           AND pve.event_type = 'left'",
+        "player_left",
+    )?;
+    push_rows(
+        "SELECT message
+         FROM notifications
+         WHERE session_id IN (SELECT id FROM app_sessions WHERE log_filename = ?1)
+           AND message IS NOT NULL
+           AND trim(message) <> ''",
+        "notification",
+    )?;
+    push_rows(
+        "SELECT sender_username
+         FROM notifications
+         WHERE session_id IN (SELECT id FROM app_sessions WHERE log_filename = ?1)
+           AND sender_username IS NOT NULL
+           AND trim(sender_username) <> ''",
+        "notification",
+    )?;
+    push_rows(
+        "SELECT url
+         FROM video_playbacks
+         WHERE visit_id IN (
+           SELECT id FROM world_visits
+           WHERE session_id IN (SELECT id FROM app_sessions WHERE log_filename = ?1)
+         )",
+        "video",
+    )?;
+    push_rows(
+        "SELECT COALESCE(world_name, world_id)
+         FROM travel_events
+         WHERE session_id IN (SELECT id FROM app_sessions WHERE log_filename = ?1)
+           AND COALESCE(world_name, world_id) IS NOT NULL
+           AND trim(COALESCE(world_name, world_id)) <> ''",
+        "travel",
+    )?;
+
+    markers.sort_by(|left, right| right.text.len().cmp(&left.text.len()));
+    markers.dedup_by(|left, right| left.category == right.category && left.text == right.text);
+    Ok(markers)
+}
+
+fn resolve_db_category(
+    line: &str,
+    timestamp: &str,
+    db_categories: &HashMap<String, Vec<String>>,
+) -> Option<String> {
+    let matched = db_categories.get(timestamp)?;
+
+    let preferred = if analyze::RE_PLAYER_JOIN.is_match(line) {
+        Some("player_join")
+    } else if analyze::RE_PLAYER_JOIN_COMPLETE.is_match(line) {
+        Some("player_ready")
+    } else if analyze::RE_PLAYER_LEFT.is_match(line) {
+        Some("player_left")
+    } else if analyze::RE_NOTIFICATION.is_match(line) {
+        Some("notification")
+    } else if analyze::RE_VIDEO.is_match(line) || analyze::RE_VIDEO_ALT.is_match(line) {
+        Some("video")
+    } else if analyze::RE_DESTINATION_EVENT.is_match(line) || analyze::RE_GOING_HOME.is_match(line) {
+        Some("travel")
+    } else if line.contains("[Behaviour] Entering Room:") || line.contains("[Behaviour] OnLeftRoom") {
+        Some("world")
+    } else {
+        None
+    };
+
+    if let Some(expected) = preferred {
+        if matched.iter().any(|category| category == expected) {
+            return Some(expected.to_string());
+        }
+    }
+
+    matched.first().cloned()
+}
+
+fn resolve_db_keyword_marker<'a>(
+    line: &str,
+    db_keyword_markers: &'a [DbKeywordMarker],
+) -> Option<&'a DbKeywordMarker> {
+    db_keyword_markers
+        .iter()
+        .find(|marker| line.contains(marker.text.as_str()))
+}
+
+fn build_log_viewer_data(
+    archive_name: &str,
+    source_name: &str,
+    content: &str,
+    db_categories: Option<&HashMap<String, Vec<String>>>,
+    db_keyword_markers: Option<&[DbKeywordMarker]>,
+) -> LogViewerData {
     let reader = BufReader::new(content.as_bytes());
     let mut lines = Vec::new();
 
@@ -285,12 +674,27 @@ fn build_log_viewer_data(archive_name: &str, source_name: &str, content: &str) -
                     .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
             })
             .unwrap_or_default();
-        let (category, level) = classify_log_line(&line);
+        let level = classify_log_level(&line);
+        let keyword_marker = db_keyword_markers.and_then(|markers| resolve_db_keyword_marker(&line, markers));
+        let category = keyword_marker
+            .map(|marker| marker.category.clone())
+            .or_else(|| db_categories.and_then(|categories| resolve_db_category(&line, &timestamp, categories)))
+            .unwrap_or_else(|| "plain".to_string());
+        let highlight_text = keyword_marker
+            .map(|marker| marker.text.clone())
+            .or_else(|| {
+                if category == "plain" {
+                    None
+                } else {
+                    extract_highlight_text(&line, &category)
+                }
+            });
         lines.push(LogViewerLine {
             timestamp,
             level,
             category,
             raw_line: line,
+            highlight_text,
         });
     }
 
@@ -298,7 +702,7 @@ fn build_log_viewer_data(archive_name: &str, source_name: &str, content: &str) -
 }
 
 #[tauri::command]
-pub fn list_archive_files() -> Result<Vec<String>, String> {
+pub fn list_archive_files() -> Result<Vec<ArchiveFileItem>, String> {
     let zst_dir = get_zst_dir()?;
     let mut files = Vec::new();
 
@@ -320,13 +724,26 @@ pub fn list_archive_files() -> Result<Vec<String>, String> {
         let path = entry.path();
         if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
             if path.is_file() && name.ends_with(".tar.zst") {
-                files.push(name.to_string());
+                let size_bytes = match entry.metadata() {
+                    Ok(metadata) => metadata.len(),
+                    Err(err) => {
+                        utils::log_warn(&format!(
+                            "archive metadata read failed [{}]: {}",
+                            path.display(),
+                            err
+                        ));
+                        0
+                    }
+                };
+                files.push(ArchiveFileItem {
+                    name: name.to_string(),
+                    size_bytes,
+                });
             }
         }
     }
 
-    files.sort();
-    files.reverse();
+    files.sort_by(|a, b| b.name.cmp(&a.name));
     Ok(files)
 }
 
@@ -353,7 +770,48 @@ pub fn read_archive_log_viewer(file_name: &str) -> Result<LogViewerData, String>
     }
 
     let (source_name, content) = read_archive_entry_as_string(&archive_path)?;
-    Ok(build_log_viewer_data(file_name, &source_name, &content))
+    let (db_categories, db_keyword_markers) = match get_db_path() {
+        Ok(db_path) if db_path.exists() => match rusqlite::Connection::open(&db_path) {
+            Ok(conn) => {
+                let categories = match collect_db_log_categories(&conn, &source_name) {
+                    Ok(categories) => Some(categories),
+                    Err(err) => {
+                        utils::log_warn(&format!("log viewer db category load failed: {}", err));
+                        None
+                    }
+                };
+                let keyword_markers = match collect_db_keyword_markers(&conn, &source_name) {
+                    Ok(markers) => Some(markers),
+                    Err(err) => {
+                        utils::log_warn(&format!("log viewer db keyword load failed: {}", err));
+                        None
+                    }
+                };
+                (categories, keyword_markers)
+            }
+            Err(err) => {
+                utils::log_warn(&format!(
+                    "log viewer db open failed [{}]: {}",
+                    db_path.display(),
+                    err
+                ));
+                (None, None)
+            }
+        },
+        Ok(_) => (None, None),
+        Err(err) => {
+            utils::log_warn(&format!("log viewer db path resolve failed: {}", err));
+            (None, None)
+        }
+    };
+
+    Ok(build_log_viewer_data(
+        file_name,
+        &source_name,
+        &content,
+        db_categories.as_ref(),
+        db_keyword_markers.as_deref(),
+    ))
 }
 
 #[tauri::command]

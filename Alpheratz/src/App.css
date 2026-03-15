@@ -8,32 +8,43 @@ body {
 }
 
 .alpheratz-root {
-  --a-accent: #6366f1;
-  --a-accent-light: #818cf8;
-  --a-bg: #fafbfc;
-  --a-bg-elevated: #ffffff;
+  --a-accent: #0e7490;
+  --a-accent-light: #0891b2;
+  --a-bg: #f0f5f8;
+  --a-bg-elevated: #f7fbfd;
   --a-surface: #ffffff;
   --a-surface-strong: #ffffff;
-  --a-surface-soft: #f6f8fc;
-  --a-border: #e5e7eb;
-  --a-border-strong: rgba(99, 102, 241, 0.28);
-  --a-text: #1f2937;
-  --a-text-dim: #6b7280;
-  --a-text-faint: #94a3b8;
-  --a-primary: #6366f1;
-  --a-primary-soft: rgba(99, 102, 241, 0.09);
-  --a-accent-soft: rgba(99, 102, 241, 0.1);
+  --a-surface-soft: #eaf2f8;
+  --a-surface-hover: #ddeef8;
+  --a-surface-top: #e8f0f5;
+  --a-surface-side: #e4ecf2;
+  --a-border: rgba(14, 116, 144, 0.12);
+  --a-border-strong: rgba(14, 116, 144, 0.3);
+  --a-text: #0a2535;
+  --a-text-dim: #1e3a4a;
+  --a-text-faint: #6a8898;
+  --a-text-disabled: #9ab0bc;
+  --a-primary: #0e7490;
+  --a-primary-soft: rgba(14, 116, 144, 0.1);
+  --a-accent-soft: rgba(14, 116, 144, 0.1);
   --a-button-text: #ffffff;
-  --a-warn: #f59e0b;
-  --a-danger: #ef4444;
-  --a-scrollbar-track: rgba(148, 163, 184, 0.14);
-  --a-scrollbar-thumb: rgba(99, 102, 241, 0.42);
-  --a-scrollbar-thumb-hover: rgba(99, 102, 241, 0.62);
+  --a-warn: #d97706;
+  --a-danger: #dc2626;
+  --a-scrollbar-track: rgba(14, 116, 144, 0.08);
+  --a-scrollbar-thumb: rgba(14, 116, 144, 0.32);
+  --a-scrollbar-thumb-hover: rgba(14, 116, 144, 0.46);
+  --a-glow: rgba(14, 116, 144, 0.14);
+  --a-warn-soft: rgba(217, 119, 6, 0.1);
+  --a-warn-border: rgba(217, 119, 6, 0.28);
+  --a-warn-glow: rgba(217, 119, 6, 0.12);
+  --a-danger-soft: rgba(220, 38, 38, 0.08);
+  --a-danger-border: rgba(220, 38, 38, 0.25);
+  --a-danger-glow: rgba(220, 38, 38, 0.12);
   --a-radius: 16px;
   --a-radius-sm: 12px;
-  --a-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --a-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
-  --a-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
+  --a-shadow-sm: 0 2px 8px rgba(14, 116, 144, 0.06);
+  --a-shadow-md: 0 8px 28px rgba(14, 116, 144, 0.1);
+  --a-shadow-lg: 0 18px 48px rgba(14, 116, 144, 0.14);
   --a-font-display: "Inter", "Yu Gothic UI", "Segoe UI", sans-serif;
   --a-font-sans: "Inter", "Yu Gothic UI", "Segoe UI", sans-serif;
   --a-font-mono: "JetBrains Mono", "Cascadia Code", monospace;
@@ -51,20 +62,38 @@ body {
 }
 
 .alpheratz-root.theme-dark {
-  --a-bg: #1f232a;
-  --a-bg-elevated: #262b33;
-  --a-surface: #2a2f38;
-  --a-surface-strong: #313844;
-  --a-surface-soft: #242932;
-  --a-border: #3b4250;
-  --a-border-strong: rgba(129, 140, 248, 0.36);
-  --a-text: #f3f4f6;
-  --a-text-dim: #cbd5e1;
-  --a-text-faint: #94a3b8;
+  --a-accent: #22d3ee;
+  --a-accent-light: #67e8f9;
+  --a-bg: #090c12;
+  --a-bg-elevated: #0c0f1a;
+  --a-surface: #0e121c;
+  --a-surface-strong: #141926;
+  --a-surface-soft: #141926;
+  --a-surface-hover: #1a2133;
+  --a-surface-top: #0c0f1a;
+  --a-surface-side: #0a0d16;
+  --a-border: rgba(34, 211, 238, 0.08);
+  --a-border-strong: rgba(34, 211, 238, 0.25);
+  --a-text: #e0f2fe;
+  --a-text-dim: #b8c4d8;
+  --a-text-faint: #4a5a70;
+  --a-text-disabled: #2a3a50;
+  --a-primary: #22d3ee;
+  --a-primary-soft: rgba(34, 211, 238, 0.12);
+  --a-accent-soft: rgba(34, 211, 238, 0.12);
   --a-button-text: #f8fafc;
-  --a-scrollbar-track: rgba(148, 163, 184, 0.14);
-  --a-scrollbar-thumb: rgba(129, 140, 248, 0.42);
-  --a-scrollbar-thumb-hover: rgba(129, 140, 248, 0.64);
+  --a-warn: #fbbf24;
+  --a-danger: #f87171;
+  --a-scrollbar-track: rgba(34, 211, 238, 0.06);
+  --a-scrollbar-thumb: rgba(34, 211, 238, 0.24);
+  --a-scrollbar-thumb-hover: rgba(34, 211, 238, 0.38);
+  --a-glow: rgba(34, 211, 238, 0.2);
+  --a-warn-soft: rgba(251, 191, 36, 0.12);
+  --a-warn-border: rgba(251, 191, 36, 0.3);
+  --a-warn-glow: rgba(251, 191, 36, 0.18);
+  --a-danger-soft: rgba(248, 113, 113, 0.12);
+  --a-danger-border: rgba(248, 113, 113, 0.28);
+  --a-danger-glow: rgba(248, 113, 113, 0.18);
   --a-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.28);
   --a-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
   --a-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.42);
@@ -116,7 +145,7 @@ body {
   justify-content: space-between;
   width: 100%;
   padding: 0.3rem 0.35rem;
-  background: var(--a-surface);
+  background: var(--a-surface-top);
   border-bottom: 1px solid var(--a-border);
   gap: 1rem;
   z-index: 10;
@@ -157,7 +186,7 @@ body {
   font-size: 1.08rem;
   font-weight: 800;
   letter-spacing: 0.08em;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: linear-gradient(135deg, var(--a-primary), var(--a-accent-light));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -201,13 +230,23 @@ body {
   flex-shrink: 0;
 }
 
+.alpheratz-root .view-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border: 1px solid var(--a-border);
+  border-radius: 14px;
+  background: var(--a-surface-soft);
+}
+
 .alpheratz-root .header-icon-button {
   width: 42px;
   height: 42px;
   border: 1px solid var(--a-border);
   border-radius: 12px;
-  background: var(--a-surface);
-  color: var(--a-text-dim);
+  background: var(--a-surface-soft);
+  color: var(--a-text-faint);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -218,20 +257,22 @@ body {
 .alpheratz-root .header-icon-button:hover,
 .alpheratz-root .header-icon-button.active {
   border-color: var(--a-border-strong);
-  background: rgba(99, 102, 241, 0.08);
-  box-shadow: var(--a-shadow-sm);
+  background: var(--a-accent-soft);
+  color: var(--a-primary);
+  box-shadow: 0 0 12px var(--a-glow);
   transform: translateY(-1px);
 }
 
 .alpheratz-root .header-icon-button.danger {
   color: var(--a-danger);
-  border-color: rgba(239, 68, 68, 0.18);
-  background: rgba(239, 68, 68, 0.04);
+  border-color: var(--a-danger-border);
+  background: var(--a-danger-soft);
 }
 
 .alpheratz-root .header-icon-button.danger:hover {
-  border-color: rgba(239, 68, 68, 0.35);
-  background: rgba(239, 68, 68, 0.08);
+  border-color: color-mix(in srgb, var(--a-danger) 48%, transparent);
+  background: color-mix(in srgb, var(--a-danger) 16%, transparent);
+  box-shadow: 0 0 14px var(--a-danger-glow);
 }
 
 .alpheratz-root .input-group {
@@ -250,12 +291,12 @@ body {
 
 .alpheratz-root .input-group:focus-within {
   border-color: var(--a-border-strong);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
-  background: #fff;
+  box-shadow: 0 0 0 3px var(--a-accent-soft);
+  background: var(--a-surface);
 }
 
 .alpheratz-root.theme-dark .input-group:focus-within {
-  background: #303643;
+  background: var(--a-surface-hover);
 }
 
 .alpheratz-root .input-group input {
@@ -314,7 +355,7 @@ body {
   overflow: hidden;
   border: 1px solid transparent;
   border-radius: 0;
-  background: var(--a-surface);
+  background: var(--a-surface-side);
   box-shadow: 12px 0 28px rgba(15, 23, 42, 0.08);
   transform: translateX(-16px);
   pointer-events: none;
@@ -442,15 +483,15 @@ body {
 .alpheratz-root .memo-section textarea:focus,
 .alpheratz-root .tag-editor input:focus {
   border-color: var(--a-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
-  background: #fff;
+  box-shadow: 0 0 0 3px var(--a-accent-soft);
+  background: var(--a-surface);
 }
 
 .alpheratz-root.theme-dark .fs-section input:focus,
 .alpheratz-root.theme-dark .fs-section select:focus,
 .alpheratz-root.theme-dark .memo-section textarea:focus,
 .alpheratz-root.theme-dark .tag-editor input:focus {
-  background: #303643;
+  background: var(--a-surface-hover);
 }
 
 .alpheratz-root .fs-select {
@@ -463,8 +504,8 @@ body {
 }
 
 .alpheratz-root .fs-select.active {
-  border-color: rgba(99, 102, 241, 0.22);
-  background-color: rgba(99, 102, 241, 0.08);
+  border-color: var(--a-border-strong);
+  background-color: var(--a-accent-soft);
   color: var(--a-primary);
   font-weight: 700;
 }
@@ -495,19 +536,19 @@ body {
 }
 
 .alpheratz-root .dd-trigger:hover {
-  border-color: #d1d5e8;
-  background: #fff;
+  border-color: var(--a-border-strong);
+  background: var(--a-surface);
 }
 
 .alpheratz-root.theme-dark .dd-trigger:hover,
 .alpheratz-root.theme-dark .date-trigger:hover {
-  background: #303643;
+  background: var(--a-surface-hover);
 }
 
 .alpheratz-root .dd-trigger.open {
   border-color: var(--a-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
-  background: #fff;
+  box-shadow: 0 0 0 3px var(--a-accent-soft);
+  background: var(--a-surface);
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
@@ -515,12 +556,12 @@ body {
 .alpheratz-root.theme-dark .dd-trigger.open,
 .alpheratz-root.theme-dark .date-trigger.open,
 .alpheratz-root.theme-dark .date-trigger.has-value.open {
-  background: #303643;
+  background: var(--a-surface-hover);
 }
 
 .alpheratz-root .dd-trigger.active {
-  border-color: rgba(99, 102, 241, 0.22);
-  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--a-border-strong);
+  background: var(--a-accent-soft);
 }
 
 .alpheratz-root .dd-trigger.active.open {
@@ -532,7 +573,7 @@ body {
   height: 24px;
   border-radius: 6px;
   border: 1px solid var(--a-border);
-  background: #fff;
+  background: var(--a-surface);
   display: grid;
   place-items: center;
   font-size: 0.72rem;
@@ -716,15 +757,15 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 5px;
-  border: 1px solid #d1d5e8;
-  background: #fff;
+  border: 1px solid var(--a-border);
+  background: var(--a-surface-soft);
   flex-shrink: 0;
   box-sizing: border-box;
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
 .alpheratz-root .dd-check-item:has(input:checked) {
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--a-accent-soft);
   color: var(--a-primary);
 }
 
@@ -768,7 +809,7 @@ body {
 }
 
 .alpheratz-root .dd-item.selected {
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--a-accent-soft);
   color: var(--a-primary);
 }
 
@@ -851,7 +892,7 @@ body {
 .alpheratz-root .tg-btn {
   border: 1px solid var(--a-border);
   background: var(--a-surface-soft);
-  color: var(--a-text-dim);
+  color: var(--a-text-faint);
   border-radius: 9px;
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.15s;
@@ -866,16 +907,33 @@ body {
 .alpheratz-root .preset-btn:hover,
 .alpheratz-root .tg-btn:hover {
   border-color: var(--a-border-strong);
-  background: var(--a-primary-soft);
+  background: var(--a-accent-soft);
   color: var(--a-primary);
   transform: translateY(-1px);
 }
 
 .alpheratz-root .preset-btn.active,
 .alpheratz-root .tg-btn.active {
-  border-color: var(--a-primary);
-  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--a-border-strong);
+  background: var(--a-accent-soft);
   color: var(--a-primary);
+  box-shadow: 0 0 8px var(--a-glow);
+}
+
+.alpheratz-root .tg-btn:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+  transform: none;
+  color: var(--a-text-disabled);
+  border-color: var(--a-border);
+  background: var(--a-surface-soft);
+}
+
+.alpheratz-root .tg-btn:disabled:hover {
+  border-color: var(--a-border);
+  background: var(--a-surface-soft);
+  color: var(--a-text-disabled);
+  transform: none;
 }
 
 .alpheratz-root .custom-toggle {
@@ -892,9 +950,9 @@ body {
 }
 
 .alpheratz-root .custom-toggle.open {
-  border-color: rgba(99, 102, 241, 0.22);
+  border-color: var(--a-border-strong);
   border-bottom-color: transparent;
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--a-accent-soft);
   color: var(--a-primary);
 }
 
@@ -908,7 +966,7 @@ body {
 }
 
 .alpheratz-root .custom-panel {
-  border: 1px solid rgba(99, 102, 241, 0.22);
+  border: 1px solid var(--a-border-strong);
   border-top: none;
   border-radius: 0 0 8px 8px;
   background: var(--a-surface);
@@ -930,20 +988,20 @@ body {
 }
 
 .alpheratz-root .date-trigger:hover {
-  border-color: #d1d5e8;
-  background: #fff;
+  border-color: var(--a-border-strong);
+  background: var(--a-surface);
 }
 
 .alpheratz-root .date-trigger.open,
 .alpheratz-root .date-trigger.has-value.open {
   border-color: var(--a-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
-  background: #fff;
+  box-shadow: 0 0 0 3px var(--a-accent-soft);
+  background: var(--a-surface);
 }
 
 .alpheratz-root .date-trigger.has-value {
-  border-color: rgba(99, 102, 241, 0.22);
-  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--a-border-strong);
+  background: var(--a-accent-soft);
 }
 
 .alpheratz-root .dt-cal-icon {
@@ -1037,7 +1095,7 @@ body {
 
 .alpheratz-root .date-range-chip.active {
   border-color: var(--a-primary);
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--a-accent-soft);
 }
 
 .alpheratz-root .date-range-chip-label {
@@ -1115,8 +1173,8 @@ body {
 }
 
 .alpheratz-root .cal-nav:hover {
-  background: rgba(99, 102, 241, 0.08);
-  border-color: rgba(99, 102, 241, 0.22);
+  background: var(--a-accent-soft);
+  border-color: var(--a-border-strong);
   color: var(--a-primary);
 }
 
@@ -1148,7 +1206,7 @@ body {
 }
 
 .alpheratz-root .cal-wd.sat {
-  color: #818cf8;
+  color: var(--a-accent-light);
 }
 
 .alpheratz-root .cal-grid {
@@ -1172,7 +1230,7 @@ body {
 }
 
 .alpheratz-root .cal-day:hover:not(.other):not(.range-start):not(.range-end) {
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--a-accent-soft);
   color: var(--a-primary);
 }
 
@@ -1187,7 +1245,7 @@ body {
 }
 
 .alpheratz-root .cal-day.in-range {
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--a-accent-soft);
   border-radius: 0;
 }
 
@@ -1269,8 +1327,8 @@ body {
 
 .alpheratz-root .tag-input-wrap:focus-within {
   border-color: var(--a-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
-  background: #fff;
+  box-shadow: 0 0 0 3px var(--a-accent-soft);
+  background: var(--a-surface);
 }
 
 .alpheratz-root .tag-chip {
@@ -1279,8 +1337,8 @@ body {
   gap: 0.25rem;
   padding: 0.22rem 0.55rem;
   border-radius: 999px;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.18);
+  background: var(--a-accent-soft);
+  border: 1px solid var(--a-border-strong);
   color: var(--a-primary);
   font-size: 0.7rem;
   font-weight: 700;
@@ -1318,7 +1376,7 @@ body {
   padding: 0.75rem 0.82rem;
   border: 1px solid var(--a-border);
   border-radius: 10px;
-  background: var(--a-surface-soft);
+  background: transparent;
   cursor: pointer;
   user-select: none;
   transition: border-color 0.2s, background 0.2s, transform 0.15s;
@@ -1330,16 +1388,17 @@ body {
 
 .alpheratz-root .fav-toggle:hover {
   transform: translateY(-1px);
-  border-color: rgba(248, 184, 92, 0.3);
+  border-color: var(--a-warn-border);
+  background: var(--a-warn-soft);
 }
 
 .alpheratz-root .fav-toggle.active {
-  background: rgba(248, 184, 92, 0.11);
-  border-color: rgba(248, 184, 92, 0.32);
+  background: var(--a-warn-soft);
+  border-color: var(--a-warn-border);
 }
 
 .alpheratz-root .fav-star {
-  color: var(--a-text-faint);
+  color: var(--a-text-disabled);
   font-size: 1rem;
 }
 
@@ -1349,13 +1408,13 @@ body {
 
 .alpheratz-root .fav-text {
   flex: 1;
-  color: var(--a-text-dim);
+  color: var(--a-text-disabled);
   font-weight: 700;
   font-size: 0.82rem;
 }
 
 .alpheratz-root .fav-toggle.active .fav-text {
-  color: #b45309;
+  color: var(--a-warn);
 }
 
 .alpheratz-root .fav-check {
@@ -1364,17 +1423,17 @@ body {
   border-radius: 5px;
   display: grid;
   place-items: center;
-  background: #fff;
-  border: 1px solid #d1d5e8;
+  background: var(--a-surface-soft);
+  border: 1px solid var(--a-border);
   color: transparent;
   font-size: 0.7rem;
   font-weight: 800;
 }
 
 .alpheratz-root .fav-toggle.active .fav-check {
-  background: var(--a-warn);
-  border-color: var(--a-warn);
-  color: #fff;
+  background: var(--a-warn-soft);
+  border-color: var(--a-warn-border);
+  color: var(--a-warn);
 }
 
 .alpheratz-root .cal-footer {
@@ -1393,9 +1452,9 @@ body {
 }
 
 .alpheratz-root .btn-clear {
-  border: 1px solid rgba(239, 68, 68, 0.18);
-  background: rgba(239, 68, 68, 0.06);
-  color: #dc2626;
+  border: 1px solid var(--a-danger-border);
+  background: var(--a-danger-soft);
+  color: var(--a-danger);
   font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
@@ -1405,25 +1464,27 @@ body {
 }
 
 .alpheratz-root .btn-clear:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.28);
+  background: color-mix(in srgb, var(--a-danger) 16%, transparent);
+  border-color: color-mix(in srgb, var(--a-danger) 45%, transparent);
+  box-shadow: 0 0 14px var(--a-danger-glow);
   transform: translateY(-1px);
 }
 
 .alpheratz-root .btn-apply {
-  border: none;
+  border: 1px solid var(--a-border-strong);
   border-radius: 8px;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  color: #fff;
+  background: var(--a-accent-soft);
+  color: var(--a-primary);
   padding: 0.45rem 0.8rem;
   font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.25);
+  box-shadow: none;
 }
 
 .alpheratz-root .btn-apply:hover {
-  filter: brightness(1.04);
+  background: color-mix(in srgb, var(--a-primary) 18%, transparent);
+  box-shadow: 0 0 12px var(--a-glow);
 }
 
 .alpheratz-root .fs-result {
@@ -1457,7 +1518,7 @@ body {
   bottom: 1rem;
   left: 1.2rem;
   width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(123, 147, 255, 0.22), transparent);
+  background: linear-gradient(180deg, transparent, var(--a-border-strong), transparent);
 }
 
 .alpheratz-root .month-nav-year {
@@ -1482,11 +1543,11 @@ body {
 
 .alpheratz-root .month-nav-item:hover,
 .alpheratz-root .month-nav-item.active {
-  background: rgba(123, 147, 255, 0.1);
+  background: var(--a-accent-soft);
 }
 
 .alpheratz-root .month-nav-item.active {
-  box-shadow: inset 0 0 0 1px rgba(123, 147, 255, 0.18);
+  box-shadow: inset 0 0 0 1px var(--a-border-strong);
 }
 
 .alpheratz-root .month-nav-dot {
@@ -1494,8 +1555,8 @@ body {
   height: 10px;
   border-radius: 50%;
   margin-left: 0.65rem;
-  background: rgba(123, 147, 255, 0.34);
-  box-shadow: 0 0 0 3px rgba(123, 147, 255, 0.08);
+  background: color-mix(in srgb, var(--a-primary) 34%, transparent);
+  box-shadow: 0 0 0 3px var(--a-accent-soft);
   flex-shrink: 0;
 }
 
@@ -1555,7 +1616,7 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), transparent 55%);
+  background: linear-gradient(135deg, var(--a-accent-soft), transparent 55%);
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -1578,7 +1639,7 @@ body {
   width: 40px;
   height: 40px;
   border-radius: 14px;
-  background: rgba(123, 147, 255, 0.12);
+  background: var(--a-accent-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1622,6 +1683,118 @@ body {
   background: transparent;
   box-shadow: none;
   margin-left: 0;
+}
+
+.alpheratz-root .gallery-mode-shell {
+  overflow: hidden;
+}
+
+.alpheratz-root .gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--gallery-columns, 1), minmax(0, 1fr));
+  gap: 0.9rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.5rem;
+  scrollbar-width: thin;
+}
+
+.alpheratz-root .gallery-grid-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.alpheratz-root .gallery-photo-card-wrapper {
+  min-width: 0;
+}
+
+.alpheratz-root .gallery-photo-card {
+  width: 100%;
+  display: block;
+  padding: 0;
+  border: 1px solid var(--a-border);
+  border-radius: 16px;
+  background: var(--a-surface);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.alpheratz-root .gallery-photo-card:hover {
+  border-color: var(--a-border-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--a-shadow-sm);
+}
+
+.alpheratz-root .gallery-photo-thumb {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #eef2ff, #dbe5ff);
+}
+
+.alpheratz-root.theme-dark .gallery-photo-thumb {
+  background: linear-gradient(135deg, #232a36, #1e2430);
+}
+
+.alpheratz-root .gallery-photo-thumb.landscape {
+  aspect-ratio: 4 / 3;
+  min-height: 210px;
+}
+
+.alpheratz-root .gallery-photo-thumb.portrait {
+  aspect-ratio: 3 / 4;
+  min-height: 360px;
+}
+
+.alpheratz-root .gallery-photo-thumb.unknown {
+  aspect-ratio: 1 / 1;
+  min-height: 260px;
+}
+
+.alpheratz-root .gallery-photo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+.alpheratz-root .gallery-photo-card:hover .gallery-photo-image {
+  transform: scale(1.04);
+}
+
+.alpheratz-root .gallery-photo-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: linear-gradient(180deg, rgba(9, 13, 22, 0.12), rgba(9, 13, 22, 0.7));
+}
+
+.alpheratz-root .gallery-photo-topline,
+.alpheratz-root .gallery-photo-bottomline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.alpheratz-root .gallery-photo-world {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+  word-break: break-word;
+}
+
+.alpheratz-root .gallery-photo-date {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
 }
 
 .alpheratz-root .photo-grid {
@@ -1722,8 +1895,8 @@ body {
   gap: 0.28rem;
   padding: 0.22rem 0.58rem;
   border-radius: 999px;
-  border: 1px solid rgba(123, 147, 255, 0.22);
-  background: rgba(123, 147, 255, 0.13);
+  border: 1px solid var(--a-border-strong);
+  background: var(--a-accent-soft);
   color: var(--a-primary);
   font-size: 0.66rem;
   font-weight: 700;
@@ -1875,27 +2048,32 @@ body {
 .alpheratz-root .cancel-button-overlay,
 .alpheratz-root .save-button {
     padding: 0.7rem 1.2rem;
-    border: none;
+    border: 1px solid var(--a-border-strong);
     border-radius: 14px;
-    background: linear-gradient(90deg, #7c4dff 0%, #a64dff 100%);
+    background: var(--a-primary);
     color: var(--a-button-text);
     font-weight: 800;
     cursor: pointer;
-    box-shadow: 0 8px 18px rgba(124, 77, 255, 0.22);
+    box-shadow: 0 0 14px var(--a-glow);
 }
 
 .alpheratz-root .cancel-button-overlay {
   margin-top: 1.6rem;
   min-width: 180px;
-  background: linear-gradient(135deg, #ff8fa2, #ffc066);
-  color: #2b0c13;
-  box-shadow: 0 14px 32px rgba(255, 127, 149, 0.24);
+  background: var(--a-danger-soft);
+  border-color: var(--a-danger-border);
+  color: var(--a-danger);
+  box-shadow: 0 0 14px var(--a-danger-glow);
 }
 
 .alpheratz-root .save-button:hover,
 .alpheratz-root .cancel-button-overlay:hover {
-    opacity: 0.85;
+    background: var(--a-accent-light);
     filter: none;
+}
+
+.alpheratz-root .cancel-button-overlay:hover {
+    background: color-mix(in srgb, var(--a-danger) 18%, transparent);
 }
 
 .alpheratz-root .empty-state {
@@ -1905,9 +2083,9 @@ body {
   justify-content: center;
   flex: 1;
   gap: 0.5rem;
-  border: 1px dashed rgba(99, 102, 241, 0.2);
+  border: 1px dashed var(--a-border-strong);
   border-radius: 24px;
-  background: rgba(99, 102, 241, 0.03);
+  background: var(--a-accent-soft);
 }
 
 .alpheratz-root .empty-icon {
@@ -1974,6 +2152,37 @@ body {
 
 .alpheratz-root .modal-content.settings-panel {
   max-width: 540px;
+}
+
+.alpheratz-root .modal-content.folder-change-modal {
+  max-width: 560px;
+}
+
+.alpheratz-root .folder-change-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: 16px;
+  background: rgba(239, 68, 68, 0.05);
+  color: var(--a-text);
+}
+
+.alpheratz-root .folder-change-warning strong {
+  color: var(--a-danger);
+  font-size: 0.95rem;
+}
+
+.alpheratz-root .folder-change-warning p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.alpheratz-root .folder-change-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .alpheratz-root .modal-back,
@@ -2100,24 +2309,24 @@ body {
     align-items: center;
     gap: 0.45rem;
     padding: 0.65rem 0.95rem;
-    border: 1px solid transparent;
+    border: 1px solid var(--a-border-strong);
     border-radius: 14px;
-    background: #7c4dff;
-    color: #fff;
+    background: var(--a-accent-soft);
+    color: var(--a-primary);
     cursor: pointer;
-    box-shadow: 0 8px 18px rgba(124, 77, 255, 0.22);
+    box-shadow: 0 0 8px var(--a-glow);
 }
 
 .alpheratz-root.theme-dark .world-link-button {
-    background: #7c4dff;
-    color: #fff;
+    background: var(--a-accent-soft);
+    color: var(--a-primary);
 }
 
 .alpheratz-root .world-link-button.favorite-active {
-    background: #fac775;
-    border-color: #fac775;
-    color: #412402;
-    box-shadow: 0 8px 18px rgba(250, 199, 117, 0.18);
+    background: var(--a-warn-soft);
+    border-color: var(--a-warn-border);
+    color: var(--a-warn);
+    box-shadow: 0 0 10px var(--a-warn-glow);
 }
 
 .alpheratz-root .memo-section {
@@ -2192,35 +2401,38 @@ body {
 
 .alpheratz-root .toggle-switch {
   position: relative;
-  width: 50px;
-  height: 30px;
+  width: 40px;
+  height: 22px;
   border: 1px solid var(--a-border);
   border-radius: 999px;
   background: var(--a-surface-soft);
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
   flex-shrink: 0;
 }
 
 .alpheratz-root .toggle-switch.active {
-  background: var(--a-primary);
-  border-color: var(--a-primary);
+  background: var(--a-accent-soft);
+  border-color: color-mix(in srgb, var(--a-primary) 40%, transparent);
+  box-shadow: 0 0 9px var(--a-glow);
 }
 
 .alpheratz-root .toggle-switch-knob {
   position: absolute;
   top: 3px;
   left: 3px;
-  width: 22px;
-  height: 22px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--a-text-disabled);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
   transition: transform 0.2s ease;
 }
 
 .alpheratz-root .toggle-switch.active .toggle-switch-knob {
-  transform: translateX(20px);
+  transform: translateX(18px);
+  background: var(--a-primary);
+  box-shadow: 0 0 5px var(--a-glow);
 }
 
 .alpheratz-root .startup-choice-modal {
@@ -2312,7 +2524,7 @@ body {
   padding: 0.28rem 0.55rem;
   border-radius: 999px;
   border: 1px solid var(--a-border);
-  background: rgba(123, 147, 255, 0.08);
+  background: var(--a-accent-soft);
   font-size: 0.68rem;
 }
 
@@ -2323,86 +2535,89 @@ body {
 }
 
 .alpheratz-root .world-link-button:hover {
-    border-color: transparent;
-    background: #9966ff;
+    border-color: color-mix(in srgb, var(--a-primary) 48%, transparent);
+    background: color-mix(in srgb, var(--a-primary) 18%, transparent);
+    color: var(--a-accent-light);
+    box-shadow: 0 0 18px var(--a-glow);
     filter: none;
     transform: translateY(-1px);
 }
 
 .alpheratz-root .world-link-button-subtle {
-    background: #eeedfe;
-    color: #3c3489;
-    border-color: #cecbf6;
+    background: transparent;
+    color: var(--a-text-disabled);
+    border-color: var(--a-border);
     box-shadow: none;
 }
 
 .alpheratz-root .photo-action-primary {
-    background: #7c4dff;
-    color: #fff;
-    border-color: transparent;
+    background: var(--a-warn-soft);
+    color: var(--a-warn);
+    border-color: var(--a-warn-border);
+    box-shadow: 0 0 10px var(--a-warn-glow);
 }
 
 .alpheratz-root .photo-action-ghost {
-    background: #185fa5;
-    color: #fff;
-    border: 1px solid #185fa5;
-    box-shadow: none;
+    background: var(--a-accent-soft);
+    color: var(--a-primary);
+    border: 1px solid var(--a-border-strong);
+    box-shadow: 0 0 8px var(--a-glow);
 }
 
 .alpheratz-root .photo-action-ghost:hover {
-    background: #378add;
-    color: #fff;
+    background: color-mix(in srgb, var(--a-primary) 18%, transparent);
+    color: var(--a-accent-light);
     filter: none;
 }
 
 .alpheratz-root.theme-dark .photo-action-ghost {
-    background: #185fa5;
-    color: #fff;
-    border-color: #185fa5;
+    background: var(--a-accent-soft);
+    color: var(--a-primary);
+    border-color: var(--a-border-strong);
 }
 
 .alpheratz-root.theme-dark .photo-action-ghost:hover {
-    background: #378add;
-    color: #fff;
+    background: color-mix(in srgb, var(--a-primary) 18%, transparent);
+    color: var(--a-accent-light);
 }
 
 .alpheratz-root.theme-dark .world-link-button.favorite-active {
-    background: #fac775;
-    border-color: #fac775;
-    color: #412402;
+    background: var(--a-warn-soft);
+    border-color: var(--a-warn-border);
+    color: var(--a-warn);
 }
 
 .alpheratz-root.theme-dark .world-link-button-subtle {
-    background: #26215c;
-    color: #cecbf6;
-    border-color: #534ab7;
+    background: transparent;
+    color: var(--a-text-disabled);
+    border-color: var(--a-border);
 }
 
 .alpheratz-root.theme-dark .photo-action-text {
-    background: #26215c;
-    color: #cecbf6;
-    border: 1px solid #534ab7;
+    background: transparent;
+    color: var(--a-text-disabled);
+    border: 1px solid var(--a-border);
 }
 
 .alpheratz-root.theme-dark .photo-action-text:hover {
-    background: #3c3489;
-    color: #fff;
-    border-color: #534ab7;
+    background: var(--a-surface-hover);
+    color: var(--a-text-faint);
+    border-color: color-mix(in srgb, var(--a-primary) 25%, transparent);
 }
 
 .alpheratz-root .photo-action-text {
     justify-content: center;
     padding: 0.6rem 0.95rem;
-    background: #eeedfe;
-    color: #3c3489;
-    border: 1px solid #cecbf6;
+    background: transparent;
+    color: var(--a-text-disabled);
+    border: 1px solid var(--a-border);
     box-shadow: none;
 }
 
 .alpheratz-root .photo-action-text:hover {
-    background: #cecbf6;
-    color: #3c3489;
-    border-color: #cecbf6;
+    background: var(--a-surface-soft);
+    color: var(--a-text-faint);
+    border-color: color-mix(in srgb, var(--a-primary) 25%, transparent);
     filter: none;
 }
 
@@ -2439,7 +2654,7 @@ body {
 
 .alpheratz-root .tag-existing-picker select:focus {
   border-color: var(--a-border-strong);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+  box-shadow: 0 0 0 3px var(--a-accent-soft);
 }
 
 .alpheratz-root .photo-modal-tag-suggestion {
@@ -2489,13 +2704,13 @@ body {
   padding: 0.9rem;
   border: 1px solid var(--a-border);
   border-radius: 18px;
-  background: rgba(123, 147, 255, 0.08);
+  background: var(--a-accent-soft);
 }
 
 .alpheratz-root .suggestion-panel-muted {
   border-style: dashed;
-  border-color: rgba(248, 184, 92, 0.4);
-  background: rgba(248, 184, 92, 0.07);
+  border-color: var(--a-warn-border);
+  background: var(--a-warn-soft);
 }
 
 .alpheratz-root .suggestion-title {

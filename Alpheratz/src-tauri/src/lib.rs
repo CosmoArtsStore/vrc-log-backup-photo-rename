@@ -5,6 +5,7 @@ use std::sync::LazyLock;
 use tauri::{generate_handler, AppHandle, Builder, State};
 use tauri_plugin_shell::ShellExt;
 
+use orientation::{OrientationProgressPayload, OrientationWorkerState};
 use phash::{PHashProgressPayload, PHashWorkerState};
 
 pub struct ScanCancelStatus(pub AtomicBool);
@@ -12,6 +13,7 @@ pub struct ScanCancelStatus(pub AtomicBool);
 pub mod config;
 pub mod db;
 pub mod models;
+pub mod orientation;
 pub mod phash;
 pub mod scanner;
 pub mod utils;
@@ -42,6 +44,7 @@ async fn initialize_scan(
         if let Err(e) = scanner::do_scan(app_clone.clone()).await {
             crate::utils::log_err(&format!("Scanner Error: {}", e));
         } else {
+            orientation::start_orientation_worker(app_clone.clone());
             phash::start_phash_worker(app_clone.clone());
         }
     });
@@ -89,6 +92,11 @@ async fn add_photo_tag_cmd(photo_path: String, tag: String) -> Result<(), String
 #[tauri::command]
 async fn remove_photo_tag_cmd(photo_path: String, tag: String) -> Result<(), String> {
     db::remove_photo_tag(&photo_path, &tag)
+}
+
+#[tauri::command]
+async fn reset_photo_cache_cmd() -> Result<(), String> {
+    db::reset_photo_cache()
 }
 
 #[tauri::command]
@@ -150,6 +158,17 @@ fn get_phash_progress_cmd(app: AppHandle) -> PHashProgressPayload {
     phash::get_phash_progress(&app)
 }
 
+#[tauri::command]
+async fn start_orientation_calculation_cmd(app: AppHandle) -> Result<(), String> {
+    orientation::start_orientation_worker(app);
+    Ok(())
+}
+
+#[tauri::command]
+fn get_orientation_progress_cmd(app: AppHandle) -> OrientationProgressPayload {
+    orientation::get_orientation_progress(&app)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if let Err(err) = init_alpheratz_db() {
@@ -165,9 +184,17 @@ pub fn run() {
             running: AtomicBool::new(false),
             progress: std::sync::Mutex::new(PHashProgressPayload::default()),
         })
+        .manage(OrientationWorkerState {
+            running: AtomicBool::new(false),
+            progress: std::sync::Mutex::new(OrientationProgressPayload::default()),
+        })
         .setup(|app| {
+            let has_pending_orientation = orientation::has_pending_orientation().unwrap_or(false);
             let has_pending = phash::has_pending_phash().unwrap_or(false);
             let has_unknown_worlds = phash::has_unknown_worlds().unwrap_or(false);
+            if has_pending_orientation {
+                orientation::start_orientation_worker(app.handle().clone());
+            }
             if has_pending || has_unknown_worlds {
                 phash::start_phash_worker(app.handle().clone());
             }
@@ -184,12 +211,15 @@ pub fn run() {
             set_photo_favorite_cmd,
             add_photo_tag_cmd,
             remove_photo_tag_cmd,
+            reset_photo_cache_cmd,
             open_world_url,
             show_in_explorer,
             get_startup_preference_cmd,
             save_startup_preference_cmd,
             start_phash_calculation_cmd,
             get_phash_progress_cmd,
+            start_orientation_calculation_cmd,
+            get_orientation_progress_cmd,
         ])
         .run(tauri::generate_context!());
 

@@ -1,5 +1,8 @@
 use crate::models::PhotoRecord;
-use crate::utils::{get_alpheratz_install_dir, get_alpheratz_setting_dir, get_stella_record_install_dir};
+use crate::utils::{
+    clear_directory_contents, get_alpheratz_db_cache_dir, get_alpheratz_img_cache_dir,
+    get_alpheratz_install_dir, get_alpheratz_log_dir, get_stella_record_install_dir,
+};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -9,7 +12,7 @@ fn get_stella_record_db_path() -> Option<PathBuf> {
 }
 
 pub fn get_alpheratz_db_path() -> Option<PathBuf> {
-    Some(get_alpheratz_setting_dir()?.join("Alpheratz.db"))
+    Some(get_alpheratz_db_cache_dir()?.join("Alpheratz.db"))
 }
 
 fn get_legacy_alpheratz_db_paths() -> Vec<PathBuf> {
@@ -31,7 +34,7 @@ pub fn open_alpheratz_connection() -> Result<Connection, String> {
             }
             std::fs::rename(&legacy_path, &db_path).map_err(|err| {
                 format!(
-                    "旧 Alpheratz DB を setting へ移動できません ({} -> {}): {}",
+                    "旧 Alpheratz DB を新しい保存先へ移動できません ({} -> {}): {}",
                     legacy_path.display(),
                     db_path.display(),
                     err
@@ -40,8 +43,10 @@ pub fn open_alpheratz_connection() -> Result<Connection, String> {
             break;
         }
     }
-    Connection::open(&db_path)
-        .map_err(|e| format!("Alpheratz DB を開けません ({}): {}", db_path.display(), e))
+    let conn = Connection::open(&db_path)
+        .map_err(|err| format!("Alpheratz DB を開けません ({}): {}", db_path.display(), err))?;
+    ensure_alpheratz_schema(&conn)?;
+    Ok(conn)
 }
 
 fn has_column(conn: &Connection, table_name: &str, column_name: &str) -> Result<bool, String> {
@@ -185,9 +190,7 @@ fn migrate_photo_schema_if_needed(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
-pub fn init_alpheratz_db() -> Result<(), String> {
-    let conn = open_alpheratz_connection()?;
-
+fn ensure_alpheratz_schema(conn: &Connection) -> Result<(), String> {
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
@@ -255,9 +258,13 @@ pub fn init_alpheratz_db() -> Result<(), String> {
     // Intentional: pre-release cleanup. We only keep the current schema and remove abandoned tables.
     conn.execute("DROP TABLE IF EXISTS photo_embeddings", [])
         .map_err(|e| format!("不要テーブル photo_embeddings の削除に失敗しました: {}", e))?;
-
     let _ = get_stella_record_db_path();
     Ok(())
+}
+
+pub fn init_alpheratz_db() -> Result<(), String> {
+    let conn = open_alpheratz_connection()?;
+    ensure_alpheratz_schema(&conn)
 }
 
 pub fn get_photos(
@@ -448,5 +455,48 @@ pub fn remove_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
             filename, tag, e
         )
     })?;
+    Ok(())
+}
+
+pub fn reset_photo_cache() -> Result<(), String> {
+    let conn = open_alpheratz_connection()?;
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|err| format!("写真キャッシュ削除トランザクションを開始できません: {}", err))?;
+
+    tx.execute("DELETE FROM photo_tags", [])
+        .map_err(|err| format!("photo_tags を削除できません: {}", err))?;
+    tx.execute("DELETE FROM tags", [])
+        .map_err(|err| format!("tags を削除できません: {}", err))?;
+    tx.execute("DELETE FROM photos", [])
+        .map_err(|err| format!("photos を削除できません: {}", err))?;
+
+    tx.commit()
+        .map_err(|err| format!("写真キャッシュ削除を確定できません: {}", err))?;
+
+    if let Err(err) = conn.execute("VACUUM", []) {
+        crate::utils::log_warn(&format!("photo cache VACUUM failed: {}", err));
+    }
+
+    if let Some(img_cache_dir) = get_alpheratz_img_cache_dir() {
+        clear_directory_contents(&img_cache_dir).map_err(|err| {
+            format!(
+                "imgCache のリセットに失敗しました [{}]: {}",
+                img_cache_dir.display(),
+                err
+            )
+        })?;
+    }
+
+    if let Some(log_dir) = get_alpheratz_log_dir() {
+        clear_directory_contents(&log_dir).map_err(|err| {
+            format!(
+                "log のリセットに失敗しました [{}]: {}",
+                log_dir.display(),
+                err
+            )
+        })?;
+    }
+
     Ok(())
 }

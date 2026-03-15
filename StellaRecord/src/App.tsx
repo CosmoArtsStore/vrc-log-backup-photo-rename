@@ -6,7 +6,51 @@ import { useAnalyzeState } from "./hooks/useAnalyzeState";
 import { useArchiveSelection } from "./hooks/useArchiveSelection";
 import { useDashboardState } from "./hooks/useDashboardState";
 import { useToasts } from "./hooks/useToasts";
-import type { AppCard, DangerAction, LogViewerData, Section, TableData } from "./types";
+import type { AppCard, ArchiveFileItem, DangerAction, LogViewerData, Section, TableData } from "./types";
+
+function splitLogLine(rawLine: string) {
+  const separatorIndex = rawLine.indexOf(" - ");
+  if (separatorIndex === -1) {
+    return { prefix: "", body: rawLine };
+  }
+
+  return {
+    prefix: rawLine.slice(0, separatorIndex + 3),
+    body: rawLine.slice(separatorIndex + 3),
+  };
+}
+
+function formatArchiveSize(sizeBytes: number) {
+  if (sizeBytes >= 1024 * 1024 * 1024) {
+    return `${(sizeBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+  if (sizeBytes >= 1024 * 1024) {
+    return `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+  if (sizeBytes >= 1024) {
+    return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  }
+  return `${sizeBytes} B`;
+}
+
+function renderHighlightedBody(body: string, highlightText?: string | null) {
+  if (!highlightText) {
+    return body;
+  }
+
+  const matchIndex = body.indexOf(highlightText);
+  if (matchIndex === -1) {
+    return body;
+  }
+
+  return (
+    <>
+      {body.slice(0, matchIndex)}
+      <mark className="terminal-log-highlight">{body.slice(matchIndex, matchIndex + highlightText.length)}</mark>
+      {body.slice(matchIndex + highlightText.length)}
+    </>
+  );
+}
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
@@ -17,9 +61,10 @@ function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showPendingArchiveModal, setShowPendingArchiveModal] = useState(false);
   const [modalMode, setModalMode] = useState<"import" | "viewer">("import");
-  const [archiveFiles, setArchiveFiles] = useState<string[]>([]);
+  const [archiveFiles, setArchiveFiles] = useState<ArchiveFileItem[]>([]);
   const [showLogViewerModal, setShowLogViewerModal] = useState(false);
   const [logViewerData, setLogViewerData] = useState<LogViewerData | null>(null);
+  const [viewerFileIndex, setViewerFileIndex] = useState(-1);
   const [archiveLimitDraft, setArchiveLimitDraft] = useState("1000");
   const [startupEnabledDraft, setStartupEnabledDraft] = useState(false);
   const [pendingArchiveLogCount, setPendingArchiveLogCount] = useState(0);
@@ -49,10 +94,11 @@ function App() {
   } = useAnalyzeState(pollStorage, addToast);
   const {
     selectedFiles,
+    setSelectedFiles,
     clearSelection,
     handleFileAction,
     handleSelectAll,
-  } = useArchiveSelection(archiveFiles);
+  } = useArchiveSelection(archiveFiles.map((file) => file.name));
 
   const handleLaunch = async (app: AppCard) => {
     try {
@@ -84,7 +130,7 @@ function App() {
 
   const handleOpenEnhancedSync = async () => {
     try {
-      const files: string[] = await invoke("list_archive_files");
+      const files: ArchiveFileItem[] = await invoke("list_archive_files");
       setArchiveFiles(files);
       setShowEnhancedSyncModal(true);
       clearSelection();
@@ -108,10 +154,12 @@ function App() {
 
   const handleOpenLogViewer = async () => {
     try {
-      const files: string[] = await invoke("list_archive_files");
+      const files: ArchiveFileItem[] = await invoke("list_archive_files");
       setArchiveFiles(files);
+      setViewerFileIndex(files.length > 0 ? 0 : -1);
       setShowEnhancedSyncModal(true);
       clearSelection();
+      setSelectedFiles(files.length > 0 ? new Set([files[0].name]) : new Set());
       setModalMode("viewer");
     } catch (e) {
       addToast(`ファイル一覧取得失敗: ${e}`);
@@ -125,9 +173,30 @@ function App() {
       setShowEnhancedSyncModal(false);
       const data: LogViewerData = await invoke("read_archive_log_viewer", { fileName: selected });
       setLogViewerData(data);
+      setViewerFileIndex(archiveFiles.findIndex((file) => file.name === selected));
       setShowLogViewerModal(true);
     } catch (e) {
       addToast(`ログ閲覧エラー: ${e}`);
+    }
+  };
+
+  const handleViewerNavigate = async (direction: "prev" | "next") => {
+    if (!logViewerData) return;
+
+    const currentIndex = archiveFiles.findIndex((file) => file.name === logViewerData.archive_name);
+    if (currentIndex === -1) return;
+
+    const nextIndex = direction === "prev" ? currentIndex - 1 : currentIndex + 1;
+    const nextFile = archiveFiles[nextIndex];
+    if (!nextFile) return;
+
+    try {
+      const data: LogViewerData = await invoke("read_archive_log_viewer", { fileName: nextFile.name });
+      setLogViewerData(data);
+      setSelectedFiles(new Set([nextFile.name]));
+      setViewerFileIndex(nextIndex);
+    } catch (e) {
+      addToast(`繝ｭ繧ｰ髢ｲ隕ｧ繧ｨ繝ｩ繝ｼ: ${e}`);
     }
   };
 
@@ -559,12 +628,14 @@ function App() {
               </div>
               <div className="archive-modal-meta">
                 <span className="archive-count">{selectedFiles.size} / {archiveFiles.length} 件選択中</span>
+                {modalMode !== "viewer" && (
                 <button className="btn-action" style={{ fontSize: '0.8rem', padding: '0.4rem 1rem' }} onClick={handleSelectAll}>
                   {selectedFiles.size === archiveFiles.length ? '選択解除' : 'すべて選択'}
                 </button>
+                )}
               </div>
             </div>
-            <div className="file-list-container fullscreen-list">
+            <div className={`file-list-container fullscreen-list ${modalMode === "viewer" ? "viewer-single-list" : ""}`}>
               {archiveFiles.length === 0 ? (
                 <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-dim)' }}>
                   zst フォルダ内にアーカイブファイルが見つかりません。<br />
@@ -573,17 +644,30 @@ function App() {
               ) : (
                 archiveFiles.map(file => (
                   <div
-                    key={file}
-                    className={`file-item ${selectedFiles.has(file) ? 'selected' : ''}`}
-                    onMouseDown={(e) => handleFileAction(e, file, 'down')}
-                    onMouseEnter={(e) => handleFileAction(e, file, 'enter')}
+                    key={file.name}
+                    className={`file-item ${selectedFiles.has(file.name) ? 'selected' : ''}`}
+                    onMouseDown={(e) => {
+                      if (modalMode === "viewer") {
+                        setSelectedFiles(new Set([file.name]));
+                        setViewerFileIndex(archiveFiles.findIndex((item) => item.name === file.name));
+                        return;
+                      }
+                      handleFileAction(e, file.name, 'down');
+                    }}
+                    onMouseEnter={(e) => {
+                      if (modalMode !== "viewer") {
+                        handleFileAction(e, file.name, 'enter');
+                      }
+                    }}
                   >
-                    <div className={`file-checkbox ${selectedFiles.has(file) ? 'checked' : ''}`}>
-                      {selectedFiles.has(file) && '✓'}
+                    <div className={`file-checkbox ${selectedFiles.has(file.name) ? 'checked' : ''}`}>
+                      {selectedFiles.has(file.name) && '✓'}
                     </div>
                     <Icons.Folder />
-                    <span className="file-name">{file}</span>
-                    <span className="badge-zst">ZST</span>
+                    <div className="file-meta">
+                      <span className="file-name">{file.name}</span>
+                      <span className="file-size">{formatArchiveSize(file.size_bytes)}</span>
+                    </div>
                   </div>
                 ))
               )}
@@ -631,12 +715,40 @@ function App() {
             </div>
 
             <div className="terminal-log-list">
-              {logViewerData.lines.map((entry, index) => (
-                <div key={`${index}-${entry.timestamp}`} className={`terminal-log-line category-${entry.category} level-${entry.level}`}>
-                  <span className="terminal-log-time">{entry.timestamp || " "}</span>
-                  <span className="terminal-log-text">{entry.raw_line}</span>
-                </div>
-              ))}
+              <button
+                className="photo-edge-button photo-edge-button-prev"
+                onClick={() => handleViewerNavigate("prev")}
+                disabled={viewerFileIndex <= 0}
+                aria-label="Previous log"
+              >
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+              <button
+                className="photo-edge-button photo-edge-button-next"
+                onClick={() => handleViewerNavigate("next")}
+                disabled={viewerFileIndex < 0 || viewerFileIndex >= archiveFiles.length - 1}
+                aria-label="Next log"
+              >
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+              {logViewerData.lines.map((entry, index) => {
+                const { prefix, body } = splitLogLine(entry.raw_line);
+                return (
+                  <div key={`${index}-${entry.timestamp}`} className={`terminal-log-line category-${entry.category} level-${entry.level}`}>
+                    <span className="terminal-log-time">{entry.timestamp || " "}</span>
+                    <span className="terminal-log-text">
+                      {prefix && <span className="terminal-log-prefix">{prefix}</span>}
+                      <span className={`terminal-log-body level-${entry.level}`}>
+                        {renderHighlightedBody(body, entry.highlight_text)}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="modal-actions">

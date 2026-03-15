@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+﻿import { useState, useMemo, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import "./App.css";
@@ -11,6 +11,7 @@ import { useMonthGroups } from "./hooks/useMonthGroups";
 import { useToasts } from "./hooks/useToasts";
 import { usePhotoActions } from "./hooks/usePhotoActions";
 import { usePhashWorker } from "./hooks/usePhashWorker";
+import { useOrientationWorker } from "./hooks/useOrientationWorker";
 
 import { Header } from "./components/Header";
 import { MonthNav } from "./components/MonthNav";
@@ -26,6 +27,7 @@ const CARD_WIDTH = 270;
 const ROW_HEIGHT = 246;
 type DatePreset = "none" | "today" | "last7days" | "thisMonth" | "lastMonth" | "halfYear" | "oneYear" | "custom";
 type ThemeMode = "light" | "dark";
+type ViewMode = "standard" | "gallery";
 type AppSetting = {
   photoFolderPath?: string;
   enableStartup?: boolean;
@@ -83,8 +85,11 @@ function App() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [worldFilters, setWorldFilters] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [pendingFolderPath, setPendingFolderPath] = useState<string | null>(null);
+  const [isApplyingFolderChange, setIsApplyingFolderChange] = useState(false);
   const [startupEnabled, setStartupEnabled] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
+  const [viewMode, setViewMode] = useState<ViewMode>("standard");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -101,6 +106,7 @@ function App() {
   const { rightPanelRef, gridWrapperRef, panelWidth, gridHeight, columnCount } = useGridDimensions(CARD_WIDTH);
   const { toasts, addToast } = useToasts();
   const { progress: phashProgress, isRunning: isPhashRunning } = usePhashWorker();
+  const { progress: orientationProgress, isRunning: isOrientationRunning } = useOrientationWorker();
   const { photos, setPhotos, loadPhotos, isLoading } = usePhotos("", "all", addToast);
   const {
     scanStatus,
@@ -143,7 +149,7 @@ function App() {
     if (favoritesOnly && !photo.is_favorite) {
       return false;
     }
-    if (orientationFilter !== "all" && photo.orientation !== orientationFilter) {
+    if (!isOrientationRunning && orientationFilter !== "all" && photo.orientation !== orientationFilter) {
       return false;
     }
     if (dateFrom && photo.timestamp.slice(0, 10) < dateFrom) {
@@ -159,7 +165,7 @@ function App() {
       }
     }
     return true;
-  }), [photos, debouncedQuery, worldFilters, favoritesOnly, orientationFilter, dateFrom, dateTo, tagFilters]);
+  }), [photos, debouncedQuery, worldFilters, favoritesOnly, orientationFilter, dateFrom, dateTo, tagFilters, isOrientationRunning]);
 
   const selectedPhotoView = useMemo(() => {
     if (!selectedPhoto) {
@@ -270,14 +276,14 @@ function App() {
 
   const { monthGroups, monthsByYear, activeMonthIndex } = useMonthGroups(filteredPhotos, columnCount, scrollTop, ROW_HEIGHT);
 
-  const handleChooseFolder = async () => {
+  const applyFolderChange = async (newPath: string, resetExisting: boolean) => {
+    setIsApplyingFolderChange(true);
     try {
-      const selected = await open({ directory: true });
-      if (!selected) {
-        return;
+      if (resetExisting) {
+        await invoke("reset_photo_cache_cmd");
+        setPhotos([]);
       }
 
-      const newPath = Array.isArray(selected) ? selected[0] : selected;
       await invoke("save_setting_cmd", {
         setting: {
           photoFolderPath: newPath,
@@ -286,8 +292,33 @@ function App() {
         },
       });
       await refreshSettings();
-      await startScan();
       await loadPhotos();
+      await startScan();
+      setPendingFolderPath(null);
+      addToast(resetExisting ? "現在の写真データをリセットして再スキャンを開始します" : "写真フォルダを更新しました");
+    } catch (err) {
+      addToast(`蜀咏悄繝輔か繝ｫ繝縺ｮ譖ｴ譁ｰ縺ｫ螟ｱ謨励＠縺ｾ縺励◆: ${String(err)}`, "error");
+    } finally {
+      setIsApplyingFolderChange(false);
+    }
+  };
+
+  const handleChooseFolder = async () => {
+    try {
+      const selected = await open({ directory: true });
+      if (!selected) {
+        return;
+      }
+
+      const newPath = Array.isArray(selected) ? selected[0] : selected;
+      if (newPath === photoFolderPath) {
+        return;
+      }
+      if (photoFolderPath) {
+        setPendingFolderPath(newPath);
+        return;
+      }
+      await applyFolderChange(newPath, false);
     } catch (err) {
       addToast(`写真フォルダの更新に失敗しました: ${String(err)}`, "error");
     }
@@ -369,6 +400,8 @@ function App() {
       <Header
         isFilterOpen={isFilterOpen}
         setIsFilterOpen={setIsFilterOpen}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         scanStatus={scanStatus}
@@ -379,12 +412,18 @@ function App() {
       />
 
       <main className={`main-content ${isFilterOpen ? "filter-open" : ""}`}>
-        {scanStatus === "scanning" && (
+        {(scanStatus === "scanning" || isOrientationRunning) && (
           <ScanningOverlay
-            progress={scanProgress}
-            title="スキャン中..."
-            description="一覧表示に必要な情報を取り込んでいます"
+            progress={isOrientationRunning ? {
+              processed: orientationProgress.done,
+              total: orientationProgress.total,
+              current_world: orientationProgress.current || "",
+              phase: "orientation",
+            } : scanProgress}
+            title={isOrientationRunning ? "縦横分析中..." : "スキャン中..."}
+            description={isOrientationRunning ? "一覧表示に必要な縦横情報をバックグラウンドで解析しています" : "一覧表示に必要な情報を取り込んでいます"}
             onCancel={cancelScan}
+            canCancel={!isOrientationRunning}
           />
         )}
         {isFilterOpen && <button className="filter-backdrop" onClick={() => setIsFilterOpen(false)} aria-label="絞り込みを閉じる" />}
@@ -404,6 +443,7 @@ function App() {
           setDateTo={handleDateToChange}
           orientationFilter={orientationFilter}
           setOrientationFilter={setOrientationFilter}
+          orientationFilterDisabled={isOrientationRunning}
           favoritesOnly={favoritesOnly}
           setFavoritesOnly={setFavoritesOnly}
           tagFilters={tagFilters}
@@ -412,12 +452,14 @@ function App() {
           onReset={resetFilters}
         />
         <div className="grid-area">
-          <MonthNav
-            monthsByYear={monthsByYear}
-            monthGroups={monthGroups}
-            activeMonthIndex={activeMonthIndex}
-            handleJumpToMonth={(group) => handleJumpToRow(group.rowIndex)}
-          />
+          {viewMode === "standard" && (
+            <MonthNav
+              monthsByYear={monthsByYear}
+              monthGroups={monthGroups}
+              activeMonthIndex={activeMonthIndex}
+              handleJumpToMonth={(group) => handleJumpToRow(group.rowIndex)}
+            />
+          )}
 
           <div className="right-panel" ref={rightPanelRef}>
             {(scanStatus !== "scanning" && !isLoading && filteredPhotos.length === 0) && (
@@ -437,6 +479,7 @@ function App() {
             <div ref={gridWrapperRef} style={{ flex: 1, minHeight: 0 }}>
               <PhotoGrid
                 photos={filteredPhotos}
+                viewMode={viewMode}
                 columnCount={columnCount}
                 CARD_WIDTH={CARD_WIDTH}
                 totalRows={totalRows}
@@ -500,6 +543,45 @@ function App() {
           themeMode={themeMode}
           onToggleTheme={handleThemeToggle}
         />
+      )}
+      {pendingFolderPath && (
+        <div className="modal-overlay" onClick={() => !isApplyingFolderChange && setPendingFolderPath(null)}>
+          <div className="modal-content settings-panel folder-change-modal" onClick={(event) => event.stopPropagation()}>
+            <button
+              className="modal-close"
+              onClick={() => !isApplyingFolderChange && setPendingFolderPath(null)}
+              aria-label="閉じる"
+            >
+              ×
+            </button>
+            <div className="modal-body" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="modal-info">
+                <div className="info-header"><h2>フォルダ変更の確認</h2></div>
+                <div className="folder-change-warning">
+                  <strong>現在のデータはすべてリセットされます。</strong>
+                  <p>写真一覧、タグ、お気に入り、メモ、サムネイルキャッシュ、ログを削除してから新しいフォルダをスキャンします。</p>
+                  <p>変更先: {pendingFolderPath}</p>
+                </div>
+                <div className="folder-change-actions">
+                  <button
+                    className="header-icon-button"
+                    onClick={() => setPendingFolderPath(null)}
+                    disabled={isApplyingFolderChange}
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    className="world-link-button"
+                    onClick={() => void applyFolderChange(pendingFolderPath, true)}
+                    disabled={isApplyingFolderChange}
+                  >
+                    {isApplyingFolderChange ? "切替中..." : "リセットして続行"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       <div className="toast-container">
         {toasts.map((toast) => (

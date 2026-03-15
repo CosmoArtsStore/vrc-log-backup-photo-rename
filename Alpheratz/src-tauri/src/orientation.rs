@@ -1,0 +1,181 @@
+use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
+
+use serde::Serialize;
+use tauri::{AppHandle, Emitter, Manager};
+
+use crate::db::open_alpheratz_connection;
+
+const ORIENTATION_BATCH_SIZE: usize = 200;
+
+pub struct OrientationWorkerState {
+    pub running: AtomicBool,
+    pub progress: Mutex<OrientationProgressPayload>,
+}
+
+#[derive(Clone, Debug, Serialize, Default)]
+pub struct OrientationProgressPayload {
+    pub done: usize,
+    pub total: usize,
+    pub current: Option<String>,
+}
+
+pub fn start_orientation_worker(app: AppHandle) {
+    let state = app.state::<OrientationWorkerState>();
+    if state.running.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    tauri::async_runtime::spawn(async move {
+        if let Err(err) = run_orientation_worker(app.clone()).await {
+            crate::utils::log_err(&format!("orientation worker failed: {}", err));
+        }
+
+        let state = app.state::<OrientationWorkerState>();
+        state.running.store(false, Ordering::SeqCst);
+        if let Ok(mut progress) = state.progress.lock() {
+            progress.current = None;
+        }
+        emit_event(&app, "orientation_complete", ());
+    });
+}
+
+pub fn get_orientation_progress(app: &AppHandle) -> OrientationProgressPayload {
+    let state = app.state::<OrientationWorkerState>();
+    state
+        .progress
+        .lock()
+        .map(|progress| progress.clone())
+        .unwrap_or_default()
+}
+
+pub fn has_pending_orientation() -> Result<bool, String> {
+    let conn = open_alpheratz_connection()?;
+    let count = conn
+        .query_row(
+            "SELECT COUNT(*) FROM photos WHERE is_missing = 0 AND (orientation IS NULL OR orientation = '')",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|err| format!("未解析の縦横件数を取得できません: {}", err))?;
+    Ok(count > 0)
+}
+
+async fn run_orientation_worker(app: AppHandle) -> Result<(), String> {
+    let total = tauri::async_runtime::spawn_blocking(count_pending_orientation)
+        .await
+        .map_err(|err| format!("縦横件数確認タスクの待機に失敗しました: {}", err))??;
+
+    update_progress(&app, 0, total, None);
+    emit_event(&app, "orientation_progress", get_orientation_progress(&app));
+
+    if total == 0 {
+        return Ok(());
+    }
+
+    let mut done = 0usize;
+
+    loop {
+        let batch = tauri::async_runtime::spawn_blocking(fetch_pending_orientation_batch)
+            .await
+            .map_err(|err| format!("縦横対象取得タスクの待機に失敗しました: {}", err))??;
+
+        if batch.is_empty() {
+            break;
+        }
+
+        for (filename, path) in batch {
+            let current_path = path.clone();
+            let filename_for_progress = filename.clone();
+            let result = tauri::async_runtime::spawn_blocking(move || {
+                let orientation = infer_orientation_from_path(Path::new(&current_path));
+                let conn = open_alpheratz_connection()?;
+                conn.execute(
+                    "UPDATE photos SET orientation = ?1 WHERE photo_path = ?2",
+                    rusqlite::params![orientation, current_path],
+                )
+                .map_err(|err| format!("縦横情報を保存できません [{}]: {}", filename_for_progress, err))?;
+                Ok::<(), String>(())
+            })
+            .await
+            .map_err(|err| format!("縦横解析タスクの待機に失敗しました [{}]: {}", filename, err))?;
+
+            if let Err(err) = result {
+                crate::utils::log_warn(&format!("orientation skipped [{}]: {}", filename, err));
+            }
+
+            done += 1;
+            update_progress(&app, done, total, Some(filename.clone()));
+            emit_event(&app, "orientation_progress", get_orientation_progress(&app));
+        }
+    }
+
+    Ok(())
+}
+
+fn count_pending_orientation() -> Result<usize, String> {
+    let conn = open_alpheratz_connection()?;
+    let count = conn
+        .query_row(
+            "SELECT COUNT(*) FROM photos WHERE is_missing = 0 AND (orientation IS NULL OR orientation = '')",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|err| format!("未解析の縦横件数を取得できません: {}", err))?;
+    Ok(count.max(0) as usize)
+}
+
+fn fetch_pending_orientation_batch() -> Result<Vec<(String, String)>, String> {
+    let conn = open_alpheratz_connection()?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT photo_filename, photo_path
+             FROM photos
+             WHERE is_missing = 0
+               AND (orientation IS NULL OR orientation = '')
+             ORDER BY timestamp DESC
+             LIMIT ?1",
+        )
+        .map_err(|err| format!("縦横対象クエリを準備できません: {}", err))?;
+    let rows = stmt
+        .query_map([ORIENTATION_BATCH_SIZE as i64], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|err| format!("縦横対象クエリを実行できません: {}", err))?;
+
+    let mut batch = Vec::new();
+    for row in rows {
+        match row {
+            Ok(item) => batch.push(item),
+            Err(err) => crate::utils::log_warn(&format!("orientation target row decode failed: {}", err)),
+        }
+    }
+    Ok(batch)
+}
+
+fn infer_orientation_from_path(path: &Path) -> Option<String> {
+    let Some((width, height)) = read_image_dimensions(path) else {
+        return Some("unknown".to_string());
+    };
+    Some(if height > width { "portrait" } else { "landscape" }.to_string())
+}
+
+fn read_image_dimensions(path: &Path) -> Option<(u32, u32)> {
+    image::image_dimensions(path).ok()
+}
+
+fn update_progress(app: &AppHandle, done: usize, total: usize, current: Option<String>) {
+    let state = app.state::<OrientationWorkerState>();
+    if let Ok(mut progress) = state.progress.lock() {
+        progress.done = done;
+        progress.total = total;
+        progress.current = current;
+    };
+}
+
+fn emit_event<T: Serialize + Clone>(app: &AppHandle, event: &str, payload: T) {
+    if let Err(err) = app.emit(event, payload) {
+        crate::utils::log_warn(&format!("emit failed [{}]: {}", event, err));
+    }
+}

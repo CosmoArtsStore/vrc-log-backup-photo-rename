@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result};
+﻿use rusqlite::{Connection, Result};
 
 pub const MAIN_SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS app_sessions (

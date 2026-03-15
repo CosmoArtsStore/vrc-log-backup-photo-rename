@@ -91,20 +91,100 @@ pub fn get_alpheratz_install_dir() -> Option<PathBuf> {
     get_registry_component_install_dir("Alpheratz")
 }
 
+pub fn get_alpheratz_data_dir() -> Option<PathBuf> {
+    let data_dir = get_alpheratz_install_dir()?.join("data");
+    if let Err(err) = fs::create_dir_all(&data_dir) {
+        write_bootstrap_log(
+            "WARN",
+            &format!("data dir create failed [{}]: {}", data_dir.display(), err),
+        );
+        return None;
+    }
+    Some(data_dir)
+}
+
+pub fn get_alpheratz_log_dir() -> Option<PathBuf> {
+    let log_dir = get_alpheratz_data_dir()?.join("log");
+    if let Err(err) = fs::create_dir_all(&log_dir) {
+        write_bootstrap_log(
+            "WARN",
+            &format!("log dir create failed [{}]: {}", log_dir.display(), err),
+        );
+        return None;
+    }
+    Some(log_dir)
+}
+
+pub fn get_alpheratz_cache_dir() -> Option<PathBuf> {
+    let cache_dir = get_alpheratz_data_dir()?.join("cache");
+    if let Err(err) = fs::create_dir_all(&cache_dir) {
+        write_bootstrap_log(
+            "WARN",
+            &format!("cache dir create failed [{}]: {}", cache_dir.display(), err),
+        );
+        return None;
+    }
+    Some(cache_dir)
+}
+
 pub fn get_alpheratz_setting_dir() -> Option<PathBuf> {
-    let setting_dir = get_alpheratz_install_dir()?.join("setting");
-    if let Err(err) = fs::create_dir_all(&setting_dir) {
+    get_alpheratz_cache_dir()
+}
+
+pub fn get_alpheratz_db_cache_dir() -> Option<PathBuf> {
+    let db_cache_dir = get_alpheratz_cache_dir()?.join("dbCache");
+    if let Err(err) = fs::create_dir_all(&db_cache_dir) {
         write_bootstrap_log(
             "WARN",
             &format!(
-                "setting dir create failed [{}]: {}",
-                setting_dir.display(),
+                "db cache dir create failed [{}]: {}",
+                db_cache_dir.display(),
                 err
             ),
         );
         return None;
     }
-    Some(setting_dir)
+    Some(db_cache_dir)
+}
+
+pub fn get_alpheratz_img_cache_dir() -> Option<PathBuf> {
+    let img_cache_dir = get_alpheratz_cache_dir()?.join("imgCache");
+    if let Err(err) = fs::create_dir_all(&img_cache_dir) {
+        write_bootstrap_log(
+            "WARN",
+            &format!(
+                "img cache dir create failed [{}]: {}",
+                img_cache_dir.display(),
+                err
+            ),
+        );
+        return None;
+    }
+    Some(img_cache_dir)
+}
+
+pub fn clear_directory_contents(dir: &Path) -> Result<(), String> {
+    if !dir.exists() {
+        return Ok(());
+    }
+
+    let entries = fs::read_dir(dir)
+        .map_err(|err| format!("directory read failed [{}]: {}", dir.display(), err))?;
+
+    for entry in entries {
+        let entry = entry
+            .map_err(|err| format!("directory entry read failed [{}]: {}", dir.display(), err))?;
+        let path = entry.path();
+        if path.is_dir() {
+            fs::remove_dir_all(&path)
+                .map_err(|err| format!("directory remove failed [{}]: {}", path.display(), err))?;
+        } else {
+            fs::remove_file(&path)
+                .map_err(|err| format!("file remove failed [{}]: {}", path.display(), err))?;
+        }
+    }
+
+    Ok(())
 }
 
 pub fn get_stella_record_install_dir() -> Option<PathBuf> {
@@ -113,8 +193,8 @@ pub fn get_stella_record_install_dir() -> Option<PathBuf> {
 }
 
 pub fn log_msg(level: &str, msg: &str) {
-    if let Some(install_dir) = get_alpheratz_install_dir() {
-        let path = get_monthly_log_path(&install_dir);
+    if let Some(log_dir) = get_alpheratz_log_dir() {
+        let path = get_monthly_log_path(&log_dir);
         match OpenOptions::new().create(true).append(true).open(&path) {
             Ok(mut file) => {
                 let now = Local::now().format("%Y-%m-%d %H:%M:%S");
@@ -160,7 +240,8 @@ pub fn get_thumbnail_cache_dir() -> Result<PathBuf, String> {
 }
 
 pub fn create_thumbnail_file(path: &str) -> Result<String, String> {
-    let cache_dir = get_thumbnail_cache_dir()?;
+    let cache_dir = get_alpheratz_img_cache_dir()
+        .ok_or_else(|| "Alpheratz の imgCache フォルダを取得できません".to_string())?;
     let path_p = Path::new(path);
     let filename = path_p
         .file_name()

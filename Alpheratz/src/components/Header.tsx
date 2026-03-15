@@ -3,6 +3,8 @@ import { Icons } from "./Icons";
 interface HeaderProps {
     isFilterOpen: boolean;
     setIsFilterOpen: (val: boolean) => void;
+    viewMode: "standard" | "gallery";
+    setViewMode: (mode: "standard" | "gallery") => void;
     searchQuery: string;
     setSearchQuery: (val: string) => void;
     scanStatus: string;
@@ -15,6 +17,8 @@ interface HeaderProps {
 export const Header = ({
     isFilterOpen,
     setIsFilterOpen,
+    viewMode,
+    setViewMode,
     searchQuery,
     setSearchQuery,
     scanStatus,
@@ -54,6 +58,24 @@ export const Header = ({
                     />
                 </div>
                 <div className="header-actions">
+                    <div className="view-mode-switch" aria-label="表示モード切り替え">
+                        <button
+                            className={`header-icon-button ${viewMode === "standard" ? "active" : ""}`}
+                            onClick={() => setViewMode("standard")}
+                            aria-label="標準グリッド"
+                            title="標準グリッド"
+                        >
+                            <Icons.Grid />
+                        </button>
+                        <button
+                            className={`header-icon-button ${viewMode === "gallery" ? "active" : ""}`}
+                            onClick={() => setViewMode("gallery")}
+                            aria-label="ギャラリーモード"
+                            title="ギャラリーモード"
+                        >
+                            <Icons.Gallery />
+                        </button>
+                    </div>
                     {scanStatus === "scanning" ? (
                         <button
                             className="header-icon-button danger"

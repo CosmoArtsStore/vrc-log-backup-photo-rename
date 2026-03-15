@@ -37,12 +37,18 @@ export interface LogViewerLine {
   level: string;
   category: string;
   raw_line: string;
+  highlight_text?: string | null;
 }
 
 export interface LogViewerData {
   archive_name: string;
   source_name: string;
   lines: LogViewerLine[];
+}
+
+export interface ArchiveFileItem {
+  name: string;
+  size_bytes: number;
 }
 
 export type Section = "dashboard" | "analyze" | "registry" | "database";

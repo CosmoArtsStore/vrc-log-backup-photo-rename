@@ -16,6 +16,7 @@ interface FilterSidebarProps {
     setDateTo: (val: string) => void;
     orientationFilter: string;
     setOrientationFilter: (val: string) => void;
+    orientationFilterDisabled?: boolean;
     favoritesOnly: boolean;
     setFavoritesOnly: (val: boolean) => void;
     tagFilters: string[];
@@ -135,6 +136,7 @@ export const FilterSidebar = ({
     setDateTo,
     orientationFilter,
     setOrientationFilter,
+    orientationFilterDisabled = false,
     favoritesOnly,
     setFavoritesOnly,
     tagFilters,
@@ -564,10 +566,13 @@ export const FilterSidebar = ({
             <div className="fs-section">
                 <label className="fs-label">向き</label>
                 <div className="toggle-group">
-                    <button type="button" className={`tg-btn ${orientationFilter === "all" ? "active" : ""}`} onClick={() => setOrientationFilter("all")}><span className="tg-icon">⊞</span>すべて</button>
-                    <button type="button" className={`tg-btn ${orientationFilter === "landscape" ? "active" : ""}`} onClick={() => setOrientationFilter("landscape")}><span className="tg-icon">⊟</span>横長</button>
-                    <button type="button" className={`tg-btn ${orientationFilter === "portrait" ? "active" : ""}`} onClick={() => setOrientationFilter("portrait")}><span className="tg-icon">▯</span>縦長</button>
+                    <button type="button" disabled={orientationFilterDisabled} className={`tg-btn ${orientationFilter === "all" ? "active" : ""}`} onClick={() => setOrientationFilter("all")}><span className="tg-icon">⊞</span>すべて</button>
+                    <button type="button" disabled={orientationFilterDisabled} className={`tg-btn ${orientationFilter === "landscape" ? "active" : ""}`} onClick={() => setOrientationFilter("landscape")}><span className="tg-icon">⊟</span>横長</button>
+                    <button type="button" disabled={orientationFilterDisabled} className={`tg-btn ${orientationFilter === "portrait" ? "active" : ""}`} onClick={() => setOrientationFilter("portrait")}><span className="tg-icon">▯</span>縦長</button>
                 </div>
+                {orientationFilterDisabled && (
+                    <div className="fs-result">縦横分析が終わるまで選択できません</div>
+                )}
             </div>
 
             <div className="fs-section">
