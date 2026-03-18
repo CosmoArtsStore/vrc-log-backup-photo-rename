@@ -1,232 +1,292 @@
-import { KeyboardEvent, useState } from "react";
+import { useEffect, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { Photo } from "../types";
 import { Icons } from "./Icons";
+import { AnimatedFavoriteStar } from "./AnimatedFavoriteStar";
 
 interface PhotoModalProps {
-    photo: Photo;
-    allTags: string[];
-    onClose: () => void;
-    localMemo: string;
-    setLocalMemo: (val: string) => void;
-    handleSaveMemo: () => void;
-    isSavingMemo: boolean;
-    handleOpenWorld: () => void;
-    canGoBack?: boolean;
-    onGoBack?: () => void;
-    canGoPrev?: boolean;
-    canGoNext?: boolean;
-    onGoPrev?: () => void;
-    onGoNext?: () => void;
-    onToggleFavorite: () => void;
-    onAddTag: (tag: string) => void;
-    onRemoveTag: (tag: string) => void;
-    addToast: (msg: string) => void;
+  photo: Photo;
+  allTags: string[];
+  onClose: () => void;
+  localMemo: string;
+  setLocalMemo: (val: string) => void;
+  handleSaveMemo: () => void;
+  isSavingMemo: boolean;
+  handleOpenWorld: () => void;
+  canGoBack?: boolean;
+  onGoBack?: () => void;
+  canGoPrev?: boolean;
+  canGoNext?: boolean;
+  onGoPrev?: () => void;
+  onGoNext?: () => void;
+  similarPhotos?: Photo[];
+  showSimilarPhotos?: boolean;
+  onSelectSimilarPhoto?: (photo: Photo) => void;
+  onToggleFavorite: () => void;
+  onAddTag: (tag: string) => void;
+  onRemoveTag: (tag: string) => void;
+  addToast: (msg: string) => void;
 }
 
+const SimilarPhotoThumb = ({
+  photo,
+  isActive,
+  onSelect,
+}: {
+  photo: Photo;
+  isActive: boolean;
+  onSelect: (photo: Photo) => void;
+}) => {
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    invoke<string>("create_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
+      .then((path) => {
+        if (isMounted) {
+          setThumbUrl(convertFileSrc(path));
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setThumbUrl(null);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [photo.photo_path, photo.source_slot]);
+
+  return (
+    <button
+      className={`similar-photo-thumb ${isActive ? "active" : ""}`}
+      onClick={() => onSelect(photo)}
+      type="button"
+      title={photo.photo_filename}
+    >
+      {thumbUrl ? <img src={thumbUrl} alt={photo.photo_filename} /> : <span className="similar-photo-thumb-skeleton" />}
+    </button>
+  );
+};
+
 export const PhotoModal = ({
-    photo,
-    allTags,
-    onClose,
-    localMemo,
-    setLocalMemo,
-    handleSaveMemo,
-    isSavingMemo,
-    handleOpenWorld,
-    canGoBack,
-    onGoBack,
-    canGoPrev,
-    canGoNext,
-    onGoPrev,
-    onGoNext,
-    onToggleFavorite,
-    onAddTag,
-    onRemoveTag,
-    addToast,
+  photo,
+  allTags,
+  onClose,
+  localMemo,
+  setLocalMemo,
+  handleSaveMemo,
+  isSavingMemo,
+  handleOpenWorld,
+  canGoBack,
+  onGoBack,
+  canGoPrev,
+  canGoNext,
+  onGoPrev,
+  onGoNext,
+  similarPhotos = [],
+  showSimilarPhotos = false,
+  onSelectSimilarPhoto,
+  onToggleFavorite,
+  onAddTag,
+  onRemoveTag,
+  addToast,
 }: PhotoModalProps) => {
-    const [tagDraft, setTagDraft] = useState("");
-    const [selectedExistingTag, setSelectedExistingTag] = useState("");
-    const suggestedTags = allTags.filter((tag) => !photo.tags.includes(tag)).slice(0, 8);
-    const availableTags = allTags.filter((tag) => !photo.tags.includes(tag));
+  const [selectedExistingTag, setSelectedExistingTag] = useState("");
 
-    const submitTag = () => {
-        const normalized = tagDraft.trim();
-        if (!normalized) return;
-        onAddTag(normalized);
-        setTagDraft("");
-    };
+  const availableTags = allTags.filter((tag) => !photo.tags.includes(tag));
+  const hasAvailableTags = availableTags.length > 0;
+  const isDbMatched = photo.match_source === "stella_db";
+  const isPhashMatched = photo.match_source === "phash";
 
-    const handleTagKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            submitTag();
-        }
-    };
+  const handleShowInExplorer = async () => {
+    try {
+      await invoke("show_in_explorer", { path: photo.photo_path });
+    } catch (err) {
+      addToast(`エクスプローラーで表示できませんでした: ${String(err)}`);
+    }
+  };
 
-    const addExistingTag = () => {
-        if (!selectedExistingTag) {
-            return;
-        }
-        onAddTag(selectedExistingTag);
-        setSelectedExistingTag("");
-    };
+  const addExistingTag = () => {
+    if (!selectedExistingTag) {
+      return;
+    }
+    onAddTag(selectedExistingTag);
+    setSelectedExistingTag("");
+  };
 
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content photo-modal" onClick={(e) => e.stopPropagation()}>
-                {canGoBack && onGoBack && (
-                    <button className="modal-back photo-modal-back" onClick={onGoBack}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                    </button>
-                )}
-                <button className="modal-close" onClick={onClose} aria-label="閉じる">
-                    <Icons.Close />
-                </button>
-                <div className="modal-body photo-modal-body">
-                    <div className="modal-image-container photo-modal-image">
-                        <button
-                            className="photo-edge-button photo-edge-button-prev"
-                            onClick={onGoPrev}
-                            disabled={!canGoPrev}
-                            aria-label="前の写真"
-                        >
-                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="15 18 9 12 15 6"></polyline>
-                            </svg>
-                        </button>
-                        <button
-                            className="photo-edge-button photo-edge-button-next"
-                            onClick={onGoNext}
-                            disabled={!canGoNext}
-                            aria-label="次の写真"
-                        >
-                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="9 18 15 12 9 6"></polyline>
-                            </svg>
-                        </button>
-                        <img src={convertFileSrc(photo.photo_path)} alt="" />
-                        <div className="photo-modal-filename">
-                            {photo.photo_filename}
-                        </div>
-                    </div>
-                    <div className="modal-info photo-modal-info">
-                        <div className="info-header photo-modal-header">
-                            <h2
-                                className={photo.world_id ? "photo-modal-title clickable" : "photo-modal-title"}
-                                onClick={handleOpenWorld}
-                            >
-                                {photo.world_name || "ワールド不明"}{photo.world_id && " ↗"}
-                            </h2>
-                            <div className="info-meta photo-modal-meta">
-                                <span className="timestamp">{photo.timestamp}</span>
-                                {photo.world_id && <span className="timestamp">World ID: {photo.world_id}</span>}
-                                {photo.match_source === "stella_db" && <span className="timestamp">STELLA DB</span>}
-                                {photo.match_source === "phash" && <span className="timestamp">pHash</span>}
-                                {photo.orientation && <span className="timestamp">{photo.orientation}</span>}
-                            </div>
-                        </div>
-                        <div className="action-buttons-section">
-                            <button className={`world-link-button photo-action-primary ${photo.is_favorite ? "favorite-active" : ""}`} onClick={onToggleFavorite}>
-                                {photo.is_favorite ? "★ お気に入り解除" : "☆ お気に入り追加"}
-                            </button>
-                            {photo.world_id && (
-                                <button className="world-link-button photo-action-ghost" onClick={handleOpenWorld}>
-                                    <svg className="world-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <circle cx="12" cy="12" r="10" />
-                                        <path d="M2 12h20" />
-                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                                    </svg>
-                                    VRChat ワールドページを開く
-                                    <svg className="world-link-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                                        <polyline points="15 3 21 3 21 9" />
-                                        <line x1="10" y1="14" x2="21" y2="3" />
-                                    </svg>
-                                </button>
-                            )}
-                            <button
-                                className="world-link-button world-link-button-subtle photo-action-text"
-                                onClick={async () => {
-                                    try {
-                                        await invoke("show_in_explorer", { path: photo.photo_path });
-                                    } catch (err) {
-                                        addToast(`エクスプローラーで表示できませんでした: ${String(err)}`);
-                                    }
-                                }}
-                            >
-                                <svg className="world-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                                </svg>
-                                エクスプローラーで表示
-                            </button>
-                        </div>
+  useEffect(() => {
+    setSelectedExistingTag("");
+  }, [photo.photo_path]);
 
-                        <div className="photo-modal-divider" />
-                        <div className="memo-section photo-modal-form">
-                            <label>タグ</label>
-                            <div className="tag-editor">
-                                <input
-                                    type="text"
-                                    value={tagDraft}
-                                    placeholder="タグを追加"
-                                    onChange={(e) => setTagDraft(e.target.value)}
-                                    onKeyDown={handleTagKeyDown}
-                                />
-                                <button className="save-button" onClick={submitTag}>追加</button>
-                            </div>
-                            {availableTags.length > 0 && (
-                                <div className="tag-existing-picker">
-                                    <select
-                                        value={selectedExistingTag}
-                                        onChange={(event) => setSelectedExistingTag(event.target.value)}
-                                    >
-                                        <option value="">既存タグから追加...</option>
-                                        {availableTags.map((tag) => (
-                                            <option key={tag} value={tag}>
-                                                {tag}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        className="save-button"
-                                        onClick={addExistingTag}
-                                        disabled={!selectedExistingTag}
-                                    >
-                                        追加
-                                    </button>
-                                </div>
-                            )}
-                            {suggestedTags.length > 0 && (
-                                <div className="photo-modal-tag-suggestions">
-                                    {suggestedTags.map((tag) => (
-                                        <button
-                                            key={tag}
-                                            className="tag-chip photo-modal-tag-suggestion"
-                                            onClick={() => onAddTag(tag)}
-                                        >
-                                            + {tag}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                            {!!photo.tags?.length && (
-                                <div className="tag-list photo-modal-tag-list">
-                                    {photo.tags.map((tag) => (
-                                        <button key={tag} className="tag-chip" onClick={() => onRemoveTag(tag)}>
-                                            {tag} ×
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                            <label>メモ</label>
-                            <textarea value={localMemo} onChange={(e) => setLocalMemo(e.target.value)} placeholder="メモを入力..." />
-                            <button className="save-button" onClick={handleSaveMemo} disabled={isSavingMemo}>
-                                {isSavingMemo ? "保存中..." : "メモを保存"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content photo-modal" onClick={(event) => event.stopPropagation()}>
+        {canGoBack && onGoBack && (
+          <button className="modal-back photo-modal-back" onClick={onGoBack} type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+        )}
+        <button className="modal-close" onClick={onClose} aria-label="閉じる" type="button">
+          <Icons.Close />
+        </button>
+        <div className="modal-body photo-modal-body">
+          <div className="modal-image-container photo-modal-image">
+            <button
+              className="photo-edge-button photo-edge-button-prev"
+              onClick={onGoPrev}
+              disabled={!canGoPrev}
+              aria-label="前の写真"
+              type="button"
+            >
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <button
+              className="photo-edge-button photo-edge-button-next"
+              onClick={onGoNext}
+              disabled={!canGoNext}
+              aria-label="次の写真"
+              type="button"
+            >
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+            <img src={convertFileSrc(photo.photo_path)} alt="" />
+            <div className="photo-favorite-cluster">
+              <button
+                className={`photo-floating-favorite-button ${photo.is_favorite ? "favorite-active" : ""}`}
+                onClick={onToggleFavorite}
+                aria-label={photo.is_favorite ? "お気に入りから解除" : "お気に入りに追加"}
+                type="button"
+              >
+                <AnimatedFavoriteStar liked={photo.is_favorite} className="favorite-star-modal" />
+              </button>
             </div>
+            <div className="photo-modal-filename">{photo.photo_filename}</div>
+          </div>
+
+          <div className="modal-info photo-modal-info">
+            <div className="info-header photo-modal-header">
+              <h2 className="photo-modal-title">{photo.world_name || "ワールド不明"}</h2>
+              <div className="photo-modal-meta">
+                <div className="photo-meta-badges">
+                  <span className={`photo-meta-badge ${isDbMatched ? "active db" : ""}`}>STELLA DB</span>
+                  <span className={`photo-meta-badge ${isPhashMatched ? "active phash" : ""}`}>pHash</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="photo-modal-divider" />
+
+            <div className="memo-section photo-modal-form">
+              <label>タグ</label>
+              <div className="tag-select-row">
+                <div className="tag-select-wrap">
+                  <select
+                    className="tag-select"
+                    value={selectedExistingTag}
+                    disabled={!hasAvailableTags}
+                    onChange={(event) => setSelectedExistingTag(event.target.value)}
+                  >
+                    <option value="">
+                      {hasAvailableTags ? "タグを選択..." : "追加できるタグがありません"}
+                    </option>
+                    {availableTags.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  className="save-button"
+                  onClick={addExistingTag}
+                  disabled={!selectedExistingTag || !hasAvailableTags}
+                  type="button"
+                >
+                  追加
+                </button>
+              </div>
+              {!hasAvailableTags && (
+                <div className="tag-select-empty-note">
+                  追加できるタグがありません。設定画面でタグを追加してください。
+                </div>
+              )}
+
+              {!!photo.tags.length && (
+                <div className="tag-list photo-modal-tag-list">
+                  {photo.tags.map((tag) => (
+                    <button key={tag} className="tag-chip" onClick={() => onRemoveTag(tag)} type="button">
+                      {tag} ×
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <label>メモ</label>
+              <textarea
+                value={localMemo}
+                onChange={(event) => setLocalMemo(event.target.value)}
+                placeholder="メモを入力..."
+              />
+              <button className="save-button" onClick={handleSaveMemo} disabled={isSavingMemo} type="button">
+                {isSavingMemo ? "保存中..." : "メモを保存"}
+              </button>
+
+              {showSimilarPhotos && similarPhotos.length > 0 && onSelectSimilarPhoto && (
+                <div className="similar-photos-section">
+                  <label>似た写真</label>
+                  <div className="similar-photos-strip">
+                    {similarPhotos.map((item) => (
+                      <SimilarPhotoThumb
+                        key={item.photo_path}
+                        photo={item}
+                        isActive={item.photo_path === photo.photo_path}
+                        onSelect={onSelectSimilarPhoto}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="photo-modal-bottom-actions">
+              <button
+                className="photo-modal-bottom-action photo-modal-bottom-action-world"
+                onClick={handleOpenWorld}
+                disabled={!photo.world_id}
+                aria-label="ワールドリンクを開く"
+                title={photo.world_id ? "ワールドリンクを開く" : "ワールドIDがありません"}
+                type="button"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M3 12h18" />
+                  <path d="M12 3a14 14 0 0 1 0 18" />
+                  <path d="M12 3a14 14 0 0 0 0 18" />
+                </svg>
+              </button>
+              <button
+                className="photo-modal-bottom-action photo-modal-bottom-action-explorer"
+                onClick={() => void handleShowInExplorer()}
+                aria-label="エクスプローラーで表示"
+                title="エクスプローラーで表示"
+                type="button"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l1.7 2H18.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 };

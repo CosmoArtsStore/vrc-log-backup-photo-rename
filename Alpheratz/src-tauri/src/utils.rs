@@ -127,12 +127,65 @@ pub fn get_alpheratz_cache_dir() -> Option<PathBuf> {
     Some(cache_dir)
 }
 
-pub fn get_alpheratz_setting_dir() -> Option<PathBuf> {
-    get_alpheratz_cache_dir()
+fn slot_cache_folder_name(source_slot: i64) -> &'static str {
+    if source_slot == 2 {
+        "2nd-cache"
+    } else {
+        "1st-cache"
+    }
 }
 
-pub fn get_alpheratz_db_cache_dir() -> Option<PathBuf> {
-    let db_cache_dir = get_alpheratz_cache_dir()?.join("dbCache");
+pub fn get_alpheratz_slot_cache_dir(source_slot: i64) -> Option<PathBuf> {
+    let slot_cache_dir = get_alpheratz_cache_dir()?.join(slot_cache_folder_name(source_slot));
+    if let Err(err) = fs::create_dir_all(&slot_cache_dir) {
+        write_bootstrap_log(
+            "WARN",
+            &format!(
+                "slot cache dir create failed [{}]: {}",
+                slot_cache_dir.display(),
+                err
+            ),
+        );
+        return None;
+    }
+    Some(slot_cache_dir)
+}
+
+pub fn get_alpheratz_setting_dir() -> Option<PathBuf> {
+    let setting_dir = get_alpheratz_data_dir()?.join("setting");
+    if let Err(err) = fs::create_dir_all(&setting_dir) {
+        write_bootstrap_log(
+            "WARN",
+            &format!(
+                "setting dir create failed [{}]: {}",
+                setting_dir.display(),
+                err
+            ),
+        );
+        return None;
+    }
+    Some(setting_dir)
+}
+
+pub fn get_alpheratz_backup_dir() -> Option<PathBuf> {
+    let backup_dir = get_alpheratz_data_dir()?.join("backup");
+    if let Err(err) = fs::create_dir_all(&backup_dir) {
+        write_bootstrap_log(
+            "WARN",
+            &format!(
+                "backup dir create failed [{}]: {}",
+                backup_dir.display(),
+                err
+            ),
+        );
+        return None;
+    }
+    Some(backup_dir)
+}
+
+pub fn get_alpheratz_db_cache_dir(source_slot: i64) -> Option<PathBuf> {
+    let _ = source_slot;
+    let db_cache_dir = get_alpheratz_cache_dir()?.join("shared-cache").join("dbCache");
     if let Err(err) = fs::create_dir_all(&db_cache_dir) {
         write_bootstrap_log(
             "WARN",
@@ -147,8 +200,8 @@ pub fn get_alpheratz_db_cache_dir() -> Option<PathBuf> {
     Some(db_cache_dir)
 }
 
-pub fn get_alpheratz_img_cache_dir() -> Option<PathBuf> {
-    let img_cache_dir = get_alpheratz_cache_dir()?.join("imgCache");
+pub fn get_alpheratz_img_cache_dir(source_slot: i64) -> Option<PathBuf> {
+    let img_cache_dir = get_alpheratz_slot_cache_dir(source_slot)?.join("imgCache");
     if let Err(err) = fs::create_dir_all(&img_cache_dir) {
         write_bootstrap_log(
             "WARN",
@@ -239,8 +292,8 @@ pub fn get_thumbnail_cache_dir() -> Result<PathBuf, String> {
     Ok(cache_dir)
 }
 
-pub fn create_thumbnail_file(path: &str) -> Result<String, String> {
-    let cache_dir = get_alpheratz_img_cache_dir()
+pub fn create_thumbnail_file(path: &str, source_slot: i64) -> Result<String, String> {
+    let cache_dir = get_alpheratz_img_cache_dir(source_slot)
         .ok_or_else(|| "Alpheratz の imgCache フォルダを取得できません".to_string())?;
     let path_p = Path::new(path);
     let filename = path_p
@@ -255,7 +308,7 @@ pub fn create_thumbnail_file(path: &str) -> Result<String, String> {
 
     let img =
         image::open(path).map_err(|e| format!("サムネイル用画像を開けません ({}): {}", path, e))?;
-    let thumb = img.thumbnail(360, 360);
+    let thumb = img.thumbnail(256, 256);
     thumb.save(&cache_path).map_err(|e| {
         format!(
             "サムネイルを保存できません ({}): {}",

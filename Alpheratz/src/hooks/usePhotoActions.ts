@@ -14,7 +14,8 @@ export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<P
         try {
             await invoke("save_photo_memo_cmd", {
                 photoPath: selectedPhoto.photo_path,
-                memo: localMemo
+                memo: localMemo,
+                sourceSlot: selectedPhoto.source_slot ?? 1,
             });
             setPhotos((prev) => prev.map((p) =>
                 p.photo_path === selectedPhoto.photo_path ? { ...p, memo: localMemo } : p
@@ -47,7 +48,7 @@ export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<P
             }
             return photo;
         });
-        setLocalMemo(photo.memo);
+        setLocalMemo("");
     }, []);
 
     const goBackPhoto = useCallback(() => {
@@ -56,7 +57,7 @@ export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<P
                 const newHistory = [...prev];
                 const lastPhoto = newHistory.pop()!;
                 setSelectedPhoto(lastPhoto);
-                setLocalMemo(lastPhoto.memo);
+                setLocalMemo(lastPhoto.memo ?? "");
                 return newHistory;
             }
             return prev;
@@ -69,9 +70,43 @@ export const usePhotoActions = (setPhotos: React.Dispatch<React.SetStateAction<P
     }, []);
 
     useEffect(() => {
-        if (selectedPhoto) {
-            setLocalMemo(selectedPhoto.memo);
+        if (!selectedPhoto) {
+            setLocalMemo("");
+            return;
         }
+
+        let isMounted = true;
+        setLocalMemo(selectedPhoto.memo ?? "");
+
+        Promise.all([
+            invoke<string>("get_photo_memo_cmd", {
+                photoPath: selectedPhoto.photo_path,
+                sourceSlot: selectedPhoto.source_slot ?? 1,
+            }),
+            invoke<string[]>("get_photo_tags_cmd", {
+                photoPath: selectedPhoto.photo_path,
+                sourceSlot: selectedPhoto.source_slot ?? 1,
+            }),
+        ])
+            .then(([memo, tags]) => {
+                if (!isMounted) {
+                    return;
+                }
+                setLocalMemo(memo);
+                setSelectedPhoto((prev) => (prev && prev.photo_path === selectedPhoto.photo_path ? { ...prev, memo, tags } : prev));
+                setPhotos((prev) => prev.map((photo) => (
+                    photo.photo_path === selectedPhoto.photo_path ? { ...photo, memo, tags } : photo
+                )));
+            })
+            .catch((err) => {
+                if (isMounted) {
+                    addToast(`メモの読み込みに失敗しました: ${String(err)}`);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
     }, [selectedPhoto]);
 
     return {

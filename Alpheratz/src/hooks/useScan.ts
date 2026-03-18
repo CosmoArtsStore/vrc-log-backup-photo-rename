@@ -8,6 +8,7 @@ export const useScan = (addToast?: (msg: string, type?: ToastType) => void) => {
     const [scanStatus, setScanStatus] = useState<"idle" | "scanning" | "completed" | "error">("idle");
     const [scanProgress, setScanProgress] = useState<ScanProgress>({ processed: 0, total: 0, current_world: "", phase: "scan" });
     const [photoFolderPath, setPhotoFolderPath] = useState("");
+    const [secondaryPhotoFolderPath, setSecondaryPhotoFolderPath] = useState("");
     const isScanningRef = useRef(false);
 
     const startScan = useCallback(async () => {
@@ -25,8 +26,9 @@ export const useScan = (addToast?: (msg: string, type?: ToastType) => void) => {
     }, [addToast]);
 
     const refreshSettings = useCallback(async () => {
-        const setting = await invoke<{ photoFolderPath?: string }>("get_setting_cmd");
+        const setting = await invoke<{ photoFolderPath?: string; secondaryPhotoFolderPath?: string }>("get_setting_cmd");
         setPhotoFolderPath(setting.photoFolderPath || "");
+        setSecondaryPhotoFolderPath(setting.secondaryPhotoFolderPath || "");
     }, []);
 
     useEffect(() => {
@@ -65,15 +67,17 @@ export const useScan = (addToast?: (msg: string, type?: ToastType) => void) => {
 
         const initialize = async () => {
             try {
-                const setting = await invoke<{ photoFolderPath?: string }>("get_setting_cmd");
+                const setting = await invoke<{ photoFolderPath?: string; secondaryPhotoFolderPath?: string }>("get_setting_cmd");
                 if (cancelled) {
                     return;
                 }
 
                 const configuredPath = setting.photoFolderPath || "";
+                const secondaryConfiguredPath = setting.secondaryPhotoFolderPath || "";
                 setPhotoFolderPath(configuredPath);
-                if (!configuredPath) {
-                    addToast?.("写真フォルダが未設定です。設定から選択してください。", "info");
+                setSecondaryPhotoFolderPath(secondaryConfiguredPath);
+                if (!configuredPath && !secondaryConfiguredPath) {
+                    addToast?.("写真フォルダが未設定です。設定から参照フォルダを選択してください。", "info");
                     return;
                 }
 
@@ -103,6 +107,7 @@ export const useScan = (addToast?: (msg: string, type?: ToastType) => void) => {
         scanStatus,
         scanProgress,
         photoFolderPath,
+        secondaryPhotoFolderPath,
         startScan,
         refreshSettings,
         cancelScan,

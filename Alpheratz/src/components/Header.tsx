@@ -1,110 +1,61 @@
 import { Icons } from "./Icons";
 
 interface HeaderProps {
-    isFilterOpen: boolean;
-    setIsFilterOpen: (val: boolean) => void;
-    viewMode: "standard" | "gallery";
-    setViewMode: (mode: "standard" | "gallery") => void;
-    searchQuery: string;
-    setSearchQuery: (val: string) => void;
-    scanStatus: string;
-    phashLabel?: string | null;
-    startScan: () => void;
-    cancelScan: () => void;
-    setShowSettings: (val: boolean) => void;
+  isFilterOpen: boolean;
+  setIsFilterOpen: (val: boolean) => void;
+  isExtensionOpen: boolean;
+  setIsExtensionOpen: (val: boolean) => void;
+  searchQuery: string;
+  setSearchQuery: (val: string) => void;
 }
 
 export const Header = ({
-    isFilterOpen,
-    setIsFilterOpen,
-    viewMode,
-    setViewMode,
-    searchQuery,
-    setSearchQuery,
-    scanStatus,
-    phashLabel,
-    startScan,
-    cancelScan,
-    setShowSettings,
+  isFilterOpen,
+  setIsFilterOpen,
+  isExtensionOpen,
+  setIsExtensionOpen,
+  searchQuery,
+  setSearchQuery,
 }: HeaderProps) => {
-    return (
-        <header className="header">
-            <div className="logo-group">
-                <button
-                    className={`header-icon-button ${isFilterOpen ? "active" : ""}`}
-                    onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    aria-label="検索条件を切り替え"
-                    title="検索条件"
-                >
-                    <Icons.Menu />
-                </button>
-                <div className="wordmark-group" aria-label="Alpheratz">
-                    <img
-                        className="header-logo-image"
-                        src="/Alpheratz-logo.png"
-                        alt="Alpheratz"
-                    />
-                </div>
-            </div>
-            <div className="search-bar">
-                {phashLabel && <div className="header-phash-status">{phashLabel}</div>}
-                <div className="input-group">
-                    <Icons.Search />
-                    <input
-                        type="text"
-                        placeholder="ワールド名で検索..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-                <div className="header-actions">
-                    <div className="view-mode-switch" aria-label="表示モード切り替え">
-                        <button
-                            className={`header-icon-button ${viewMode === "standard" ? "active" : ""}`}
-                            onClick={() => setViewMode("standard")}
-                            aria-label="標準グリッド"
-                            title="標準グリッド"
-                        >
-                            <Icons.Grid />
-                        </button>
-                        <button
-                            className={`header-icon-button ${viewMode === "gallery" ? "active" : ""}`}
-                            onClick={() => setViewMode("gallery")}
-                            aria-label="ギャラリーモード"
-                            title="ギャラリーモード"
-                        >
-                            <Icons.Gallery />
-                        </button>
-                    </div>
-                    {scanStatus === "scanning" ? (
-                        <button
-                            className="header-icon-button danger"
-                            onClick={cancelScan}
-                            aria-label="リロードを中断"
-                            title="リロードを中断"
-                        >
-                            <Icons.Close />
-                        </button>
-                    ) : (
-                        <button
-                            className="header-icon-button"
-                            onClick={startScan}
-                            aria-label="リロード"
-                            title="リロード"
-                        >
-                            <Icons.Refresh />
-                        </button>
-                    )}
-                    <button
-                        className="header-icon-button"
-                        onClick={() => setShowSettings(true)}
-                        aria-label="設定を開く"
-                        title="設定"
-                    >
-                        <Icons.Settings />
-                    </button>
-                </div>
-            </div>
-        </header>
-    );
+  return (
+    <header className="header">
+      <div className="header-left-tools">
+        <button
+          className={`header-icon-button ${isFilterOpen ? "active" : ""}`}
+          onClick={() => setIsFilterOpen(!isFilterOpen)}
+          aria-label="絞り込み"
+          title="絞り込み"
+          type="button"
+        >
+          <Icons.Menu />
+        </button>
+        <button
+          className={`header-icon-button ${isExtensionOpen ? "active" : ""}`}
+          onClick={() => setIsExtensionOpen(!isExtensionOpen)}
+          aria-label="拡張機能"
+          title="拡張機能"
+          type="button"
+        >
+          <Icons.Extension />
+        </button>
+      </div>
+
+      <div className="header-center">
+        <div className="logo-group" aria-label="Alpheratz">
+          <img className="header-logo-image" src="/Alpheratz-logo.png" alt="Alpheratz" />
+        </div>
+        <div className="search-bar">
+          <div className="input-group">
+            <Icons.Search />
+            <input
+              type="text"
+              placeholder="ワールド名で検索..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+    </header>
+  );
 };

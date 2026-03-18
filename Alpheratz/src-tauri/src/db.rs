@@ -1,18 +1,47 @@
+use crate::config::{load_backup_paths, save_backup_paths, BackupPathEntry};
+use crate::config::load_setting;
 use crate::models::PhotoRecord;
 use crate::utils::{
-    clear_directory_contents, get_alpheratz_db_cache_dir, get_alpheratz_img_cache_dir,
-    get_alpheratz_install_dir, get_alpheratz_log_dir, get_stella_record_install_dir,
+    clear_directory_contents, get_alpheratz_backup_dir,
+    get_alpheratz_db_cache_dir, get_alpheratz_img_cache_dir, get_alpheratz_install_dir,
+    get_alpheratz_log_dir, get_stella_record_install_dir,
 };
+use chrono::Local;
 use rusqlite::Connection;
+use serde::Serialize;
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BackupCandidate {
+    pub photo_folder_path: String,
+    pub backup_folder_name: String,
+    pub created_at: String,
+}
+
+fn resolve_source_slot_by_photo_folder(photo_folder_path: &str) -> i64 {
+    let normalized = photo_folder_path.trim();
+    let setting = load_setting();
+    if !setting.secondary_photo_folder_path.trim().is_empty()
+        && setting.secondary_photo_folder_path.trim() == normalized
+    {
+        2
+    } else {
+        1
+    }
+}
 
 fn get_stella_record_db_path() -> Option<PathBuf> {
     Some(get_stella_record_install_dir()?.join("stellarecord.db"))
 }
 
-pub fn get_alpheratz_db_path() -> Option<PathBuf> {
-    Some(get_alpheratz_db_cache_dir()?.join("Alpheratz.db"))
+pub fn configured_source_slots() -> Vec<i64> {
+    vec![1, 2]
+}
+
+pub fn get_alpheratz_db_path(source_slot: i64) -> Option<PathBuf> {
+    Some(get_alpheratz_db_cache_dir(source_slot)?.join("Alpheratz.db"))
 }
 
 fn get_legacy_alpheratz_db_paths() -> Vec<PathBuf> {
@@ -24,8 +53,9 @@ fn get_legacy_alpheratz_db_paths() -> Vec<PathBuf> {
     paths
 }
 
-pub fn open_alpheratz_connection() -> Result<Connection, String> {
-    let db_path = get_alpheratz_db_path()
+pub fn open_alpheratz_connection(source_slot: i64) -> Result<Connection, String> {
+    let _ = source_slot;
+    let db_path = get_alpheratz_db_path(source_slot)
         .ok_or_else(|| "Alpheratz DB の保存先を取得できません".to_string())?;
     if !db_path.exists() {
         for legacy_path in get_legacy_alpheratz_db_paths() {
@@ -136,7 +166,11 @@ fn migrate_photo_schema_if_needed(conn: &Connection) -> Result<(), String> {
              timestamp       TEXT NOT NULL,
              memo            TEXT DEFAULT '',
              phash           TEXT,
+             phash_version   INTEGER DEFAULT 0,
              orientation     TEXT,
+             image_width     INTEGER,
+             image_height    INTEGER,
+             source_slot     INTEGER DEFAULT 1,
              is_favorite     INTEGER DEFAULT 0,
              match_source    TEXT,
              is_missing      INTEGER DEFAULT 0
@@ -156,7 +190,11 @@ fn migrate_photo_schema_if_needed(conn: &Connection) -> Result<(), String> {
              timestamp,
              memo,
              phash,
+             phash_version,
              orientation,
+             image_width,
+             image_height,
+             source_slot,
              is_favorite,
              match_source,
              is_missing
@@ -169,7 +207,11 @@ fn migrate_photo_schema_if_needed(conn: &Connection) -> Result<(), String> {
              timestamp,
              COALESCE(memo, ''),
              phash,
+             0,
              orientation,
+             NULL,
+             NULL,
+             1,
              COALESCE(is_favorite, 0),
              match_source,
              0
@@ -204,7 +246,11 @@ fn ensure_alpheratz_schema(conn: &Connection) -> Result<(), String> {
              timestamp       TEXT NOT NULL,
              memo            TEXT DEFAULT '',
              phash           TEXT,
+             phash_version   INTEGER DEFAULT 0,
              orientation     TEXT,
+             image_width     INTEGER,
+             image_height    INTEGER,
+             source_slot     INTEGER DEFAULT 1,
              is_favorite     INTEGER DEFAULT 0,
              match_source    TEXT,
              is_missing      INTEGER DEFAULT 0
@@ -239,6 +285,24 @@ fn ensure_alpheratz_schema(conn: &Connection) -> Result<(), String> {
     add_column_if_missing(
         &conn,
         "photos",
+        "ALTER TABLE photos ADD COLUMN image_width INTEGER",
+        "image_width",
+    )?;
+    add_column_if_missing(
+        &conn,
+        "photos",
+        "ALTER TABLE photos ADD COLUMN image_height INTEGER",
+        "image_height",
+    )?;
+    add_column_if_missing(
+        &conn,
+        "photos",
+        "ALTER TABLE photos ADD COLUMN source_slot INTEGER DEFAULT 1",
+        "source_slot",
+    )?;
+    add_column_if_missing(
+        &conn,
+        "photos",
         "ALTER TABLE photos ADD COLUMN is_favorite INTEGER DEFAULT 0",
         "is_favorite",
     )?;
@@ -254,7 +318,12 @@ fn ensure_alpheratz_schema(conn: &Connection) -> Result<(), String> {
         "ALTER TABLE photos ADD COLUMN is_missing INTEGER DEFAULT 0",
         "is_missing",
     )?;
-
+    add_column_if_missing(
+        &conn,
+        "photos",
+        "ALTER TABLE photos ADD COLUMN phash_version INTEGER DEFAULT 0",
+        "phash_version",
+    )?;
     // Intentional: pre-release cleanup. We only keep the current schema and remove abandoned tables.
     conn.execute("DROP TABLE IF EXISTS photo_embeddings", [])
         .map_err(|e| format!("不要テーブル photo_embeddings の削除に失敗しました: {}", e))?;
@@ -263,7 +332,7 @@ fn ensure_alpheratz_schema(conn: &Connection) -> Result<(), String> {
 }
 
 pub fn init_alpheratz_db() -> Result<(), String> {
-    let conn = open_alpheratz_connection()?;
+    let conn = open_alpheratz_connection(1)?;
     ensure_alpheratz_schema(&conn)
 }
 
@@ -272,10 +341,12 @@ pub fn get_photos(
     end_date: Option<String>,
     world_query: Option<String>,
     world_exact: Option<String>,
+    orientation: Option<String>,
+    favorites_only: Option<bool>,
+    tag_filters: Option<Vec<String>>,
 ) -> Result<Vec<PhotoRecord>, String> {
-    let conn = open_alpheratz_connection()?;
-
-    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, memo, phash, orientation, is_favorite, match_source, is_missing FROM photos WHERE is_missing = 0".to_string();
+    let conn = open_alpheratz_connection(1)?;
+    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, '' AS memo, phash, orientation, image_width, image_height, source_slot, is_favorite, match_source, is_missing FROM photos WHERE is_missing = 0".to_string();
 
     if start_date.is_some() {
         sql.push_str(" AND timestamp >= :start");
@@ -291,6 +362,25 @@ pub fn get_photos(
             sql.push_str(" AND world_name IS NULL");
         } else {
             sql.push_str(" AND world_name = :exact");
+        }
+    }
+    if orientation.is_some() {
+        sql.push_str(" AND orientation = :orientation");
+    }
+    if favorites_only == Some(true) {
+        sql.push_str(" AND is_favorite = 1");
+    }
+    if let Some(filters) = &tag_filters {
+        for (index, _) in filters.iter().enumerate() {
+            sql.push_str(&format!(
+                " AND EXISTS (
+                    SELECT 1
+                    FROM photo_tags pt
+                    INNER JOIN tags t ON t.id = pt.tag_id
+                    WHERE pt.photo_path = photos.photo_path
+                      AND t.name = :tag_{index}
+                )"
+            ));
         }
     }
 
@@ -316,6 +406,14 @@ pub fn get_photos(
             params.push((":exact", x as &dyn rusqlite::ToSql));
         }
     }
+    if let Some(ref value) = orientation {
+        params.push((":orientation", value as &dyn rusqlite::ToSql));
+    }
+    let tag_bindings = tag_filters.unwrap_or_default();
+    for (index, tag) in tag_bindings.iter().enumerate() {
+        let key = Box::leak(format!(":tag_{index}").into_boxed_str());
+        params.push((key, tag as &dyn rusqlite::ToSql));
+    }
 
     let rows = stmt
         .query_map(params.as_slice(), |row| {
@@ -328,10 +426,13 @@ pub fn get_photos(
                 memo: row.get(5)?,
                 phash: row.get(6)?,
                 orientation: row.get(7)?,
-                is_favorite: row.get::<_, i64>(8)? != 0,
+                image_width: row.get(8)?,
+                image_height: row.get(9)?,
+                source_slot: row.get::<_, i64>(10)?,
+                is_favorite: row.get::<_, i64>(11)? != 0,
                 tags: Vec::new(),
-                match_source: row.get(9)?,
-                is_missing: row.get::<_, i64>(10)? != 0,
+                match_source: row.get(12)?,
+                is_missing: row.get::<_, i64>(13)? != 0,
             })
         })
         .map_err(|e| format!("写真一覧クエリを実行できません: {}", e))?;
@@ -363,21 +464,19 @@ pub fn get_photos(
     let mut tags_by_photo: HashMap<String, Vec<String>> = HashMap::new();
     for row in tag_rows {
         match row {
-            Ok((filename, tag)) => tags_by_photo.entry(filename).or_default().push(tag),
+            Ok((photo_path, tag)) => tags_by_photo.entry(photo_path).or_default().push(tag),
             Err(err) => crate::utils::log_warn(&format!("photo tag row decode failed: {}", err)),
         }
     }
 
     for record in &mut results {
-        record.tags = tags_by_photo
-            .remove(&record.photo_path)
-            .unwrap_or_default();
+        record.tags = tags_by_photo.remove(&record.photo_path).unwrap_or_default();
     }
     Ok(results)
 }
 
-pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
-    let conn = open_alpheratz_connection()?;
+pub fn save_photo_memo(source_slot: i64, filename: &str, memo: &str) -> Result<(), String> {
+    let conn = open_alpheratz_connection(source_slot)?;
     let changed = conn
         .execute(
             "UPDATE photos SET memo = ?1 WHERE photo_path = ?2",
@@ -390,8 +489,43 @@ pub fn save_photo_memo(filename: &str, memo: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn set_photo_favorite(filename: &str, is_favorite: bool) -> Result<(), String> {
-    let conn = open_alpheratz_connection()?;
+pub fn get_photo_memo(source_slot: i64, filename: &str) -> Result<String, String> {
+    let conn = open_alpheratz_connection(source_slot)?;
+    conn.query_row(
+        "SELECT COALESCE(memo, '') FROM photos WHERE photo_path = ?1",
+        rusqlite::params![filename],
+        |row| row.get::<_, String>(0),
+    )
+    .map_err(|err| format!("写真メモを取得できません [{}]: {}", filename, err))
+}
+
+pub fn get_photo_tags(source_slot: i64, filename: &str) -> Result<Vec<String>, String> {
+    let conn = open_alpheratz_connection(source_slot)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.name
+             FROM photo_tags pt
+             INNER JOIN tags t ON t.id = pt.tag_id
+             WHERE pt.photo_path = ?1
+             ORDER BY t.name COLLATE NOCASE ASC",
+        )
+        .map_err(|err| format!("写真タグクエリを準備できません [{}]: {}", filename, err))?;
+    let rows = stmt
+        .query_map(rusqlite::params![filename], |row| row.get::<_, String>(0))
+        .map_err(|err| format!("写真タグを読み出せません [{}]: {}", filename, err))?;
+
+    let mut tags = Vec::new();
+    for row in rows {
+        match row {
+            Ok(tag) => tags.push(tag),
+            Err(err) => crate::utils::log_warn(&format!("photo tag decode failed [{}]: {}", filename, err)),
+        }
+    }
+    Ok(tags)
+}
+
+pub fn set_photo_favorite(source_slot: i64, filename: &str, is_favorite: bool) -> Result<(), String> {
+    let conn = open_alpheratz_connection(source_slot)?;
     let changed = conn
         .execute(
             "UPDATE photos SET is_favorite = ?1 WHERE photo_path = ?2",
@@ -404,8 +538,8 @@ pub fn set_photo_favorite(filename: &str, is_favorite: bool) -> Result<(), Strin
     Ok(())
 }
 
-pub fn add_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
-    let conn = open_alpheratz_connection()?;
+pub fn add_photo_tag(source_slot: i64, filename: &str, tag: &str) -> Result<(), String> {
+    let conn = open_alpheratz_connection(source_slot)?;
     let tx = conn.unchecked_transaction().map_err(|e| {
         format!(
             "タグ追加トランザクションを開始できません [{}]: {}",
@@ -441,8 +575,8 @@ pub fn add_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn remove_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
-    let conn = open_alpheratz_connection()?;
+pub fn remove_photo_tag(source_slot: i64, filename: &str, tag: &str) -> Result<(), String> {
+    let conn = open_alpheratz_connection(source_slot)?;
     conn.execute(
         "DELETE FROM photo_tags
          WHERE photo_path = ?1
@@ -458,8 +592,295 @@ pub fn remove_photo_tag(filename: &str, tag: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub fn get_all_tags() -> Result<Vec<String>, String> {
+    let mut tags = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    let conn = open_alpheratz_connection(1)?;
+    let mut stmt = conn
+        .prepare("SELECT name FROM tags ORDER BY name COLLATE NOCASE ASC")
+        .map_err(|err| format!("タグ一覧クエリを準備できません: {}", err))?;
+    let rows = stmt
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|err| format!("タグ一覧を取得できません: {}", err))?;
+
+    for row in rows {
+        match row {
+            Ok(tag) => {
+                if seen.insert(tag.clone()) {
+                    tags.push(tag);
+                }
+            }
+            Err(err) => crate::utils::log_warn(&format!("tag row decode failed: {}", err)),
+        }
+    }
+
+    tags.sort_by(|left, right| left.cmp(right));
+    Ok(tags)
+}
+
+pub fn create_tag_master(tag: &str) -> Result<(), String> {
+    let normalized = tag.trim();
+    if normalized.is_empty() {
+        return Err("タグ名が空です".to_string());
+    }
+
+    let conn = open_alpheratz_connection(1)?;
+    conn.execute(
+        "INSERT INTO tags (name) VALUES (?1) ON CONFLICT(name) DO NOTHING",
+        rusqlite::params![normalized],
+    )
+    .map_err(|err| format!("タグマスタを保存できません [{}]: {}", normalized, err))?;
+    Ok(())
+}
+
+pub fn delete_tag_master(tag: &str) -> Result<(), String> {
+    let normalized = tag.trim();
+    if normalized.is_empty() {
+        return Err("タグ名が空です".to_string());
+    }
+
+    let conn = open_alpheratz_connection(1)?;
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|err| format!("タグ削除トランザクションを開始できません [{}]: {}", normalized, err))?;
+
+    tx.execute(
+        "DELETE FROM photo_tags WHERE tag_id IN (SELECT id FROM tags WHERE name = ?1)",
+        rusqlite::params![normalized],
+    )
+    .map_err(|err| format!("写真とタグの関連を削除できません [{}]: {}", normalized, err))?;
+
+    tx.execute("DELETE FROM tags WHERE name = ?1", rusqlite::params![normalized])
+        .map_err(|err| format!("タグマスタを削除できません [{}]: {}", normalized, err))?;
+
+    tx.commit()
+        .map_err(|err| format!("タグ削除を確定できません [{}]: {}", normalized, err))?;
+    Ok(())
+}
+
+pub fn get_backup_candidate(photo_folder_path: &str) -> Result<Option<BackupCandidate>, String> {
+    let normalized = photo_folder_path.trim();
+    if normalized.is_empty() {
+        return Ok(None);
+    }
+
+    let backup_root = get_alpheratz_backup_dir()
+        .ok_or_else(|| "バックアップフォルダを取得できません".to_string())?;
+
+    let mut entries = load_backup_paths();
+    let candidate = entries.iter().find(|entry| entry.photo_folder_path == normalized);
+
+    let Some(entry) = candidate.cloned() else {
+        return Ok(None);
+    };
+
+    let backup_dir = backup_root.join(&entry.backup_folder_name);
+    if !backup_dir.exists() {
+        entries.retain(|item| item.photo_folder_path != normalized);
+        save_backup_paths(&entries)?;
+        return Ok(None);
+    }
+
+    Ok(Some(BackupCandidate {
+        photo_folder_path: entry.photo_folder_path,
+        backup_folder_name: entry.backup_folder_name,
+        created_at: entry.created_at,
+    }))
+}
+
+pub fn create_cache_backup(photo_folder_path: &str) -> Result<Option<BackupCandidate>, String> {
+    let normalized = photo_folder_path.trim();
+    if normalized.is_empty() {
+        return Ok(None);
+    }
+
+    let source_slot = resolve_source_slot_by_photo_folder(normalized);
+    let slot_cache_name = if source_slot == 2 { "2nd-cache" } else { "1st-cache" };
+    let img_cache_dir = get_alpheratz_img_cache_dir(source_slot)
+        .ok_or_else(|| "imgCache の保存先を取得できません".to_string())?;
+    let db_cache_dir = get_alpheratz_db_cache_dir(source_slot)
+        .ok_or_else(|| "dbCache の保存先を取得できません".to_string())?;
+
+    let has_img_cache = img_cache_dir.exists()
+        && fs::read_dir(&img_cache_dir)
+            .map_err(|err| format!("imgCache を確認できません [{}]: {}", img_cache_dir.display(), err))?
+            .next()
+            .is_some();
+    let has_db_cache = db_cache_dir.exists()
+        && fs::read_dir(&db_cache_dir)
+            .map_err(|err| format!("dbCache を確認できません [{}]: {}", db_cache_dir.display(), err))?
+            .next()
+            .is_some();
+
+    if !has_img_cache && !has_db_cache {
+        return Ok(None);
+    }
+
+    let backup_root = get_alpheratz_backup_dir()
+        .ok_or_else(|| "バックアップフォルダを取得できません".to_string())?;
+    let backup_folder_name = format!("backup{}", Local::now().format("%Y%m%d%H%M%S"));
+    let backup_dir = backup_root.join(&backup_folder_name);
+    fs::create_dir_all(&backup_dir).map_err(|err| {
+        format!(
+            "バックアップフォルダを作成できません ({}): {}",
+            backup_dir.display(),
+            err
+        )
+    })?;
+    let backup_slot_dir = backup_dir.join(slot_cache_name);
+    fs::create_dir_all(&backup_slot_dir).map_err(|err| {
+        format!(
+            "バックアップ cache フォルダを作成できません ({}): {}",
+            backup_slot_dir.display(),
+            err
+        )
+    })?;
+
+    if has_img_cache {
+        fs::rename(&img_cache_dir, backup_slot_dir.join("imgCache")).map_err(|err| {
+            format!(
+                "imgCache をバックアップへ移動できません ({}): {}",
+                img_cache_dir.display(),
+                err
+            )
+        })?;
+        fs::create_dir_all(&img_cache_dir).map_err(|err| {
+            format!(
+                "移動後の imgCache を再作成できません ({}): {}",
+                img_cache_dir.display(),
+                err
+            )
+        })?;
+    }
+
+    if has_db_cache {
+        fs::rename(&db_cache_dir, backup_slot_dir.join("dbCache")).map_err(|err| {
+            format!(
+                "dbCache をバックアップへ移動できません ({}): {}",
+                db_cache_dir.display(),
+                err
+            )
+        })?;
+        fs::create_dir_all(&db_cache_dir).map_err(|err| {
+            format!(
+                "移動後の dbCache を再作成できません ({}): {}",
+                db_cache_dir.display(),
+                err
+            )
+        })?;
+    }
+
+    let created_at = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let mut entries = load_backup_paths();
+    entries.retain(|entry| entry.photo_folder_path != normalized);
+    entries.push(BackupPathEntry {
+        photo_folder_path: normalized.to_string(),
+        backup_folder_name: backup_folder_name.clone(),
+        created_at: created_at.clone(),
+    });
+    save_backup_paths(&entries)?;
+
+    Ok(Some(BackupCandidate {
+        photo_folder_path: normalized.to_string(),
+        backup_folder_name,
+        created_at,
+    }))
+}
+
+pub fn restore_cache_backup(photo_folder_path: &str) -> Result<bool, String> {
+    let normalized = photo_folder_path.trim();
+    if normalized.is_empty() {
+        return Ok(false);
+    }
+
+    let Some(candidate) = get_backup_candidate(normalized)? else {
+        return Ok(false);
+    };
+
+    let source_slot = resolve_source_slot_by_photo_folder(normalized);
+    let slot_cache_name = if source_slot == 2 { "2nd-cache" } else { "1st-cache" };
+    let backup_root = get_alpheratz_backup_dir()
+        .ok_or_else(|| "バックアップフォルダを取得できません".to_string())?;
+    let backup_dir = backup_root.join(&candidate.backup_folder_name);
+    let backup_slot_dir = backup_dir.join(slot_cache_name);
+    let backup_img_dir = backup_slot_dir.join("imgCache");
+    let backup_db_dir = backup_slot_dir.join("dbCache");
+    let active_img_dir = get_alpheratz_img_cache_dir(source_slot)
+        .ok_or_else(|| "imgCache の保存先を取得できません".to_string())?;
+    let active_db_dir = get_alpheratz_db_cache_dir(source_slot)
+        .ok_or_else(|| "dbCache の保存先を取得できません".to_string())?;
+
+    clear_directory_contents(&active_img_dir).map_err(|err| {
+        format!(
+            "復元前の imgCache をクリアできません [{}]: {}",
+            active_img_dir.display(),
+            err
+        )
+    })?;
+    clear_directory_contents(&active_db_dir).map_err(|err| {
+        format!(
+            "復元前の dbCache をクリアできません [{}]: {}",
+            active_db_dir.display(),
+            err
+        )
+    })?;
+
+    if backup_img_dir.exists() {
+        fs::remove_dir_all(&active_img_dir).map_err(|err| {
+            format!(
+                "復元前の imgCache フォルダを削除できません [{}]: {}",
+                active_img_dir.display(),
+                err
+            )
+        })?;
+        fs::rename(&backup_img_dir, &active_img_dir).map_err(|err| {
+            format!(
+                "imgCache を復元できません ({}): {}",
+                backup_img_dir.display(),
+                err
+            )
+        })?;
+    }
+
+    if backup_db_dir.exists() {
+        fs::remove_dir_all(&active_db_dir).map_err(|err| {
+            format!(
+                "復元前の dbCache フォルダを削除できません [{}]: {}",
+                active_db_dir.display(),
+                err
+            )
+        })?;
+        fs::rename(&backup_db_dir, &active_db_dir).map_err(|err| {
+            format!(
+                "dbCache を復元できません ({}): {}",
+                backup_db_dir.display(),
+                err
+            )
+        })?;
+    }
+
+    if backup_slot_dir.exists() {
+        let _ = fs::remove_dir_all(&backup_slot_dir);
+    }
+    if backup_dir.exists() {
+        let slot_entries_remaining = fs::read_dir(&backup_dir)
+            .ok()
+            .and_then(|mut entries| entries.next())
+            .is_some();
+        if !slot_entries_remaining {
+            let _ = fs::remove_dir_all(&backup_dir);
+        }
+    }
+
+    let mut entries = load_backup_paths();
+    entries.retain(|entry| entry.photo_folder_path != normalized);
+    save_backup_paths(&entries)?;
+    Ok(true)
+}
+
 pub fn reset_photo_cache() -> Result<(), String> {
-    let conn = open_alpheratz_connection()?;
+    let conn = open_alpheratz_connection(1)?;
     let tx = conn
         .unchecked_transaction()
         .map_err(|err| format!("写真キャッシュ削除トランザクションを開始できません: {}", err))?;
@@ -478,14 +899,16 @@ pub fn reset_photo_cache() -> Result<(), String> {
         crate::utils::log_warn(&format!("photo cache VACUUM failed: {}", err));
     }
 
-    if let Some(img_cache_dir) = get_alpheratz_img_cache_dir() {
-        clear_directory_contents(&img_cache_dir).map_err(|err| {
-            format!(
-                "imgCache のリセットに失敗しました [{}]: {}",
-                img_cache_dir.display(),
-                err
-            )
-        })?;
+    for source_slot in configured_source_slots() {
+        if let Some(img_cache_dir) = get_alpheratz_img_cache_dir(source_slot) {
+            clear_directory_contents(&img_cache_dir).map_err(|err| {
+                format!(
+                    "imgCache のリセットに失敗しました [{}]: {}",
+                    img_cache_dir.display(),
+                    err
+                )
+            })?;
+        }
     }
 
     if let Some(log_dir) = get_alpheratz_log_dir() {

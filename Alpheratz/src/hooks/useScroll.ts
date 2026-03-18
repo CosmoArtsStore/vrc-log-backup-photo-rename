@@ -5,12 +5,13 @@ interface UseScrollArgs {
     columnCount: number;
     gridHeight: number;
     ROW_HEIGHT: number;
+    totalHeightOverride?: number;
 }
 
 const SCROLLBAR_PADDING = 8;
 const SCROLLBAR_MIN_THUMB_HEIGHT = 32;
 
-export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }: UseScrollArgs) => {
+export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT, totalHeightOverride }: UseScrollArgs) => {
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const [scrollTop, setScrollTop] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
@@ -21,7 +22,7 @@ export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }:
     const mouseUpHandlerRef = useRef<(() => void) | null>(null);
 
     const totalRows = Math.ceil(photosLength / columnCount);
-    const totalHeight = totalRows * ROW_HEIGHT;
+    const totalHeight = totalHeightOverride ?? totalRows * ROW_HEIGHT;
     const maxScrollTop = Math.max(0, totalHeight - gridHeight);
 
     useLayoutEffect(() => {
@@ -31,7 +32,7 @@ export const useScroll = ({ photosLength, columnCount, gridHeight, ROW_HEIGHT }:
         if (scrollContainerRef.current && Math.abs(scrollContainerRef.current.scrollTop - nextScrollTop) > 1) {
             scrollContainerRef.current.scrollTop = nextScrollTop;
         }
-    }, [maxScrollTop, photosLength, columnCount, gridHeight]);
+    }, [maxScrollTop, photosLength, columnCount, gridHeight, totalHeightOverride]);
 
     const handleGridScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
         scrollContainerRef.current = e.currentTarget;

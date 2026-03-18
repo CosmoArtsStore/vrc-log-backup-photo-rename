@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::LazyLock;
 use tauri::{generate_handler, AppHandle, Builder, State};
-use tauri_plugin_shell::ShellExt;
+use tauri_plugin_opener::OpenerExt;
 
 use orientation::{OrientationProgressPayload, OrientationWorkerState};
 use phash::{PHashProgressPayload, PHashWorkerState};
@@ -44,7 +44,6 @@ async fn initialize_scan(
         if let Err(e) = scanner::do_scan(app_clone.clone()).await {
             crate::utils::log_err(&format!("Scanner Error: {}", e));
         } else {
-            orientation::start_orientation_worker(app_clone.clone());
             phash::start_phash_worker(app_clone.clone());
         }
     });
@@ -57,14 +56,18 @@ async fn get_photos(
     end_date: Option<String>,
     world_query: Option<String>,
     world_exact: Option<String>,
+    orientation: Option<String>,
+    favorites_only: Option<bool>,
+    tag_filters: Option<Vec<String>>,
 ) -> Result<Vec<PhotoRecord>, String> {
-    db::get_photos(start_date, end_date, world_query, world_exact)
+    db::get_photos(start_date, end_date, world_query, world_exact, orientation, favorites_only, tag_filters)
 }
 
 #[tauri::command]
-async fn create_thumbnail(path: String) -> Result<String, String> {
+async fn create_thumbnail(path: String, source_slot: Option<i64>) -> Result<String, String> {
     let display_path = path.clone();
-    tauri::async_runtime::spawn_blocking(move || utils::create_thumbnail_file(&path))
+    let resolved_slot = source_slot.unwrap_or(1);
+    tauri::async_runtime::spawn_blocking(move || utils::create_thumbnail_file(&path, resolved_slot))
         .await
         .map_err(|e| {
             format!(
@@ -75,23 +78,48 @@ async fn create_thumbnail(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn save_photo_memo_cmd(photo_path: String, memo: String) -> Result<(), String> {
-    db::save_photo_memo(&photo_path, &memo)
+async fn save_photo_memo_cmd(photo_path: String, memo: String, source_slot: i64) -> Result<(), String> {
+    db::save_photo_memo(source_slot, &photo_path, &memo)
 }
 
 #[tauri::command]
-async fn set_photo_favorite_cmd(photo_path: String, is_favorite: bool) -> Result<(), String> {
-    db::set_photo_favorite(&photo_path, is_favorite)
+async fn get_photo_memo_cmd(photo_path: String, source_slot: i64) -> Result<String, String> {
+    db::get_photo_memo(source_slot, &photo_path)
 }
 
 #[tauri::command]
-async fn add_photo_tag_cmd(photo_path: String, tag: String) -> Result<(), String> {
-    db::add_photo_tag(&photo_path, &tag)
+async fn get_photo_tags_cmd(photo_path: String, source_slot: i64) -> Result<Vec<String>, String> {
+    db::get_photo_tags(source_slot, &photo_path)
 }
 
 #[tauri::command]
-async fn remove_photo_tag_cmd(photo_path: String, tag: String) -> Result<(), String> {
-    db::remove_photo_tag(&photo_path, &tag)
+async fn set_photo_favorite_cmd(photo_path: String, is_favorite: bool, source_slot: i64) -> Result<(), String> {
+    db::set_photo_favorite(source_slot, &photo_path, is_favorite)
+}
+
+#[tauri::command]
+async fn add_photo_tag_cmd(photo_path: String, tag: String, source_slot: i64) -> Result<(), String> {
+    db::add_photo_tag(source_slot, &photo_path, &tag)
+}
+
+#[tauri::command]
+async fn remove_photo_tag_cmd(photo_path: String, tag: String, source_slot: i64) -> Result<(), String> {
+    db::remove_photo_tag(source_slot, &photo_path, &tag)
+}
+
+#[tauri::command]
+fn get_all_tags_cmd() -> Result<Vec<String>, String> {
+    db::get_all_tags()
+}
+
+#[tauri::command]
+fn create_tag_master_cmd(tag: String) -> Result<(), String> {
+    db::create_tag_master(&tag)
+}
+
+#[tauri::command]
+fn delete_tag_master_cmd(tag: String) -> Result<(), String> {
+    db::delete_tag_master(&tag)
 }
 
 #[tauri::command]
@@ -100,13 +128,28 @@ async fn reset_photo_cache_cmd() -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_backup_candidate_cmd(photo_folder_path: String) -> Result<Option<db::BackupCandidate>, String> {
+    db::get_backup_candidate(&photo_folder_path)
+}
+
+#[tauri::command]
+fn create_cache_backup_cmd(photo_folder_path: String) -> Result<Option<db::BackupCandidate>, String> {
+    db::create_cache_backup(&photo_folder_path)
+}
+
+#[tauri::command]
+fn restore_cache_backup_cmd(photo_folder_path: String) -> Result<bool, String> {
+    db::restore_cache_backup(&photo_folder_path)
+}
+
+#[tauri::command]
 async fn open_world_url(app: AppHandle, world_id: String) -> Result<(), String> {
     if !WORLD_ID_RE.is_match(&world_id) {
         return Err(format!("VRChat ワールドIDの形式が不正です: {}", world_id));
     }
     let url = format!("https://vrchat.com/home/world/{}/info", world_id);
-    app.shell()
-        .open(&url, None)
+    app.opener()
+        .open_url(&url, None::<&str>)
         .map_err(|e| format!("ワールドURLを開けません [{}]: {}", url, e))?;
     Ok(())
 }
@@ -177,6 +220,7 @@ pub fn run() {
 
     let run_result = Builder::default()
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(ScanCancelStatus(AtomicBool::new(false)))
@@ -189,13 +233,8 @@ pub fn run() {
             progress: std::sync::Mutex::new(OrientationProgressPayload::default()),
         })
         .setup(|app| {
-            let has_pending_orientation = orientation::has_pending_orientation().unwrap_or(false);
             let has_pending = phash::has_pending_phash().unwrap_or(false);
-            let has_unknown_worlds = phash::has_unknown_worlds().unwrap_or(false);
-            if has_pending_orientation {
-                orientation::start_orientation_worker(app.handle().clone());
-            }
-            if has_pending || has_unknown_worlds {
+            if has_pending {
                 phash::start_phash_worker(app.handle().clone());
             }
             Ok(())
@@ -208,10 +247,18 @@ pub fn run() {
             get_photos,
             create_thumbnail,
             save_photo_memo_cmd,
+            get_photo_memo_cmd,
+            get_photo_tags_cmd,
             set_photo_favorite_cmd,
             add_photo_tag_cmd,
             remove_photo_tag_cmd,
+            get_all_tags_cmd,
+            create_tag_master_cmd,
+            delete_tag_master_cmd,
             reset_photo_cache_cmd,
+            get_backup_candidate_cmd,
+            create_cache_backup_cmd,
+            restore_cache_backup_cmd,
             open_world_url,
             show_in_explorer,
             get_startup_preference_cmd,

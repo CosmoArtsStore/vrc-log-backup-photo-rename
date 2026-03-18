@@ -51,10 +51,16 @@ pub fn get_orientation_progress(app: &AppHandle) -> OrientationProgressPayload {
 }
 
 pub fn has_pending_orientation() -> Result<bool, String> {
-    let conn = open_alpheratz_connection()?;
+    let conn = open_alpheratz_connection(1)?;
     let count = conn
         .query_row(
-            "SELECT COUNT(*) FROM photos WHERE is_missing = 0 AND (orientation IS NULL OR orientation = '')",
+            "SELECT COUNT(*) FROM photos
+             WHERE is_missing = 0
+               AND (
+                 orientation IS NULL OR orientation = ''
+                 OR image_width IS NULL
+                 OR image_height IS NULL
+               )",
             [],
             |row| row.get::<_, i64>(0),
         )
@@ -63,7 +69,7 @@ pub fn has_pending_orientation() -> Result<bool, String> {
 }
 
 async fn run_orientation_worker(app: AppHandle) -> Result<(), String> {
-    let total = tauri::async_runtime::spawn_blocking(count_pending_orientation)
+    let total = tauri::async_runtime::spawn_blocking(|| count_pending_orientation(1))
         .await
         .map_err(|err| format!("縦横件数確認タスクの待機に失敗しました: {}", err))??;
 
@@ -85,15 +91,21 @@ async fn run_orientation_worker(app: AppHandle) -> Result<(), String> {
             break;
         }
 
-        for (filename, path) in batch {
+        for (source_slot, filename, path) in batch {
             let current_path = path.clone();
             let filename_for_progress = filename.clone();
             let result = tauri::async_runtime::spawn_blocking(move || {
-                let orientation = infer_orientation_from_path(Path::new(&current_path));
-                let conn = open_alpheratz_connection()?;
+                let dimensions = read_image_dimensions(Path::new(&current_path));
+                let orientation = infer_orientation_from_dimensions(dimensions);
+                let (image_width, image_height) = dimensions
+                    .map(|(width, height)| (i64::from(width), i64::from(height)))
+                    .unwrap_or((0, 0));
+                let conn = open_alpheratz_connection(source_slot)?;
                 conn.execute(
-                    "UPDATE photos SET orientation = ?1 WHERE photo_path = ?2",
-                    rusqlite::params![orientation, current_path],
+                    "UPDATE photos
+                     SET orientation = ?1, image_width = ?2, image_height = ?3
+                     WHERE photo_path = ?4",
+                    rusqlite::params![orientation, image_width, image_height, current_path],
                 )
                 .map_err(|err| format!("縦横情報を保存できません [{}]: {}", filename_for_progress, err))?;
                 Ok::<(), String>(())
@@ -114,11 +126,17 @@ async fn run_orientation_worker(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn count_pending_orientation() -> Result<usize, String> {
-    let conn = open_alpheratz_connection()?;
+fn count_pending_orientation(source_slot: i64) -> Result<usize, String> {
+    let conn = open_alpheratz_connection(source_slot)?;
     let count = conn
         .query_row(
-            "SELECT COUNT(*) FROM photos WHERE is_missing = 0 AND (orientation IS NULL OR orientation = '')",
+            "SELECT COUNT(*) FROM photos
+             WHERE is_missing = 0
+               AND (
+                 orientation IS NULL OR orientation = ''
+                 OR image_width IS NULL
+                 OR image_height IS NULL
+               )",
             [],
             |row| row.get::<_, i64>(0),
         )
@@ -126,21 +144,29 @@ fn count_pending_orientation() -> Result<usize, String> {
     Ok(count.max(0) as usize)
 }
 
-fn fetch_pending_orientation_batch() -> Result<Vec<(String, String)>, String> {
-    let conn = open_alpheratz_connection()?;
+fn fetch_pending_orientation_batch() -> Result<Vec<(i64, String, String)>, String> {
+    let conn = open_alpheratz_connection(1)?;
     let mut stmt = conn
         .prepare(
-            "SELECT photo_filename, photo_path
+            "SELECT source_slot, photo_filename, photo_path
              FROM photos
              WHERE is_missing = 0
-               AND (orientation IS NULL OR orientation = '')
+               AND (
+                 orientation IS NULL OR orientation = ''
+                 OR image_width IS NULL
+                 OR image_height IS NULL
+               )
              ORDER BY timestamp DESC
              LIMIT ?1",
         )
         .map_err(|err| format!("縦横対象クエリを準備できません: {}", err))?;
     let rows = stmt
         .query_map([ORIENTATION_BATCH_SIZE as i64], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
         })
         .map_err(|err| format!("縦横対象クエリを実行できません: {}", err))?;
 
@@ -154,8 +180,8 @@ fn fetch_pending_orientation_batch() -> Result<Vec<(String, String)>, String> {
     Ok(batch)
 }
 
-fn infer_orientation_from_path(path: &Path) -> Option<String> {
-    let Some((width, height)) = read_image_dimensions(path) else {
+fn infer_orientation_from_dimensions(dimensions: Option<(u32, u32)>) -> Option<String> {
+    let Some((width, height)) = dimensions else {
         return Some("unknown".to_string());
     };
     Some(if height > width { "portrait" } else { "landscape" }.to_string())

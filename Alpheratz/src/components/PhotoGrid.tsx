@@ -1,13 +1,14 @@
 import { UIEvent, MouseEvent, CSSProperties } from "react";
 import { Grid as FixedSizeGrid } from "react-window";
-import { Photo } from "../types";
+import { DisplayPhotoItem } from "../types";
 import { PhotoCard } from "./PhotoCard";
 import { CustomScrollbar } from "./CustomScrollbar";
 import { GalleryPhotoCard } from "./GalleryPhotoCard";
+import { GalleryLayoutResult } from "./galleryLayout";
 
 interface PhotoGridCellProps {
-    data: Photo[];
-    onSelect: (photo: Photo) => void;
+    data: DisplayPhotoItem[];
+    onSelect: (item: DisplayPhotoItem) => void;
     columnCount: number;
 }
 
@@ -17,7 +18,7 @@ interface FixedSizeGridComponentProps {
     rowCount: number;
     rowHeight: number;
     cellComponent: typeof PhotoCard;
-    cellProps: PhotoGridCellProps;
+    cellProps: any;
     onScroll: (e: UIEvent<HTMLDivElement>) => void;
     outerRef: (node: HTMLDivElement | null) => void;
     style: CSSProperties;
@@ -25,8 +26,10 @@ interface FixedSizeGridComponentProps {
 }
 
 interface PhotoGridProps {
-    photos: Photo[];
+    photos: DisplayPhotoItem[];
     viewMode: "standard" | "gallery";
+    quickActionMode?: "idle" | "favorite" | "tag";
+    scrollTop: number;
     columnCount: number;
     CARD_WIDTH: number;
     totalRows: number;
@@ -41,45 +44,18 @@ interface PhotoGridProps {
     handleTrackClick: (e: MouseEvent<HTMLDivElement>) => void;
     handleScrollbarMouseDown: (e: MouseEvent) => void;
     totalHeight: number;
+    galleryLayout?: GalleryLayoutResult | null;
     cellProps: PhotoGridCellProps;
     onGridRef: (node: HTMLDivElement | null) => void;
 }
 
 const FixedSizeGridComponent = FixedSizeGrid as unknown as React.ComponentType<FixedSizeGridComponentProps>;
 
-const getGalleryCardHeight = (photo: Photo) => {
-    if (photo.orientation === "portrait") {
-        return 360;
-    }
-    if (photo.orientation === "landscape") {
-        return 220;
-    }
-    return 280;
-};
-
-const buildMasonryColumns = (photos: Photo[], columnCount: number) => {
-    const columns = Array.from({ length: Math.max(1, columnCount) }, () => ({
-        height: 0,
-        photos: [] as Photo[],
-    }));
-
-    photos.forEach((photo) => {
-        let targetColumn = columns[0];
-        for (const column of columns) {
-            if (column.height < targetColumn.height) {
-                targetColumn = column;
-            }
-        }
-        targetColumn.photos.push(photo);
-        targetColumn.height += getGalleryCardHeight(photo);
-    });
-
-    return columns.map((column) => column.photos);
-};
-
 export const PhotoGrid = ({
     photos,
     viewMode,
+    quickActionMode = "idle",
+    scrollTop,
     columnCount,
     CARD_WIDTH,
     totalRows,
@@ -94,37 +70,68 @@ export const PhotoGrid = ({
     handleTrackClick,
     handleScrollbarMouseDown,
     totalHeight,
+    galleryLayout = null,
     cellProps,
     onGridRef,
 }: PhotoGridProps) => {
     if (viewMode === "gallery") {
-        const masonryColumns = buildMasonryColumns(photos, columnCount);
+        const overscan = 900;
+        const visibleTop = Math.max(0, scrollTop - overscan);
+        const visibleBottom = scrollTop + gridHeight + overscan;
+        const visibleItems = (galleryLayout?.items ?? []).filter((item) => (
+            item.top + item.height >= visibleTop && item.top <= visibleBottom
+        ));
+
         return (
-            <div className="grid-scroll-wrapper gallery-mode-shell">
+            <div
+                className="grid-scroll-wrapper gallery-mode-shell"
+                onWheel={handleGridWheel}
+                onScroll={handleGridScroll}
+                ref={onGridRef}
+                style={{ height: gridHeight, width: panelWidth }}
+            >
                 <div
                     className="gallery-grid"
                     style={{
-                        height: gridHeight,
+                        height: totalHeight,
                         width: panelWidth,
-                        ["--gallery-columns" as string]: String(Math.max(1, columnCount)),
                     }}
                 >
-                    {masonryColumns.map((columnPhotos, columnIndex) => (
-                        <div key={`gallery-column-${columnIndex}`} className="gallery-grid-column">
-                            {columnPhotos.map((photo) => (
-                                <div key={photo.photo_path} className="gallery-photo-card-wrapper">
-                                    <GalleryPhotoCard photo={photo} onSelect={cellProps.onSelect} />
-                                </div>
-                            ))}
+                    {visibleItems.map((item) => (
+                        <div
+                            key={item.photo.photo_path}
+                            className="gallery-photo-card-wrapper"
+                            style={{
+                                position: "absolute",
+                                top: item.top,
+                                left: item.left,
+                                width: item.width,
+                                height: item.height,
+                            }}
+                        >
+                            <GalleryPhotoCard
+                                item={item}
+                                onSelect={cellProps.onSelect}
+                                showQuickFavoriteStar={quickActionMode === "favorite"}
+                            />
                         </div>
                     ))}
                 </div>
+                {totalHeight > gridHeight && (
+                    <CustomScrollbar
+                        isDragging={isDragging}
+                        thumbTop={thumbTop}
+                        thumbHeight={thumbHeight}
+                        handleTrackClick={handleTrackClick}
+                        handleScrollbarMouseDown={handleScrollbarMouseDown}
+                    />
+                )}
             </div>
         );
     }
 
     return (
-        <div className="grid-scroll-wrapper" onWheel={handleGridWheel}>
+            <div className="grid-scroll-wrapper" onWheel={handleGridWheel}>
             {photos.length > 0 && (
                 <>
                     <FixedSizeGridComponent

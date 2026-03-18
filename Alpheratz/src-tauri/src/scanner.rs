@@ -19,7 +19,6 @@ use crate::utils;
 use crate::ScanCancelStatus;
 
 const SUPPORTED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "psd", "xcf"];
-const PHOTO_UPSERT_BATCH_SIZE: usize = 25;
 const MAX_ITXT_SIZE: usize = 4 * 1024 * 1024;
 const SKIP_DIRS: &[&str] = &[
     "node_modules",
@@ -37,6 +36,9 @@ struct ExistingPhotoInfo {
     world_id: Option<String>,
     world_name: Option<String>,
     orientation: Option<String>,
+    image_width: Option<i64>,
+    image_height: Option<i64>,
+    source_slot: i64,
     is_missing: bool,
 }
 
@@ -48,6 +50,9 @@ struct ScanPhotoData {
     world_id: Option<String>,
     world_name: Option<String>,
     orientation: Option<String>,
+    image_width: Option<i64>,
+    image_height: Option<i64>,
+    source_slot: i64,
     match_source: Option<String>,
 }
 
@@ -107,30 +112,48 @@ static RE_NAME: LazyLock<Regex> = LazyLock::new(|| {
     )
 });
 
-fn resolve_photo_dir() -> Result<PathBuf, PhotoDirErrorKind> {
+fn resolve_photo_dirs() -> Result<Vec<(i64, PathBuf)>, PhotoDirErrorKind> {
     let setting = load_setting();
-    if setting.photo_folder_path.is_empty() {
+    if setting.photo_folder_path.is_empty() && setting.secondary_photo_folder_path.is_empty() {
         return match default_photo_dir() {
-            Some(path) if path.exists() => Ok(path),
+            Some(path) if path.exists() => Ok(vec![(1, path)]),
             Some(path) => Err(PhotoDirErrorKind::Missing(path)),
             None => Err(PhotoDirErrorKind::NotConfigured),
         };
     }
 
-    let configured_path = PathBuf::from(&setting.photo_folder_path);
-    if configured_path.exists() {
-        Ok(configured_path)
+    let mut photo_dirs = Vec::new();
+
+    if !setting.photo_folder_path.is_empty() {
+        let configured_path = PathBuf::from(&setting.photo_folder_path);
+        if !configured_path.exists() {
+            return Err(PhotoDirErrorKind::Missing(configured_path));
+        }
+        photo_dirs.push((1, configured_path));
+    }
+
+    if !setting.secondary_photo_folder_path.is_empty() {
+        let configured_path = PathBuf::from(&setting.secondary_photo_folder_path);
+        if !configured_path.exists() {
+            return Err(PhotoDirErrorKind::Missing(configured_path));
+        }
+        if !photo_dirs.iter().any(|(_, existing_path)| existing_path == &configured_path) {
+            photo_dirs.push((2, configured_path));
+        }
+    }
+
+    if photo_dirs.is_empty() {
+        Err(PhotoDirErrorKind::NotConfigured)
     } else {
-        Err(PhotoDirErrorKind::Missing(configured_path))
+        Ok(photo_dirs)
     }
 }
 
 pub async fn do_scan(app: AppHandle) -> Result<(), String> {
-    let photo_dir = match resolve_photo_dir() {
-        Ok(path) => path,
+    let photo_dirs = match resolve_photo_dirs() {
+        Ok(paths) => paths,
         Err(PhotoDirErrorKind::NotConfigured) => {
-            let message =
-                "写真フォルダが未設定です。設定から VRChat の写真フォルダを選択してください。";
+            let message = "写真フォルダが未設定です。設定から参照フォルダを選択してください。";
             emit_warn(&app, "scan:error", message);
             return Err(message.to_string());
         }
@@ -144,7 +167,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
         }
     };
 
-    let mut conn = open_alpheratz_connection()?;
+    let mut conn = open_alpheratz_connection(1)?;
     let cancel_status = app.state::<ScanCancelStatus>();
     emit_warn(
         &app,
@@ -159,7 +182,9 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
 
     let existing_photos = get_existing_photos(&conn)?;
     let mut found_files = Vec::new();
-    collect_photos_recursive(&photo_dir, &mut found_files, &cancel_status);
+    for (source_slot, photo_dir) in &photo_dirs {
+        collect_photos_recursive(*source_slot, photo_dir, &mut found_files, &cancel_status);
+    }
 
     if cancel_status.0.load(Ordering::SeqCst) {
         crate::utils::log_warn("Scan cancelled during collection.");
@@ -169,28 +194,29 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
 
     let found_path_set: HashSet<String> = found_files
         .iter()
-        .map(|(_, path)| path.to_slash_lossy().to_string())
+        .map(|(_, _, path)| path.to_slash_lossy().to_string())
         .collect();
     mark_missing_photos(&conn, &existing_photos, &found_path_set)?;
 
-    let candidate_files: Vec<(String, PathBuf, ScanRefreshKind)> = found_files
+    let candidate_files: Vec<(String, PathBuf, i64, ScanRefreshKind)> = found_files
         .into_iter()
-        .filter_map(|(filename, path)| {
+        .filter_map(|(slot, filename, path)| {
             let normalized_path = path.to_slash_lossy().to_string();
             match existing_photos.get(&normalized_path) {
-                None => Some((filename, path, ScanRefreshKind::Full)),
+                None => Some((filename, path, slot, ScanRefreshKind::Full)),
                 Some(existing) => {
                     let filename_changed = existing.photo_filename != filename;
                     let missing_features = false;
                     let missing_world = existing.world_name.is_none() && existing.world_id.is_none();
                     let reappeared = existing.is_missing;
+                    let source_changed = existing.source_slot != slot;
 
-                    if reappeared || missing_features {
-                        Some((filename, path, ScanRefreshKind::Full))
+                    if reappeared || missing_features || source_changed {
+                        Some((filename, path, slot, ScanRefreshKind::Full))
                     } else if filename_changed {
-                        Some((filename, path, ScanRefreshKind::PathOnly))
+                        Some((filename, path, slot, ScanRefreshKind::PathOnly))
                     } else if missing_world && filename.to_ascii_lowercase().ends_with(".png") {
-                        Some((filename, path, ScanRefreshKind::MetadataOnly))
+                        Some((filename, path, slot, ScanRefreshKind::MetadataOnly))
                     } else {
                         None
                     }
@@ -211,26 +237,19 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
         },
     );
 
-    let mut upsert_batch = Vec::with_capacity(PHOTO_UPSERT_BATCH_SIZE);
-
-    for (index, (filename, path, refresh_kind)) in candidate_files.into_iter().enumerate() {
+    for (index, (filename, path, source_slot, refresh_kind)) in candidate_files.into_iter().enumerate() {
         if cancel_status.0.load(Ordering::SeqCst) {
             crate::utils::log_warn("Scan cancelled by user.");
             emit_warn(&app, "scan:error", "Scan cancelled");
             return Ok(());
         }
 
-        if let Some(photo) = analyze_photo(&path, &filename, &existing_photos, refresh_kind)? {
+        if let Some(photo) = analyze_photo(&path, &filename, source_slot, &existing_photos, refresh_kind)? {
             let current_world = photo
                 .world_name
                 .clone()
                 .unwrap_or_else(|| "Unknown world".to_string());
-            upsert_batch.push(photo);
-
-            if upsert_batch.len() >= PHOTO_UPSERT_BATCH_SIZE {
-                upsert_photo_batch(&mut conn, &upsert_batch)?;
-                upsert_batch.clear();
-            }
+            upsert_photo_batch(&mut conn, &[photo])?;
 
             if index % 10 == 0 || index == total.saturating_sub(1) {
                 emit_warn(
@@ -247,10 +266,6 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
         }
     }
 
-    if !upsert_batch.is_empty() {
-        upsert_photo_batch(&mut conn, &upsert_batch)?;
-    }
-
     emit_warn(&app, "scan:completed", ());
     Ok(())
 }
@@ -263,7 +278,7 @@ fn default_photo_dir() -> Option<PathBuf> {
 fn get_existing_photos(conn: &Connection) -> Result<HashMap<String, ExistingPhotoInfo>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT photo_filename, photo_path, world_id, world_name, timestamp, orientation, is_missing
+            "SELECT photo_filename, photo_path, world_id, world_name, timestamp, orientation, image_width, image_height, source_slot, is_missing
              FROM photos",
         )
         .map_err(|e| scan_err("Failed to prepare existing photo query", e))?;
@@ -275,7 +290,10 @@ fn get_existing_photos(conn: &Connection) -> Result<HashMap<String, ExistingPhot
                 world_id: row.get(2)?,
                 world_name: row.get(3)?,
                 orientation: row.get(5)?,
-                is_missing: row.get::<_, i64>(6)? != 0,
+                image_width: row.get(6)?,
+                image_height: row.get(7)?,
+                source_slot: row.get(8)?,
+                is_missing: row.get::<_, i64>(9)? != 0,
             })
         })
         .map_err(|e| scan_err("Failed to execute existing photo query", e))?;
@@ -293,6 +311,7 @@ fn get_existing_photos(conn: &Connection) -> Result<HashMap<String, ExistingPhot
 fn analyze_photo(
     path: &Path,
     filename: &str,
+    source_slot: i64,
     existing_photos: &HashMap<String, ExistingPhotoInfo>,
     refresh_kind: ScanRefreshKind,
 ) -> Result<Option<ScanPhotoData>, String> {
@@ -310,7 +329,22 @@ fn analyze_photo(
             resolve_world_info_lightweight(&normalized_path, filename, path, &timestamp, existing_photos)
         }
     };
-    let orientation = existing.and_then(|photo| photo.orientation.clone());
+    let (orientation, image_width, image_height) = match refresh_kind {
+        ScanRefreshKind::PathOnly => (
+            existing.and_then(|photo| photo.orientation.clone()),
+            existing.and_then(|photo| photo.image_width),
+            existing.and_then(|photo| photo.image_height),
+        ),
+        ScanRefreshKind::Full | ScanRefreshKind::MetadataOnly => {
+            let dimensions = image::image_dimensions(path).ok();
+            let orientation = dimensions
+                .map(|(width, height)| if height > width { "portrait" } else { "landscape" }.to_string())
+                .or_else(|| Some("unknown".to_string()));
+            let image_width = dimensions.map(|(width, _)| i64::from(width));
+            let image_height = dimensions.map(|(_, height)| i64::from(height));
+            (orientation, image_width, image_height)
+        }
+    };
 
     Ok(Some(ScanPhotoData {
         filename: filename.to_string(),
@@ -319,6 +353,9 @@ fn analyze_photo(
         world_id,
         world_name,
         orientation,
+        image_width,
+        image_height,
+        source_slot,
         match_source,
     }))
 }
@@ -475,15 +512,21 @@ fn upsert_photo_batch(conn: &mut Connection, items: &[ScanPhotoData]) -> Result<
                     world_name,
                     timestamp,
                     orientation,
+                    image_width,
+                    image_height,
+                    source_slot,
                     match_source,
                     is_missing
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 0)
                 ON CONFLICT(photo_path) DO UPDATE SET
                     photo_filename = excluded.photo_filename,
                     world_id = COALESCE(excluded.world_id, photos.world_id),
                     world_name = COALESCE(excluded.world_name, photos.world_name),
                     timestamp = excluded.timestamp,
                     orientation = COALESCE(excluded.orientation, photos.orientation),
+                    image_width = COALESCE(excluded.image_width, photos.image_width),
+                    image_height = COALESCE(excluded.image_height, photos.image_height),
+                    source_slot = excluded.source_slot,
                     match_source = COALESCE(excluded.match_source, photos.match_source),
                     is_missing = 0",
             )
@@ -497,6 +540,9 @@ fn upsert_photo_batch(conn: &mut Connection, items: &[ScanPhotoData]) -> Result<
                 item.world_name,
                 item.timestamp,
                 item.orientation,
+                item.image_width,
+                item.image_height,
+                item.source_slot,
                 item.match_source,
             ])
             .map_err(|e| format!("Failed to upsert photo {}: {}", item.filename, e))?;
@@ -601,8 +647,9 @@ fn parse_vrc_from_xmp(xmp: &str) -> (Option<String>, Option<String>) {
 }
 
 fn collect_photos_recursive(
+    source_slot: i64,
     dir: &Path,
-    files: &mut Vec<(String, PathBuf)>,
+    files: &mut Vec<(i64, String, PathBuf)>,
     cancel_status: &ScanCancelStatus,
 ) {
     if cancel_status.0.load(Ordering::SeqCst) {
@@ -648,14 +695,14 @@ fn collect_photos_recursive(
                     continue;
                 }
             }
-            collect_photos_recursive(&path, files, cancel_status);
+            collect_photos_recursive(source_slot, &path, files, cancel_status);
             if cancel_status.0.load(Ordering::SeqCst) {
                 return;
             }
         } else if path.is_file() {
             if let Some(filename) = path.file_name().and_then(|value| value.to_str()) {
                 if is_supported_image_extension(filename) {
-                    files.push((filename.to_string(), path.to_path_buf()));
+                    files.push((source_slot, filename.to_string(), path.to_path_buf()));
                 }
             }
         }

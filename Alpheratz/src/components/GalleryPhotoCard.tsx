@@ -1,18 +1,60 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { Photo } from "../types";
+import { DisplayPhotoItem } from "../types";
+import { AnimatedFavoriteStar } from "./AnimatedFavoriteStar";
 
 interface GalleryPhotoCardProps {
-    photo: Photo;
-    onSelect: (photo: Photo) => void;
+    item: DisplayPhotoItem;
+    onSelect: (item: DisplayPhotoItem) => void;
+    showQuickFavoriteStar?: boolean;
 }
 
-export const GalleryPhotoCard = ({ photo, onSelect }: GalleryPhotoCardProps) => {
+export const GalleryPhotoCard = ({
+    item,
+    onSelect,
+    showQuickFavoriteStar = false,
+}: GalleryPhotoCardProps) => {
+    const photo = item.photo;
     const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+    const [shouldLoadThumb, setShouldLoadThumb] = useState(false);
+    const cardRef = useRef<HTMLButtonElement | null>(null);
 
     useEffect(() => {
+        const node = cardRef.current;
+        if (!node) {
+            return;
+        }
+
+        if (!("IntersectionObserver" in window)) {
+            setShouldLoadThumb(true);
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.some((entry) => entry.isIntersecting)) {
+                    setShouldLoadThumb(true);
+                    observer.disconnect();
+                }
+            },
+            {
+                rootMargin: "800px 0px",
+                threshold: 0.01,
+            },
+        );
+
+        observer.observe(node);
+        return () => {
+            observer.disconnect();
+        };
+    }, [photo.photo_path]);
+
+    useEffect(() => {
+        if (!shouldLoadThumb) {
+            return;
+        }
         let isMounted = true;
-        invoke<string>("create_thumbnail", { path: photo.photo_path })
+        invoke<string>("create_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
             .then((path) => {
                 if (isMounted) {
                     setThumbUrl(convertFileSrc(path));
@@ -26,7 +68,7 @@ export const GalleryPhotoCard = ({ photo, onSelect }: GalleryPhotoCardProps) => 
         return () => {
             isMounted = false;
         };
-    }, [photo.photo_path]);
+    }, [shouldLoadThumb, photo.photo_path, photo.source_slot]);
 
     const orientationClass = photo.orientation === "portrait"
         ? "portrait"
@@ -34,17 +76,45 @@ export const GalleryPhotoCard = ({ photo, onSelect }: GalleryPhotoCardProps) => 
             ? "landscape"
             : "unknown";
 
+    const frameRatio = (() => {
+        if (photo.orientation === "portrait") {
+            return "9 / 16";
+        }
+        if (photo.orientation === "landscape") {
+            return "16 / 9";
+        }
+        return "1 / 1";
+    })();
+
     return (
         <button
+            ref={cardRef}
             type="button"
             className={`gallery-photo-card ${orientationClass}`}
-            onClick={() => onSelect(photo)}
+            onClick={() => onSelect(item)}
         >
-            <div className={`gallery-photo-thumb ${orientationClass}`}>
+            <div
+                className={`gallery-photo-thumb ${orientationClass}`}
+                style={{ aspectRatio: frameRatio }}
+            >
                 {thumbUrl ? (
-                    <img src={thumbUrl} alt={photo.photo_filename} className="gallery-photo-image" />
+                    <img
+                        src={thumbUrl}
+                        alt={photo.photo_filename}
+                        className="gallery-photo-image"
+                        loading="lazy"
+                        decoding="async"
+                    />
                 ) : (
                     <div className="photo-thumb-skeleton" />
+                )}
+                {showQuickFavoriteStar && (
+                    <div className={`gallery-quick-favorite-star ${photo.is_favorite ? "active" : ""}`} aria-hidden="true">
+                        <AnimatedFavoriteStar liked={photo.is_favorite} className="favorite-star-gallery" />
+                    </div>
+                )}
+                {!!item.groupCount && item.groupCount > 1 && (
+                    <div className="gallery-group-count-badge" aria-hidden="true">{item.groupCount}枚</div>
                 )}
                 <div className="gallery-photo-overlay">
                     <div className="gallery-photo-topline">
