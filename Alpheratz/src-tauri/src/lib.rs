@@ -155,6 +155,23 @@ async fn open_world_url(app: AppHandle, world_id: String) -> Result<(), String> 
 }
 
 #[tauri::command]
+async fn open_tweet_intent_cmd(app: AppHandle, intent_url: String) -> Result<(), String> {
+    if !intent_url.starts_with("https://twitter.com/intent/tweet?text=")
+        && !intent_url.starts_with("https://x.com/intent/tweet?text=")
+    {
+        return Err(format!(
+            "Tweet intent URL の形式が不正です: {}",
+            intent_url
+        ));
+    }
+
+    app.opener()
+        .open_url(&intent_url, None::<&str>)
+        .map_err(|err| format!("Tweet intent URL を開けませんでした [{}]: {}", intent_url, err))?;
+    Ok(())
+}
+
+#[tauri::command]
 async fn show_in_explorer(path: String) -> Result<(), String> {
     let path_ref = Path::new(&path);
     if !path_ref.exists() {
@@ -260,6 +277,7 @@ pub fn run() {
             create_cache_backup_cmd,
             restore_cache_backup_cmd,
             open_world_url,
+            open_tweet_intent_cmd,
             show_in_explorer,
             get_startup_preference_cmd,
             save_startup_preference_cmd,

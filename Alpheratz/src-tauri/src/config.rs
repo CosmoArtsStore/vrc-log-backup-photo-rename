@@ -27,6 +27,10 @@ pub struct AlpheratzSetting {
         alias = "startup_preference_set"
     )]
     pub startup_preference_set: bool,
+    #[serde(default, rename = "tweetTemplates", alias = "tweet_templates")]
+    pub tweet_templates: Vec<String>,
+    #[serde(default, rename = "activeTweetTemplate", alias = "active_tweet_template")]
+    pub active_tweet_template: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -48,6 +52,8 @@ impl Default for AlpheratzSetting {
             view_mode: "standard".to_string(),
             enable_startup: false,
             startup_preference_set: false,
+            tweet_templates: vec!["{world}\n{date}\n{tags}".to_string()],
+            active_tweet_template: "{world}\n{date}\n{tags}".to_string(),
         }
     }
 }

@@ -9,24 +9,24 @@ body {
 
 .alpheratz-root {
   --a-accent: #0096fa;
-  --a-accent-light: #39a9ff;
-  --a-bg: #f8fafc;
-  --a-bg-elevated: #fcfdff;
+  --a-accent-light: #0085de;
+  --a-bg: #ffffff;
+  --a-bg-elevated: #f7f9fa;
   --a-surface: #ffffff;
   --a-surface-strong: #ffffff;
-  --a-surface-soft: #fafbfc;
-  --a-surface-hover: #f4f6f8;
-  --a-surface-top: #fafbfc;
+  --a-surface-soft: #f7f9fa;
+  --a-surface-hover: #f0f3f4;
+  --a-surface-top: #ffffff;
   --a-surface-side: #ffffff;
-  --a-border: rgba(15, 23, 42, 0.08);
-  --a-border-strong: rgba(0, 150, 250, 0.18);
-  --a-text: #111827;
-  --a-text-dim: #334155;
-  --a-text-faint: #64748b;
-  --a-text-disabled: #9ca3af;
+  --a-border: rgba(0, 0, 0, 0.1);
+  --a-border-strong: rgba(0, 150, 250, 0.2);
+  --a-text: #0f1419;
+  --a-text-dim: #536471;
+  --a-text-faint: #8899a6;
+  --a-text-disabled: #c4cfd6;
   --a-primary: #0096fa;
   --a-primary-soft: rgba(0, 150, 250, 0.08);
-  --a-accent-soft: rgba(0, 150, 250, 0.04);
+  --a-accent-soft: rgba(0, 150, 250, 0.1);
   --a-button-text: #ffffff;
   --a-warn: #d97706;
   --a-danger: #dc2626;
@@ -40,13 +40,13 @@ body {
   --a-danger-soft: rgba(220, 38, 38, 0.06);
   --a-danger-border: rgba(220, 38, 38, 0.16);
   --a-danger-glow: transparent;
-  --a-radius: 16px;
-  --a-radius-sm: 12px;
-  --a-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --a-shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
-  --a-shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.12);
-  --a-font-display: "Inter", "Yu Gothic UI", "Segoe UI", sans-serif;
-  --a-font-sans: "Inter", "Yu Gothic UI", "Segoe UI", sans-serif;
+  --a-radius: 12px;
+  --a-radius-sm: 8px;
+  --a-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --a-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --a-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.1);
+  --a-font-display: "Noto Sans JP", "Yu Gothic UI", "Segoe UI", sans-serif;
+  --a-font-sans: "Noto Sans JP", "Yu Gothic UI", "Segoe UI", sans-serif;
   --a-font-mono: "JetBrains Mono", "Cascadia Code", monospace;
 
   display: flex;
@@ -62,41 +62,41 @@ body {
 }
 
 .alpheratz-root.theme-dark {
-  --a-accent: #22d3ee;
-  --a-accent-light: #67e8f9;
-  --a-bg: #090c12;
-  --a-bg-elevated: #0c0f1a;
-  --a-surface: #0e121c;
-  --a-surface-strong: #141926;
-  --a-surface-soft: #141926;
-  --a-surface-hover: #1a2133;
-  --a-surface-top: #0c0f1a;
-  --a-surface-side: #0a0d16;
-  --a-border: rgba(34, 211, 238, 0.08);
-  --a-border-strong: rgba(34, 211, 238, 0.25);
-  --a-text: #e0f2fe;
-  --a-text-dim: #b8c4d8;
-  --a-text-faint: #4a5a70;
-  --a-text-disabled: #2a3a50;
-  --a-primary: #22d3ee;
-  --a-primary-soft: rgba(34, 211, 238, 0.12);
-  --a-accent-soft: rgba(34, 211, 238, 0.12);
+  --a-accent: #0096fa;
+  --a-accent-light: #1aa5ff;
+  --a-bg: #000000;
+  --a-bg-elevated: #16181c;
+  --a-surface: #16181c;
+  --a-surface-strong: #1d2026;
+  --a-surface-soft: #16181c;
+  --a-surface-hover: #1d2026;
+  --a-surface-top: #000000;
+  --a-surface-side: #16181c;
+  --a-border: rgba(255, 255, 255, 0.1);
+  --a-border-strong: rgba(0, 150, 250, 0.28);
+  --a-text: #e7e9ea;
+  --a-text-dim: #71767b;
+  --a-text-faint: #3e4144;
+  --a-text-disabled: #2f3336;
+  --a-primary: #0096fa;
+  --a-primary-soft: rgba(0, 150, 250, 0.14);
+  --a-accent-soft: rgba(0, 150, 250, 0.14);
   --a-button-text: #f8fafc;
   --a-warn: #fbbf24;
   --a-danger: #f87171;
-  --a-scrollbar-track: rgba(34, 211, 238, 0.06);
-  --a-scrollbar-thumb: rgba(34, 211, 238, 0.24);
-  --a-scrollbar-thumb-hover: rgba(34, 211, 238, 0.38);
-  --a-glow: rgba(34, 211, 238, 0.2);
+  --a-scrollbar-track: rgba(255, 255, 255, 0.06);
+  --a-scrollbar-thumb: rgba(0, 150, 250, 0.24);
+  --a-scrollbar-thumb-hover: rgba(0, 150, 250, 0.38);
+  --a-glow: rgba(0, 150, 250, 0.18);
   --a-warn-soft: rgba(251, 191, 36, 0.12);
   --a-warn-border: rgba(251, 191, 36, 0.3);
   --a-warn-glow: rgba(251, 191, 36, 0.18);
   --a-danger-soft: rgba(248, 113, 113, 0.12);
   --a-danger-border: rgba(248, 113, 113, 0.28);
   --a-danger-glow: rgba(248, 113, 113, 0.18);
-  --a-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.28);
-  --a-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
-  --a-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.42);
+  --a-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --a-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --a-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.46);
 }
 
 .alpheratz-root.theme-light .header-icon-button:hover,
@@ -169,13 +169,14 @@ body {
 }
 
 .alpheratz-root .header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(320px, 1fr);
   align-items: center;
   width: 100%;
-  padding: 0 0.75rem;
+  padding: 0 1rem;
   background: var(--a-surface);
   border-bottom: 1px solid var(--a-border);
-  gap: 0.6rem;
+  gap: 0.9rem;
   z-index: 10;
   min-height: 52px;
   overflow: visible;
@@ -185,16 +186,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  flex-shrink: 0;
-}
-
-.alpheratz-root .header-center {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  min-width: 0;
+  justify-self: start;
 }
 
 .alpheratz-root .toolbar-group {
@@ -225,8 +217,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
   min-width: 0;
+  justify-self: center;
 }
 
 .alpheratz-root .wordmark-group {
@@ -239,12 +231,12 @@ body {
 
 .alpheratz-root .header-logo-image {
   display: block;
-  height: 56px;
+  height: 52px;
   width: auto;
-  max-width: min(40vw, 520px);
+  max-width: min(38vw, 480px);
   object-fit: contain;
   object-position: center;
-  transform: scale(1.55);
+  transform: scale(1.32);
   transform-origin: center;
   margin: 0 auto;
   pointer-events: none;
@@ -274,7 +266,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  width: 360px;
+  width: 100%;
+  max-width: 440px;
+  justify-self: end;
 }
 
 .alpheratz-root .header-icon-button {
@@ -314,7 +308,7 @@ body {
 .alpheratz-root .extension-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.9rem;
   padding: 0.55rem 0.9rem 0.65rem;
   border-bottom: 1px solid var(--a-border);
@@ -322,11 +316,7 @@ body {
 }
 
 .alpheratz-root .extension-toolbar-title {
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--a-text-faint);
+  display: none;
 }
 
 .alpheratz-root .extension-toolbar-actions {
@@ -1737,13 +1727,13 @@ body {
 }
 
 .alpheratz-root .right-rail {
-  width: 48px;
+  width: 56px;
   border-left: 1px solid var(--a-border);
   background: var(--a-surface);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.75rem 0;
+  padding: 0.9rem 0;
   flex-shrink: 0;
 }
 
@@ -1755,17 +1745,17 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.45rem;
 }
 
 .alpheratz-root .right-rail-group {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
-  padding: 0.25rem;
+  gap: 0.2rem;
+  padding: 0.35rem;
   background: var(--a-surface-soft);
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
 .alpheratz-root .right-rail-divider {
@@ -1776,10 +1766,10 @@ body {
 }
 
 .alpheratz-root .right-rail-button {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   color: var(--a-text-faint);
   display: flex;
@@ -1796,7 +1786,7 @@ body {
 }
 
 .alpheratz-root .right-rail-icon {
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -2131,6 +2121,28 @@ body {
   color: #f5b301;
 }
 
+.alpheratz-root .photo-group-count-badge,
+.alpheratz-root .gallery-group-count-badge {
+  position: absolute;
+  left: 0.55rem;
+  top: 0.55rem;
+  z-index: 3;
+  min-width: 44px;
+  padding: 0.22rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+}
+
+.alpheratz-root .gallery-group-count-badge {
+  top: 0.7rem;
+  left: 0.7rem;
+}
+
 .alpheratz-root .photo-favorite-corner svg {
   width: 18px;
   height: 18px;
@@ -2348,18 +2360,18 @@ body {
 .alpheratz-root .save-button {
     padding: 0.7rem 1.2rem;
     border: 1px solid var(--a-border-strong);
-    border-radius: 14px;
+    border-radius: 12px;
     background: var(--a-primary);
     color: var(--a-button-text);
     font-weight: 900;
     cursor: pointer;
-    box-shadow: 0 0 14px var(--a-glow);
+    box-shadow: none;
 }
 
 .alpheratz-root.theme-dark .save-button {
-    background: linear-gradient(135deg, #0e7490, #0891b2);
-    border-color: rgba(34, 211, 238, 0.3);
-    color: #ecfeff;
+    background: var(--a-primary);
+    border-color: rgba(0, 150, 250, 0.34);
+    color: #ffffff;
 }
 
 .alpheratz-root.theme-light .save-button {
@@ -2375,7 +2387,7 @@ body {
   background: var(--a-danger-soft);
   border-color: var(--a-danger-border);
   color: var(--a-danger);
-  box-shadow: 0 0 14px var(--a-danger-glow);
+  box-shadow: none;
 }
 
 .alpheratz-root .save-button:hover,
@@ -2385,9 +2397,9 @@ body {
 }
 
 .alpheratz-root.theme-dark .save-button:hover {
-    background: linear-gradient(135deg, #0891b2, #22d3ee);
-    border-color: rgba(34, 211, 238, 0.55);
-    box-shadow: 0 0 18px rgba(34, 211, 238, 0.24);
+    background: var(--a-accent-light);
+    border-color: rgba(0, 150, 250, 0.52);
+    box-shadow: none;
 }
 
 .alpheratz-root.theme-light .save-button:hover {
@@ -2597,6 +2609,33 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.alpheratz-root .modal-secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0.58rem 0.95rem;
+  border: 1px solid var(--a-border);
+  border-radius: 12px;
+  background: var(--a-surface-soft);
+  color: var(--a-text-dim);
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.alpheratz-root .modal-secondary-button:hover {
+  border-color: var(--a-border-strong);
+  background: var(--a-surface-hover);
+  color: var(--a-text);
+}
+
+.alpheratz-root .modal-secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .alpheratz-root .modal-back,
@@ -2724,11 +2763,11 @@ body {
     gap: 0.45rem;
     padding: 0.65rem 0.95rem;
     border: 1px solid var(--a-border-strong);
-    border-radius: 14px;
+    border-radius: 12px;
     background: var(--a-accent-soft);
     color: var(--a-primary);
     cursor: pointer;
-    box-shadow: 0 0 8px var(--a-glow);
+    box-shadow: none;
 }
 
 .alpheratz-root.theme-dark .world-link-button {
@@ -2740,7 +2779,7 @@ body {
     background: var(--a-warn-soft);
     border-color: var(--a-warn-border);
     color: var(--a-warn);
-    box-shadow: 0 0 10px var(--a-warn-glow);
+    box-shadow: none;
 }
 
 .alpheratz-root .memo-section {
@@ -2980,8 +3019,8 @@ body {
 }
 
 .alpheratz-root .modal-info.photo-modal-info {
-  width: 380px;
-  min-width: 380px;
+  width: 420px;
+  min-width: 420px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -3173,10 +3212,14 @@ body {
 
 .alpheratz-root .photo-modal-bottom-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0 -1.5rem -1.5rem;
   border-top: 1px solid var(--a-border);
   background: var(--a-surface);
+}
+
+.alpheratz-root .photo-modal-bottom-actions.photo-modal-bottom-actions-four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .alpheratz-root .photo-modal-bottom-action {
@@ -3209,6 +3252,11 @@ body {
 .alpheratz-root .photo-modal-bottom-action svg {
   width: 24px;
   height: 24px;
+}
+
+.alpheratz-root .photo-modal-bottom-action-tweet .icon-svg {
+  width: 22px;
+  height: 22px;
 }
 
 .alpheratz-root .favorite-star {
@@ -3345,40 +3393,6 @@ body {
 .alpheratz-root .favorite-star-modal svg {
   width: 26px;
   height: 26px;
-}
-
-.alpheratz-root .photo-favorite-cluster {
-  position: absolute;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 4;
-  display: flex;
-  align-items: center;
-}
-
-.alpheratz-root .photo-floating-favorite-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 58px;
-  height: 58px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.48);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-}
-
-.alpheratz-root .photo-floating-favorite-button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(251, 191, 36, 0.38);
-  background: rgba(15, 23, 42, 0.6);
-}
-
-.alpheratz-root .photo-floating-favorite-button.favorite-active {
-  border-color: rgba(251, 191, 36, 0.34);
-  background: rgba(24, 24, 32, 0.7);
 }
 
 .alpheratz-root .favorite-star-corner {
@@ -3891,6 +3905,33 @@ body {
   padding-bottom: 0.15rem;
 }
 
+.alpheratz-root .similar-photos-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.5rem;
+}
+
+.alpheratz-root .similar-photos-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--a-border);
+  border-radius: 14px;
+  background: var(--a-surface-soft);
+  color: var(--a-text-dim);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.alpheratz-root .similar-photos-toggle-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .alpheratz-root .similar-photo-thumb {
   flex: 0 0 auto;
   width: 88px;
@@ -3931,6 +3972,71 @@ body {
     var(--a-surface-soft);
   background-size: 180% 100%;
   animation: a-shimmer 1.3s ease infinite;
+}
+
+.alpheratz-root .tweet-template-panel {
+  width: min(680px, calc(100vw - 32px));
+}
+
+.alpheratz-root .tweet-template-textarea {
+  min-height: 132px;
+}
+
+.alpheratz-root .tweet-template-help {
+  font-size: 0.75rem;
+  color: var(--a-text-faint);
+  line-height: 1.6;
+}
+
+.alpheratz-root .tweet-template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.alpheratz-root .tweet-template-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.8rem;
+  border: 1px solid var(--a-border);
+  border-radius: 16px;
+  background: var(--a-surface-soft);
+}
+
+.alpheratz-root .tweet-template-item.active {
+  border-color: var(--a-border-strong);
+  background: var(--a-accent-soft);
+}
+
+.alpheratz-root .tweet-template-select {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.alpheratz-root .tweet-template-item-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--a-text-faint);
+}
+
+.alpheratz-root .tweet-template-item-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--a-text);
+  line-height: 1.6;
 }
 
 @keyframes a-phash-pulse {
@@ -4000,29 +4106,56 @@ body {
 
 @media (max-width: 720px) {
   .alpheratz-root .header {
-    padding: 0.75rem 0.85rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.65rem;
+    padding: 0.65rem 0.85rem;
     min-height: auto;
   }
 
   .alpheratz-root .header-left-tools,
-  .alpheratz-root .header-status-row,
-  .alpheratz-root .header-actions {
+  .alpheratz-root .search-bar,
+  .alpheratz-root .logo-group {
     justify-content: center;
+    justify-self: center;
   }
 
-  .alpheratz-root .header-side-panel {
-    min-width: 0;
+  .alpheratz-root .search-bar {
+    max-width: 100%;
   }
 
   .alpheratz-root .header-logo-image {
     height: 40px;
     max-width: min(60vw, 280px);
-    transform: scale(1.2);
+    transform: scale(1.12);
   }
 
   .alpheratz-root .grid-area {
     flex-direction: column;
     padding-left: 0;
+  }
+
+  .alpheratz-root .right-rail {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--a-border);
+    padding: 0.7rem 0.9rem;
+  }
+
+  .alpheratz-root .right-rail-spacer {
+    display: none;
+  }
+
+  .alpheratz-root .right-rail-controls,
+  .alpheratz-root .right-rail-group {
+    flex-direction: row;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .alpheratz-root .right-rail-divider {
+    width: 1px;
+    height: 24px;
+    margin: 0;
   }
 
   .alpheratz-root .filter-backdrop {

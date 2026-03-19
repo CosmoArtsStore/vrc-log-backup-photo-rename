@@ -23,8 +23,8 @@ export const Header = ({
         <button
           className={`header-icon-button ${isFilterOpen ? "active" : ""}`}
           onClick={() => setIsFilterOpen(!isFilterOpen)}
-          aria-label="絞り込み"
-          title="絞り込み"
+          aria-label="条件検索"
+          title="条件検索"
           type="button"
         >
           <Icons.Menu />
@@ -40,20 +40,19 @@ export const Header = ({
         </button>
       </div>
 
-      <div className="header-center">
-        <div className="logo-group" aria-label="Alpheratz">
-          <img className="header-logo-image" src="/Alpheratz-logo.png" alt="Alpheratz" />
-        </div>
-        <div className="search-bar">
-          <div className="input-group">
-            <Icons.Search />
-            <input
-              type="text"
-              placeholder="ワールド名で検索..."
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-            />
-          </div>
+      <div className="logo-group" aria-label="Alpheratz">
+        <img className="header-logo-image" src="/Alpheratz-logo.png" alt="Alpheratz" />
+      </div>
+
+      <div className="search-bar">
+        <div className="input-group">
+          <Icons.Search />
+          <input
+            type="text"
+            placeholder="ワールド名で検索..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
         </div>
       </div>
     </header>

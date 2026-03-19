@@ -23,6 +23,7 @@ interface PhotoModalProps {
   showSimilarPhotos?: boolean;
   onSelectSimilarPhoto?: (photo: Photo) => void;
   onToggleFavorite: () => void;
+  onTweet: () => void;
   onAddTag: (tag: string) => void;
   onRemoveTag: (tag: string) => void;
   addToast: (msg: string) => void;
@@ -89,11 +90,13 @@ export const PhotoModal = ({
   showSimilarPhotos = false,
   onSelectSimilarPhoto,
   onToggleFavorite,
+  onTweet,
   onAddTag,
   onRemoveTag,
   addToast,
 }: PhotoModalProps) => {
   const [selectedExistingTag, setSelectedExistingTag] = useState("");
+  const [isSimilarDrawerOpen, setIsSimilarDrawerOpen] = useState(false);
 
   const availableTags = allTags.filter((tag) => !photo.tags.includes(tag));
   const hasAvailableTags = availableTags.length > 0;
@@ -118,6 +121,7 @@ export const PhotoModal = ({
 
   useEffect(() => {
     setSelectedExistingTag("");
+    setIsSimilarDrawerOpen(false);
   }, [photo.photo_path]);
 
   return (
@@ -158,16 +162,6 @@ export const PhotoModal = ({
               </svg>
             </button>
             <img src={convertFileSrc(photo.photo_path)} alt="" />
-            <div className="photo-favorite-cluster">
-              <button
-                className={`photo-floating-favorite-button ${photo.is_favorite ? "favorite-active" : ""}`}
-                onClick={onToggleFavorite}
-                aria-label={photo.is_favorite ? "お気に入りから解除" : "お気に入りに追加"}
-                type="button"
-              >
-                <AnimatedFavoriteStar liked={photo.is_favorite} className="favorite-star-modal" />
-              </button>
-            </div>
             <div className="photo-modal-filename">{photo.photo_filename}</div>
           </div>
 
@@ -239,24 +233,52 @@ export const PhotoModal = ({
                 {isSavingMemo ? "保存中..." : "メモを保存"}
               </button>
 
-              {showSimilarPhotos && similarPhotos.length > 0 && onSelectSimilarPhoto && (
-                <div className="similar-photos-section">
-                  <label>似た写真</label>
-                  <div className="similar-photos-strip">
-                    {similarPhotos.map((item) => (
-                      <SimilarPhotoThumb
-                        key={item.photo_path}
-                        photo={item}
-                        isActive={item.photo_path === photo.photo_path}
-                        onSelect={onSelectSimilarPhoto}
-                      />
-                    ))}
-                  </div>
+              {showSimilarPhotos && similarPhotos.length > 1 && onSelectSimilarPhoto && (
+                <div className={`similar-photos-drawer ${isSimilarDrawerOpen ? "open" : ""}`}>
+                  <button
+                    className="similar-photos-toggle"
+                    onClick={() => setIsSimilarDrawerOpen((prev) => !prev)}
+                    type="button"
+                  >
+                    <span className="similar-photos-toggle-icon">{isSimilarDrawerOpen ? "⌄" : "⌃"}</span>
+                    <span>似た写真 {similarPhotos.length}枚</span>
+                  </button>
+                  {isSimilarDrawerOpen && (
+                    <div className="similar-photos-section">
+                      <div className="similar-photos-strip">
+                        {similarPhotos.map((item) => (
+                          <SimilarPhotoThumb
+                            key={item.photo_path}
+                            photo={item}
+                            isActive={item.photo_path === photo.photo_path}
+                            onSelect={onSelectSimilarPhoto}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            <div className="photo-modal-bottom-actions">
+            <div className="photo-modal-bottom-actions photo-modal-bottom-actions-four">
+              <button
+                className={`photo-modal-bottom-action photo-modal-bottom-action-favorite ${photo.is_favorite ? "favorite-active" : ""}`}
+                onClick={onToggleFavorite}
+                aria-label={photo.is_favorite ? "お気に入りから解除" : "お気に入りに追加"}
+                type="button"
+              >
+                <AnimatedFavoriteStar liked={photo.is_favorite} className="favorite-star-modal" />
+              </button>
+              <button
+                className="photo-modal-bottom-action photo-modal-bottom-action-tweet"
+                onClick={onTweet}
+                aria-label="ツイート投稿画面を開く"
+                title="ツイート投稿画面を開く"
+                type="button"
+              >
+                <Icons.Quill />
+              </button>
               <button
                 className="photo-modal-bottom-action photo-modal-bottom-action-world"
                 onClick={handleOpenWorld}

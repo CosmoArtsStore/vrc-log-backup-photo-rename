@@ -38,14 +38,26 @@ type AppSetting = {
   startupPreferenceSet?: boolean;
   themeMode?: ThemeMode;
   viewMode?: ViewMode;
+  tweetTemplates?: string[];
+  activeTweetTemplate?: string;
 };
 type BackupCandidate = {
   photo_folder_path: string;
   backup_folder_name: string;
   created_at: string;
 };
-const SIMILAR_PHOTO_MAX_DISTANCE = 12;
+// Tuned against F:\bk_photo poster samples while avoiding chain-merging unrelated neighbors.
+const SIMILAR_PHOTO_MAX_DISTANCE = 124;
 const MAX_SIMILAR_PHOTOS_IN_MODAL = 60;
+const DEFAULT_TWEET_TEMPLATE = [
+  "{world}",
+  "{date}",
+  "{tags}",
+].join("\n");
+
+const replaceTemplateToken = (template: string, token: string, value: string) => (
+  template.split(token).join(value)
+);
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -137,6 +149,42 @@ const getClosestHashDistance = (left: string[], right: string[]) => {
   return Number.isFinite(best) ? best : null;
 };
 
+const normalizeWorldName = (value?: string | null) => (value ?? "").trim().toLocaleLowerCase("ja");
+
+const canGroupByPhotoMeta = (left: Photo, right: Photo) => {
+  const leftWorld = normalizeWorldName(left.world_name);
+  const rightWorld = normalizeWorldName(right.world_name);
+
+  if (leftWorld && rightWorld && leftWorld !== rightWorld) {
+    return false;
+  }
+
+  const leftOrientation = left.orientation ?? "unknown";
+  const rightOrientation = right.orientation ?? "unknown";
+  if (leftOrientation !== "unknown" && rightOrientation !== "unknown" && leftOrientation !== rightOrientation) {
+    return false;
+  }
+
+  if ((left.source_slot ?? 1) !== (right.source_slot ?? 1)) {
+    return false;
+  }
+
+  return true;
+};
+
+const areAdjacentPhotosSimilar = (left: Photo, right: Photo) => {
+  if (!canGroupByPhotoMeta(left, right)) {
+    return false;
+  }
+
+  const distance = getClosestHashDistance(
+    getPhotoHashVariants(left),
+    getPhotoHashVariants(right),
+  );
+
+  return distance !== null && distance <= SIMILAR_PHOTO_MAX_DISTANCE;
+};
+
 const buildAdjacentSimilarPhotoGroup = (photos: Photo[], anchorPhotoPath: string) => {
   const entries = photos.map((photo) => ({
     photo,
@@ -149,8 +197,13 @@ const buildAdjacentSimilarPhotoGroup = (photos: Photo[], anchorPhotoPath: string
 
   let start = anchorIndex;
   while (start > 0) {
-    const distance = getClosestHashDistance(entries[start].hashes, entries[start - 1].hashes);
-    if (distance === null || distance > SIMILAR_PHOTO_MAX_DISTANCE) {
+    const previousPhoto = entries[start - 1].photo;
+    const currentPhoto = entries[start].photo;
+    const anchorPhoto = entries[anchorIndex].photo;
+    if (
+      !areAdjacentPhotosSimilar(previousPhoto, currentPhoto)
+      || !areAdjacentPhotosSimilar(previousPhoto, anchorPhoto)
+    ) {
       break;
     }
     start -= 1;
@@ -158,8 +211,13 @@ const buildAdjacentSimilarPhotoGroup = (photos: Photo[], anchorPhotoPath: string
 
   let end = anchorIndex;
   while (end < entries.length - 1) {
-    const distance = getClosestHashDistance(entries[end].hashes, entries[end + 1].hashes);
-    if (distance === null || distance > SIMILAR_PHOTO_MAX_DISTANCE) {
+    const currentPhoto = entries[end].photo;
+    const nextPhoto = entries[end + 1].photo;
+    const anchorPhoto = entries[anchorIndex].photo;
+    if (
+      !areAdjacentPhotosSimilar(currentPhoto, nextPhoto)
+      || !areAdjacentPhotosSimilar(nextPhoto, anchorPhoto)
+    ) {
       break;
     }
     end += 1;
@@ -168,18 +226,38 @@ const buildAdjacentSimilarPhotoGroup = (photos: Photo[], anchorPhotoPath: string
   return entries.slice(start, end + 1).map((entry) => entry.photo);
 };
 
-const buildWorldGroupedPhotos = (photos: Photo[]) => (
-  photos
-    .slice()
-    .sort((left, right) => {
-      const leftWorld = (left.world_name || "ワールド不明").toLocaleLowerCase("ja");
-      const rightWorld = (right.world_name || "ワールド不明").toLocaleLowerCase("ja");
-      if (leftWorld !== rightWorld) {
-        return leftWorld.localeCompare(rightWorld, "ja");
+const buildWorldGroupedPhotoItems = (photos: Photo[]): DisplayPhotoItem[] => {
+  const groups = new Map<string, Photo[]>();
+
+  for (const photo of photos) {
+    const key = photo.world_name?.trim() || "ワールド不明";
+    const current = groups.get(key);
+    if (current) {
+      current.push(photo);
+    } else {
+      groups.set(key, [photo]);
+    }
+  }
+
+  return Array.from(groups.entries())
+    .sort(([leftWorld, leftPhotos], [rightWorld, rightPhotos]) => {
+      const worldCompare = leftWorld.localeCompare(rightWorld, "ja");
+      if (worldCompare !== 0) {
+        return worldCompare;
       }
-      return right.timestamp.localeCompare(left.timestamp);
+      const leftTimestamp = leftPhotos[0]?.timestamp ?? "";
+      const rightTimestamp = rightPhotos[0]?.timestamp ?? "";
+      return rightTimestamp.localeCompare(leftTimestamp);
     })
-);
+    .map(([, group]) => {
+      const sortedGroup = group.slice().sort((left, right) => right.timestamp.localeCompare(left.timestamp));
+      return {
+        photo: sortedGroup[0],
+        groupCount: sortedGroup.length,
+        groupPhotos: sortedGroup,
+      };
+    });
+};
 
 const buildAdjacentSimilarPhotoGroups = (photos: Photo[]) => {
   const groups: Photo[][] = [];
@@ -193,12 +271,12 @@ const buildAdjacentSimilarPhotoGroups = (photos: Photo[]) => {
     }
 
     const previousPhoto = photos[index - 1];
-    const distance = getClosestHashDistance(
-      getPhotoHashVariants(previousPhoto),
-      getPhotoHashVariants(currentPhoto),
-    );
+    const anchorPhoto = currentGroup[0];
 
-    if (distance !== null && distance <= SIMILAR_PHOTO_MAX_DISTANCE) {
+    if (
+      areAdjacentPhotosSimilar(previousPhoto, currentPhoto)
+      && areAdjacentPhotosSimilar(anchorPhoto, currentPhoto)
+    ) {
       currentGroup.push(currentPhoto);
       continue;
     }
@@ -240,6 +318,10 @@ function App() {
   const [quickTagSelection, setQuickTagSelection] = useState("");
   const [quickTagDraft, setQuickTagDraft] = useState("");
   const [pendingQuickTagModal, setPendingQuickTagModal] = useState(false);
+  const [tweetTemplates, setTweetTemplates] = useState<string[]>([DEFAULT_TWEET_TEMPLATE]);
+  const [activeTweetTemplate, setActiveTweetTemplate] = useState(DEFAULT_TWEET_TEMPLATE);
+  const [isTweetTemplatePanelOpen, setIsTweetTemplatePanelOpen] = useState(false);
+  const [tweetTemplateDraft, setTweetTemplateDraft] = useState("");
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -290,14 +372,13 @@ function App() {
   );
   const isSimilarGroupingAvailable = !isPhashRunning && areAllPHashesReady;
 
-  const displayPhotos = useMemo(() => {
-    if (groupingMode === "world") {
-      return buildWorldGroupedPhotos(filteredPhotos);
-    }
-    return filteredPhotos;
-  }, [filteredPhotos, groupingMode]);
+  const displayPhotos = useMemo(() => filteredPhotos, [filteredPhotos]);
 
   const displayPhotoItems = useMemo<DisplayPhotoItem[]>(() => {
+    if (groupingMode === "world") {
+      return buildWorldGroupedPhotoItems(displayPhotos);
+    }
+
     if (groupingMode !== "similar") {
       return displayPhotos.map((photo) => ({ photo }));
     }
@@ -343,6 +424,17 @@ function App() {
       photo.photo_path === photoPath ? updater(photo) : photo
     )));
   };
+
+  const buildSettingPayload = (overrides: Partial<AppSetting> = {}): AppSetting => ({
+    photoFolderPath,
+    secondaryPhotoFolderPath,
+    enableStartup: startupEnabled,
+    themeMode,
+    viewMode,
+    tweetTemplates,
+    activeTweetTemplate,
+    ...overrides,
+  });
 
   const toggleFavorite = async (photoPath: string, current: boolean) => {
     const currentPhoto = photos.find((photo) => photo.photo_path === photoPath);
@@ -530,13 +622,10 @@ function App() {
     setIsApplyingFolderChange(true);
     try {
       await invoke("save_setting_cmd", {
-        setting: {
+        setting: buildSettingPayload({
           photoFolderPath: pendingFolderSlot === 1 ? newPath : photoFolderPath,
           secondaryPhotoFolderPath: pendingFolderSlot === 2 ? newPath : secondaryPhotoFolderPath,
-          enableStartup: startupEnabled,
-          themeMode,
-          viewMode,
-        },
+        }),
       });
 
       if (restoreBackup) {
@@ -605,13 +694,9 @@ function App() {
 
       if (slot === 2) {
         await invoke("save_setting_cmd", {
-          setting: {
-            photoFolderPath,
+          setting: buildSettingPayload({
             secondaryPhotoFolderPath: newPath,
-            enableStartup: startupEnabled,
-            themeMode,
-            viewMode,
-          },
+          }),
         });
         await refreshSettings();
         await loadPhotos();
@@ -643,6 +728,14 @@ function App() {
         setStartupEnabled(!!setting.enableStartup);
         setThemeMode(setting.themeMode === "dark" ? "dark" : "light");
         setViewMode(setting.viewMode === "gallery" ? "gallery" : "standard");
+        const resolvedTemplates = setting.tweetTemplates && setting.tweetTemplates.length > 0
+          ? setting.tweetTemplates
+          : [DEFAULT_TWEET_TEMPLATE];
+        const resolvedActiveTemplate = resolvedTemplates.includes(setting.activeTweetTemplate ?? "")
+          ? setting.activeTweetTemplate ?? DEFAULT_TWEET_TEMPLATE
+          : resolvedTemplates[0];
+        setTweetTemplates(resolvedTemplates);
+        setActiveTweetTemplate(resolvedActiveTemplate);
         await loadMasterTags();
       } catch (err) {
         addToast(`設定の読み込みに失敗しました: ${String(err)}`, "error");
@@ -656,13 +749,9 @@ function App() {
     const nextTheme: ThemeMode = themeMode === "dark" ? "light" : "dark";
     try {
       await invoke("save_setting_cmd", {
-        setting: {
-          photoFolderPath,
-          secondaryPhotoFolderPath,
-          enableStartup: startupEnabled,
+        setting: buildSettingPayload({
           themeMode: nextTheme,
-          viewMode,
-        },
+        }),
       });
       setThemeMode(nextTheme);
     } catch (err) {
@@ -707,17 +796,117 @@ function App() {
   const handleViewModeChange = async (nextViewMode: ViewMode) => {
     try {
       await invoke("save_setting_cmd", {
-        setting: {
-          photoFolderPath,
-          secondaryPhotoFolderPath,
-          enableStartup: startupEnabled,
-          themeMode,
+        setting: buildSettingPayload({
           viewMode: nextViewMode,
-        },
+        }),
       });
       setViewMode(nextViewMode);
     } catch (err) {
       addToast(`表示形式の更新に失敗しました: ${String(err)}`, "error");
+    }
+  };
+
+  const handleAddTweetTemplate = async () => {
+    const normalized = tweetTemplateDraft.trim();
+    if (!normalized) {
+      addToast("ツイートテンプレートを入力してください。", "error");
+      return;
+    }
+
+    if (tweetTemplates.includes(normalized)) {
+      addToast("同じテンプレートは登録済みです。", "error");
+      return;
+    }
+
+    const nextTemplates = [...tweetTemplates, normalized];
+    try {
+      await invoke("save_setting_cmd", {
+        setting: buildSettingPayload({
+          tweetTemplates: nextTemplates,
+          activeTweetTemplate: activeTweetTemplate || normalized,
+        }),
+      });
+      setTweetTemplates(nextTemplates);
+      if (!activeTweetTemplate) {
+        setActiveTweetTemplate(normalized);
+      }
+      setTweetTemplateDraft("");
+      addToast("ツイートテンプレートを登録しました。");
+    } catch (err) {
+      addToast(`ツイートテンプレートの保存に失敗しました: ${String(err)}`, "error");
+    }
+  };
+
+  const handleSelectTweetTemplate = async (template: string) => {
+    try {
+      await invoke("save_setting_cmd", {
+        setting: buildSettingPayload({
+          activeTweetTemplate: template,
+        }),
+      });
+      setActiveTweetTemplate(template);
+      addToast("投稿テンプレートを切り替えました。");
+    } catch (err) {
+      addToast(`投稿テンプレートの切替に失敗しました: ${String(err)}`, "error");
+    }
+  };
+
+  const handleDeleteTweetTemplate = async (template: string) => {
+    if (tweetTemplates.length <= 1) {
+      addToast("ツイートテンプレートは1件以上必要です。", "error");
+      return;
+    }
+
+    const nextTemplates = tweetTemplates.filter((item) => item !== template);
+    const nextActiveTemplate = activeTweetTemplate === template ? nextTemplates[0] : activeTweetTemplate;
+    try {
+      await invoke("save_setting_cmd", {
+        setting: buildSettingPayload({
+          tweetTemplates: nextTemplates,
+          activeTweetTemplate: nextActiveTemplate,
+        }),
+      });
+      setTweetTemplates(nextTemplates);
+      setActiveTweetTemplate(nextActiveTemplate);
+      addToast("ツイートテンプレートを削除しました。");
+    } catch (err) {
+      addToast(`ツイートテンプレートの削除に失敗しました: ${String(err)}`, "error");
+    }
+  };
+
+  const buildTweetText = (photo: Photo) => {
+    const world = photo.world_name?.trim() || "ワールド不明";
+    const date = photo.timestamp ? photo.timestamp.slice(0, 16).replace("T", " ") : "";
+    const memo = photo.memo?.trim() || "";
+    const tags = photo.tags.map((tag) => `#${tag.replace(/\s+/g, "")}`).join(" ");
+    const source = activeTweetTemplate || DEFAULT_TWEET_TEMPLATE;
+
+    return [
+      ["{world}", world],
+      ["{date}", date],
+      ["{file}", photo.photo_filename],
+      ["{memo}", memo],
+      ["{tags}", tags],
+    ].reduce((currentText, [token, value]) => replaceTemplateToken(currentText, token, value), source)
+      .split("\n")
+      .map((line: string) => line.trimEnd())
+      .filter((line: string, index: number, lines: string[]) => line.length > 0 || (index > 0 && index < lines.length - 1))
+      .join("\n")
+      .trim();
+  };
+
+  const handleTweetPhoto = async (photo: Photo) => {
+    const tweetText = buildTweetText(photo);
+    if (!tweetText) {
+      addToast("投稿テキストが空です。テンプレートを確認してください。", "error");
+      return;
+    }
+
+    const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+    try {
+      await invoke("open_tweet_intent_cmd", { intentUrl });
+    } catch (err) {
+      addToast(`投稿ページを開けませんでした: ${String(err)}`, "error");
     }
   };
 
@@ -959,6 +1148,15 @@ function App() {
               </button>
               <button
                 className="right-rail-button"
+                onClick={() => setIsTweetTemplatePanelOpen(true)}
+                aria-label="ツイートテンプレート"
+                title="ツイートテンプレート"
+                type="button"
+              >
+                <Icons.Quill />
+              </button>
+              <button
+                className="right-rail-button"
                 onClick={() => setShowSettings(true)}
                 aria-label="設定"
                 title="設定"
@@ -1021,8 +1219,9 @@ function App() {
                 </div>
                 <div className="folder-change-actions">
                   <button
-                    className="header-icon-button"
+                    className="modal-secondary-button"
                     onClick={() => setPendingQuickTagModal(false)}
+                    type="button"
                   >
                     キャンセル
                   </button>
@@ -1069,10 +1268,76 @@ function App() {
           showSimilarPhotos={groupingMode === "similar"}
           onSelectSimilarPhoto={setSelectedPhoto}
           onToggleFavorite={() => toggleFavorite(selectedPhotoView.photo_path, selectedPhotoView.is_favorite)}
+          onTweet={() => void handleTweetPhoto(selectedPhotoView)}
           onAddTag={(tag) => addTag(selectedPhotoView.photo_path, tag)}
           onRemoveTag={(tag) => removeTag(selectedPhotoView.photo_path, tag)}
           addToast={addToast}
         />
+      )}
+
+      {isTweetTemplatePanelOpen && (
+        <div className="modal-overlay" onClick={() => setIsTweetTemplatePanelOpen(false)}>
+          <div className="modal-content settings-panel tweet-template-panel" onClick={(event) => event.stopPropagation()}>
+            <button
+              className="modal-close"
+              onClick={() => setIsTweetTemplatePanelOpen(false)}
+              aria-label="閉じる"
+              type="button"
+            >
+              ×
+            </button>
+            <div className="modal-body" style={{ gridTemplateColumns: "1fr" }}>
+              <div className="modal-info">
+                <div className="info-header"><h2>ツイートテンプレート</h2></div>
+                <div className="memo-section">
+                  <label>新規テンプレート</label>
+                  <textarea
+                    className="tweet-template-textarea"
+                    value={tweetTemplateDraft}
+                    onChange={(event) => setTweetTemplateDraft(event.target.value)}
+                    placeholder={`例:\n{world}\n{date}\n{tags}`}
+                  />
+                  <div className="tweet-template-help">
+                    使える置換: {"{world}"} {"{date}"} {"{file}"} {"{memo}"} {"{tags}"}
+                  </div>
+                  <button className="save-button" onClick={() => void handleAddTweetTemplate()} type="button">
+                    登録
+                  </button>
+                </div>
+
+                <div className="memo-section">
+                  <label>登録済みテンプレート</label>
+                  <div className="tweet-template-list">
+                    {tweetTemplates.map((template) => (
+                      <div
+                        key={template}
+                        className={`tweet-template-item ${template === activeTweetTemplate ? "active" : ""}`}
+                      >
+                        <button
+                          className="tweet-template-select"
+                          onClick={() => void handleSelectTweetTemplate(template)}
+                          type="button"
+                        >
+                          <span className="tweet-template-item-title">
+                            {template === activeTweetTemplate ? "使用中" : "テンプレート"}
+                          </span>
+                          <span className="tweet-template-item-body">{template}</span>
+                        </button>
+                        <button
+                          className="tag-master-remove"
+                          onClick={() => void handleDeleteTweetTemplate(template)}
+                          type="button"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {showSettings && (
@@ -1110,9 +1375,10 @@ function App() {
                 </div>
                 <div className="folder-change-actions">
                   <button
-                    className="header-icon-button"
+                    className="modal-secondary-button"
                     onClick={() => setPendingFolderPath(null)}
                     disabled={isApplyingFolderChange}
+                    type="button"
                   >
                     キャンセル
                   </button>
@@ -1150,9 +1416,10 @@ function App() {
                 </div>
                 <div className="folder-change-actions">
                   <button
-                    className="header-icon-button"
+                    className="modal-secondary-button"
                     onClick={() => void finalizeFolderSelection(pendingRestoreCandidate.photo_folder_path, false)}
                     disabled={isApplyingFolderChange}
+                    type="button"
                   >
                     使わない
                   </button>
