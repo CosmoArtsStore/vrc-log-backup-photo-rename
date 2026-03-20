@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alpheratz — ボタン・インタラクション 決定版 (案B)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', 'Noto Sans JP', sans-serif;
+  background: #07090f;
+  color: #c9d1d9;
+  line-height: 1.7;
+  padding: 56px 24px 96px;
+}
+.container { max-width: 1020px; margin: 0 auto; }
+
+.doc-title { font-size: 30px; font-weight: 600; letter-spacing: -0.03em; color: #e8f4f8; margin-bottom: 6px; }
+.doc-sub   { font-size: 14px; color: #2a3a50; margin-bottom: 56px; font-style: italic; }
+h2  { font-size: 18px; font-weight: 600; color: #c8dce8; margin-bottom: 18px; letter-spacing: -0.01em; }
+h3  { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #2a3a50; margin-bottom: 12px; }
+
+.section { margin-bottom: 80px; }
+hr { border: none; border-top: 1px solid rgba(34,211,238,0.06); margin: 64px 0; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(34,211,238,0.08);
+  border: 1px solid rgba(34,211,238,0.18);
+  color: #22d3ee; font-size: 11px; font-weight: 700;
+  padding: 3px 12px; border-radius: 99px;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.two-col   { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+.panel {
+  background: #0c1018;
+  border: 1px solid rgba(34,211,238,0.08);
+  border-radius: 16px; padding: 28px;
+  margin-bottom: 20px;
+}
+
+.mode-pill {
+  font-size: 11px; font-weight: 700; padding: 3px 12px; border-radius: 99px;
+  letter-spacing: 0.06em; text-transform: uppercase; display: inline-block;
+  margin-bottom: 14px;
+}
+.pill-dark  { background: rgba(255,255,255,0.06); color: #6a7a90; border: 1px solid rgba(255,255,255,0.08); }
+.pill-light { background: rgba(14,116,144,0.12);  color: #0e9ab8; border: 1px solid rgba(14,116,144,0.25); }
+
+/* ══ ボタン ── Dark ══ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 16px; border-radius: 8px; border: 1px solid;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: 'DM Sans', 'Noto Sans JP', sans-serif;
+  white-space: nowrap; width: 100%;
+}
+
+/* ── Dark: お気に入り OFF ── */
+.dk .btn-fav-off  { background:#141926; border-color:rgba(255,255,255,0.08); color:#4a5a70; }
+.dk .btn-fav-off:hover { background:rgba(251,191,36,0.12); border-color:rgba(251,191,36,0.30); color:#fbbf24; box-shadow:0 0 12px rgba(251,191,36,0.18); }
+/* ── Dark: お気に入り ON ── */
+.dk .btn-fav-on   { background:rgba(251,191,36,0.12); border-color:rgba(251,191,36,0.30); color:#fbbf24; box-shadow:0 0 10px rgba(251,191,36,0.16); }
+.dk .btn-fav-on:hover { background:rgba(248,113,113,0.12); border-color:rgba(248,113,113,0.30); color:#f87171; box-shadow:0 0 12px rgba(248,113,113,0.18); }
+/* ── Dark: ワールドページ ── */
+.dk .btn-world    { background:rgba(34,211,238,0.10); border-color:rgba(34,211,238,0.25); color:#22d3ee; box-shadow:0 0 8px rgba(34,211,238,0.16); }
+.dk .btn-world:hover { background:rgba(34,211,238,0.18); border-color:rgba(34,211,238,0.45); color:#67e8f9; box-shadow:0 0 18px rgba(34,211,238,0.26); }
+/* ── Dark: エクスプローラー ── */
+.dk .btn-secondary { background:transparent; border-color:rgba(255,255,255,0.07); color:#2a3a50; }
+.dk .btn-secondary:hover { background:#141926; border-color:rgba(255,255,255,0.14); color:#7a8db0; }
+/* ── Dark: タグ追加 ── */
+.dk .btn-action   { background:rgba(34,211,238,0.10); border-color:rgba(34,211,238,0.22); color:#22d3ee; padding:9px 14px; }
+.dk .btn-action:hover { background:rgba(34,211,238,0.18); border-color:rgba(34,211,238,0.40); color:#67e8f9; box-shadow:0 0 12px rgba(34,211,238,0.18); }
+/* ── Dark: Primary ── */
+.dk .btn-primary  { background:linear-gradient(135deg,#0e7490,#0891b2); border-color:rgba(34,211,238,0.30); color:#ecfeff; }
+.dk .btn-primary:hover { background:linear-gradient(135deg,#0891b2,#22d3ee); border-color:rgba(34,211,238,0.55); box-shadow:0 0 18px rgba(34,211,238,0.24); color:#fff; }
+/* ── Dark: Danger ── */
+.dk .btn-danger   { background:rgba(248,113,113,0.10); border-color:rgba(248,113,113,0.24); color:#f87171; }
+.dk .btn-danger:hover { background:rgba(248,113,113,0.20); border-color:rgba(248,113,113,0.48); color:#fca5a5; box-shadow:0 0 14px rgba(248,113,113,0.20); }
+/* ── Dark: Ghost ── */
+.dk .btn-ghost    { background:transparent; border-color:rgba(34,211,238,0.12); color:#2a3a50; }
+.dk .btn-ghost:hover { background:rgba(34,211,238,0.04); border-color:rgba(34,211,238,0.22); color:#4a5a70; }
+
+/* ══ ボタン ── Light ══ */
+.lt .btn-fav-off   { background:#eaf2f8; border-color:rgba(14,116,144,0.14); color:#9ab0bc; }
+.lt .btn-fav-off:hover { background:rgba(217,119,6,0.08); border-color:rgba(217,119,6,0.28); color:#d97706; }
+.lt .btn-fav-on    { background:rgba(217,119,6,0.10); border-color:rgba(217,119,6,0.30); color:#d97706; }
+.lt .btn-fav-on:hover { background:rgba(220,38,38,0.08); border-color:rgba(220,38,38,0.28); color:#dc2626; }
+.lt .btn-world     { background:rgba(14,116,144,0.10); border-color:rgba(14,116,144,0.28); color:#0e7490; }
+.lt .btn-world:hover { background:rgba(14,116,144,0.18); border-color:rgba(14,116,144,0.48); color:#0891b2; }
+.lt .btn-secondary  { background:transparent; border-color:rgba(14,116,144,0.14); color:#9ab0bc; }
+.lt .btn-secondary:hover { background:#eaf2f8; border-color:rgba(14,116,144,0.25); color:#4a6878; }
+.lt .btn-action    { background:rgba(14,116,144,0.10); border-color:rgba(14,116,144,0.25); color:#0e7490; padding:9px 14px; }
+.lt .btn-action:hover { background:rgba(14,116,144,0.20); border-color:rgba(14,116,144,0.45); color:#0891b2; }
+.lt .btn-primary   { background:#0e7490; border-color:rgba(14,116,144,0.40); color:#ffffff; }
+.lt .btn-primary:hover { background:#0891b2; border-color:rgba(14,116,144,0.60); box-shadow:0 0 14px rgba(14,116,144,0.20); color:#fff; }
+.lt .btn-danger    { background:rgba(220,38,38,0.08); border-color:rgba(220,38,38,0.22); color:#dc2626; }
+.lt .btn-danger:hover { background:rgba(220,38,38,0.16); border-color:rgba(220,38,38,0.45); color:#b91c1c; }
+.lt .btn-ghost     { background:transparent; border-color:rgba(14,116,144,0.14); color:#9ab0bc; }
+.lt .btn-ghost:hover { background:rgba(14,116,144,0.06); border-color:rgba(14,116,144,0.25); color:#6a8898; }
+
+/* ── モーダルシェル ── */
+.modal-shell { border-radius: 12px; overflow: hidden; }
+.dk.modal-shell { background:#0e121c; border:1px solid rgba(34,211,238,0.10); }
+.lt.modal-shell { background:#ffffff; border:1px solid rgba(14,116,144,0.14); box-shadow:0 4px 28px rgba(14,116,144,0.10); }
+
+.modal-inner { padding: 20px; }
+.modal-title-dk { font-size:15px; font-weight:600; color:#c8dce8; margin-bottom:4px; }
+.modal-title-lt { font-size:15px; font-weight:600; color:#0a2535; margin-bottom:4px; }
+.modal-meta-dk  { font-size:10px; color:#2a3a50; margin-bottom:2px; word-break:break-all; }
+.modal-meta-lt  { font-size:10px; color:#9ab0bc; margin-bottom:2px; word-break:break-all; }
+.modal-tag-dk   { font-size:10px; color:#22d3ee; background:rgba(34,211,238,0.08); padding:2px 7px; border-radius:4px; display:inline-block; margin-bottom:14px; }
+.modal-tag-lt   { font-size:10px; color:#0e7490; background:rgba(14,116,144,0.08); padding:2px 7px; border-radius:4px; display:inline-block; margin-bottom:14px; }
+
+.modal-btn-col { display:flex; flex-direction:column; gap:8px; }
+.sec-label-dk  { font-size:10px; color:#2a3a50; text-transform:uppercase; letter-spacing:.07em; font-weight:700; margin:14px 0 8px; }
+.sec-label-lt  { font-size:10px; color:#9ab0bc; text-transform:uppercase; letter-spacing:.07em; font-weight:700; margin:14px 0 8px; }
+
+.tag-row { display:flex; gap:8px; }
+
+.input-dk {
+  flex:1; padding:8px 10px;
+  background:#141926; border:1px solid rgba(34,211,238,0.12);
+  border-radius:6px; color:#8a9ab8; font-size:12px; font-family:inherit;
+  outline:none;
+}
+.input-dk:focus { border-color:rgba(34,211,238,0.30); box-shadow:0 0 0 3px rgba(34,211,238,0.07); }
+
+.input-lt {
+  flex:1; padding:8px 10px;
+  background:#eaf2f8; border:1px solid rgba(14,116,144,0.18);
+  border-radius:6px; color:#2a4a5a; font-size:12px; font-family:inherit;
+  outline:none;
+}
+.input-lt:focus { border-color:rgba(14,116,144,0.38); box-shadow:0 0 0 3px rgba(14,116,144,0.08); }
+
+.textarea-dk {
+  width:100%; padding:8px 10px; min-height:64px;
+  background:#141926; border:1px solid rgba(34,211,238,0.12);
+  border-radius:6px; color:#8a9ab8; font-size:12px; font-family:inherit;
+  resize:vertical; outline:none;
+}
+.textarea-dk:focus { border-color:rgba(34,211,238,0.30); box-shadow:0 0 0 3px rgba(34,211,238,0.07); }
+
+.textarea-lt {
+  width:100%; padding:8px 10px; min-height:64px;
+  background:#eaf2f8; border:1px solid rgba(14,116,144,0.18);
+  border-radius:6px; color:#2a4a5a; font-size:12px; font-family:inherit;
+  resize:vertical; outline:none;
+}
+.textarea-lt:focus { border-color:rgba(14,116,144,0.38); box-shadow:0 0 0 3px rgba(14,116,144,0.08); }
+
+/* ── フィルターパネル ── */
+.filter-wrap { border-radius:12px; overflow:hidden; }
+.dk.filter-wrap { background:#0e121c; border:1px solid rgba(34,211,238,0.08); }
+.lt.filter-wrap { background:#ffffff; border:1px solid rgba(14,116,144,0.12); box-shadow:0 2px 16px rgba(14,116,144,0.06); }
+
+.filter-body { padding:18px; }
+.filter-title-dk { font-size:14px; font-weight:600; color:#c8dce8; margin-bottom:16px; }
+.filter-title-lt { font-size:14px; font-weight:600; color:#0a2535; margin-bottom:16px; }
+
+.badge-count-dk { font-size:11px; color:#22d3ee; background:rgba(34,211,238,0.10); padding:1px 8px; border-radius:99px; margin-left:6px; }
+.badge-count-lt { font-size:11px; color:#0e7490; background:rgba(14,116,144,0.10); padding:1px 8px; border-radius:99px; margin-left:6px; }
+
+/* チェックボックス */
+.cb { width:17px; height:17px; border-radius:5px; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all 0.12s; }
+.cb-dk-off  { background:#141926; border:1px solid rgba(255,255,255,0.12); }
+.cb-dk-on   { background:rgba(34,211,238,0.12); border:1px solid rgba(34,211,238,0.30); box-shadow:0 0 7px rgba(34,211,238,0.14); }
+.cb-dk-on::after { content:'✓'; color:#22d3ee; font-size:10px; font-weight:700; }
+.cb-dk-amber { background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.32); box-shadow:0 0 7px rgba(251,191,36,0.12); }
+.cb-dk-amber::after { content:'✓'; color:#fbbf24; font-size:10px; font-weight:700; }
+
+.cb-lt-off  { background:#eaf2f8; border:1px solid rgba(14,116,144,0.18); }
+.cb-lt-on   { background:rgba(14,116,144,0.12); border:1px solid rgba(14,116,144,0.35); }
+.cb-lt-on::after { content:'✓'; color:#0e7490; font-size:10px; font-weight:700; }
+.cb-lt-amber { background:rgba(217,119,6,0.10); border:1px solid rgba(217,119,6,0.32); }
+.cb-lt-amber::after { content:'✓'; color:#d97706; font-size:10px; font-weight:700; }
+
+/* 行ハイライト */
+.filter-row { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:7px; border:1px solid transparent; cursor:pointer; margin-bottom:3px; transition:all 0.12s; }
+.filter-row .fl-name { font-size:12px; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.filter-row .fl-count { font-size:10px; flex-shrink:0; }
+
+.dk .fr-off  { }
+.dk .fr-off:hover { background:rgba(255,255,255,0.03); }
+.dk .fr-on   { background:rgba(34,211,238,0.06); border-color:rgba(34,211,238,0.15); }
+.dk .fr-on .fl-name  { color:#c8dce8; }
+.dk .fr-on .fl-count { color:#22d3ee; }
+.dk .fr-off .fl-name  { color:#4a5a70; }
+.dk .fr-off .fl-count { color:#2a3a50; }
+
+.lt .fr-off  { }
+.lt .fr-off:hover { background:rgba(14,116,144,0.04); }
+.lt .fr-on   { background:rgba(14,116,144,0.07); border-color:rgba(14,116,144,0.18); }
+.lt .fr-on .fl-name  { color:#0a2535; }
+.lt .fr-on .fl-count { color:#0e7490; }
+.lt .fr-off .fl-name  { color:#6a8898; }
+.lt .fr-off .fl-count { color:#9ab0bc; }
+
+/* お気に入りフィルター行 */
+.fav-row { display:flex; align-items:center; gap:8px; padding:8px 8px; border-radius:8px; border:1px solid; cursor:pointer; transition:all 0.12s; }
+.dk .fav-row-off  { background:transparent; border-color:transparent; }
+.dk .fav-row-on   { background:rgba(251,191,36,0.08); border-color:rgba(251,191,36,0.22); }
+.dk .fav-row-on .fav-star { color:#fbbf24; }
+.dk .fav-row-on .fav-text { color:#fde68a; font-size:13px; }
+.dk .fav-row-off .fav-star { color:#2a3a50; font-size:14px; }
+.dk .fav-row-off .fav-text { color:#2a3a50; font-size:13px; }
+.lt .fav-row-off  { background:transparent; border-color:transparent; }
+.lt .fav-row-on   { background:rgba(217,119,6,0.07); border-color:rgba(217,119,6,0.20); }
+.lt .fav-row-on .fav-star { color:#d97706; }
+.lt .fav-row-on .fav-text { color:#9a5c08; font-size:13px; }
+.lt .fav-row-off .fav-star { color:#9ab0bc; font-size:14px; }
+.lt .fav-row-off .fav-text { color:#9ab0bc; font-size:13px; }
+
+/* 向きセレクター */
+.orient-group { display:flex; gap:5px; }
+.orient-btn   { flex:1; padding:7px 4px; border-radius:7px; border:1px solid; font-size:11px; cursor:pointer; text-align:center; transition:all 0.12s; font-family:inherit; }
+.dk .orient-off { background:#141926; border-color:rgba(255,255,255,0.07); color:#2a3a50; }
+.dk .orient-off:hover { border-color:rgba(255,255,255,0.14); color:#4a5a70; }
+.dk .orient-on  { background:rgba(34,211,238,0.08); border-color:rgba(34,211,238,0.28); color:#22d3ee; box-shadow:0 0 8px rgba(34,211,238,0.10); }
+.lt .orient-off { background:#eaf2f8; border-color:rgba(14,116,144,0.14); color:#9ab0bc; }
+.lt .orient-off:hover { border-color:rgba(14,116,144,0.25); color:#6a8898; }
+.lt .orient-on  { background:rgba(14,116,144,0.10); border-color:rgba(14,116,144,0.32); color:#0e7490; }
+
+/* トグル */
+.toggle-wrap { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+.tgl-label-dk { font-size:12px; color:#8a9ab8; }
+.tgl-label-lt { font-size:12px; color:#2a4a5a; }
+.tgl { position:relative; width:40px; height:22px; border-radius:11px; cursor:pointer; flex-shrink:0; border:1px solid; transition:all 0.18s; }
+.tgl::after { content:''; position:absolute; top:3px; width:14px; height:14px; border-radius:50%; transition:all 0.18s; }
+.dk .tgl-off { background:#1a2133; border-color:rgba(255,255,255,0.08); }
+.dk .tgl-off::after { left:3px; background:#2a3a50; }
+.dk .tgl-on  { background:rgba(34,211,238,0.14); border-color:rgba(34,211,238,0.38); box-shadow:0 0 9px rgba(34,211,238,0.14); }
+.dk .tgl-on::after { left:21px; background:#22d3ee; box-shadow:0 0 5px rgba(34,211,238,0.50); }
+.lt .tgl-off { background:#ddeef8; border-color:rgba(14,116,144,0.14); }
+.lt .tgl-off::after { left:3px; background:#9ab0bc; }
+.lt .tgl-on  { background:rgba(14,116,144,0.14); border-color:rgba(14,116,144,0.40); }
+.lt .tgl-on::after { left:21px; background:#0e7490; }
+
+/* スキャンモーダル */
+.scan-modal { border-radius:12px; padding:24px 20px; text-align:center; }
+.dk.scan-modal { background:#0e121c; border:1px solid rgba(34,211,238,0.08); }
+.lt.scan-modal { background:#ffffff; border:1px solid rgba(14,116,144,0.14); box-shadow:0 4px 20px rgba(14,116,144,0.08); }
+
+/* ステートテーブル */
+.st { width:100%; border-collapse:collapse; font-size:12px; margin-top:14px; }
+.st th { text-align:left; padding:8px 12px; border-bottom:1px solid rgba(34,211,238,0.07); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#2a3a50; }
+.st td { padding:9px 12px; border-bottom:1px solid rgba(255,255,255,0.03); vertical-align:middle; }
+.st tr:last-child td { border-bottom:none; }
+
+code { background:rgba(34,211,238,0.07); color:#67e8f9; padding:1px 6px; border-radius:4px; font-family:'DM Mono',monospace; font-size:10.5px; }
+code.lm { background:rgba(14,116,144,0.10); color:#0e9ab8; }
+
+/* コードブロック */
+.code {
+  background:#050709; border:1px solid rgba(34,211,238,0.07);
+  color:#8a9ab8; border-radius:10px;
+  padding:22px 24px; font-family:'DM Mono','Courier New',monospace;
+  font-size:11.5px; line-height:1.95; overflow-x:auto; margin-top:16px;
+}
+.c-cm { color:#1e2e40; }
+.c-v  { color:#67e8f9; }
+.c-n  { color:#86efac; }
+.c-p  { color:#a5b4fc; }
+
+@media (max-width:700px) { .two-col,.three-col { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="section">
+    <p class="doc-title">Alpheratz — ボタン・インタラクション <span style="color:#22d3ee;">決定版</span></p>
+    <p class="doc-sub">案B ミッドナイト・シアン ／ Dark + Light 全ステート定義 ／ 2026-03-16</p>
+  </div>
+
+  <!-- ───────── 写真モーダル ───────── -->
+  <div class="section">
+    <div class="badge">Photo Modal</div>
+    <h2>写真モーダル — ボタン全ステート</h2>
+
+    <!-- 未登録 -->
+    <h3 style="margin-bottom:16px;">未登録状態（デフォルト）</h3>
+    <div class="two-col" style="margin-bottom:32px;">
+      <div>
+        <span class="mode-pill pill-dark">🌑 Dark</span>
+        <div class="dk modal-shell">
+          <div class="modal-inner">
+            <div class="modal-title-dk">Dream²/夢² ✏</div>
+            <div class="modal-meta-dk">2026-02-23 23:24:26</div>
+            <div class="modal-meta-dk" style="font-size:9px;">World ID: wrld_6b0f8171-e617-4e9a-8c4f-931d...</div>
+            <span class="modal-tag-dk">portrait</span>
+            <div class="modal-btn-col dk">
+              <button class="btn btn-fav-off">☆ お気に入り追加</button>
+              <button class="btn btn-world">🌐 VRChatワールドページを開く ↗</button>
+              <button class="btn btn-secondary">📁 エクスプローラーで表示</button>
+            </div>
+            <div class="sec-label-dk">タグ</div>
+            <div class="tag-row dk">
+              <input class="input-dk" placeholder="タグを追加">
+              <button class="btn btn-action" style="width:auto; padding:8px 14px;">追加</button>
+            </div>
+            <div class="sec-label-dk">メモ</div>
+            <textarea class="textarea-dk" placeholder="メモを入力..."></textarea>
+            <div style="margin-top:8px;" class="dk">
+              <button class="btn btn-primary">メモを保存</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="mode-pill pill-light">☀️ Light</span>
+        <div class="lt modal-shell">
+          <div class="modal-inner">
+            <div class="modal-title-lt">Dream²/夢² ✏</div>
+            <div class="modal-meta-lt">2026-02-23 23:24:26</div>
+            <div class="modal-meta-lt" style="font-size:9px;">World ID: wrld_6b0f8171-e617-4e9a-8c4f-931d...</div>
+            <span class="modal-tag-lt">portrait</span>
+            <div class="modal-btn-col lt">
+              <button class="btn btn-fav-off">☆ お気に入り追加</button>
+              <button class="btn btn-world">🌐 VRChatワールドページを開く ↗</button>
+              <button class="btn btn-secondary">📁 エクスプローラーで表示</button>
+            </div>
+            <div class="sec-label-lt">タグ</div>
+            <div class="tag-row lt">
+              <input class="input-lt" placeholder="タグを追加">
+              <button class="btn btn-action lt" style="width:auto; padding:8px 14px;">追加</button>
+            </div>
+            <div class="sec-label-lt">メモ</div>
+            <textarea class="textarea-lt" placeholder="メモを入力..."></textarea>
+            <div style="margin-top:8px;" class="lt">
+              <button class="btn btn-primary">メモを保存</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- お気に入り登録済 -->
+    <h3 style="margin-bottom:16px;">お気に入り登録済（Selectedステート）</h3>
+    <div class="two-col" style="margin-bottom:24px;">
+      <div>
+        <span class="mode-pill pill-dark">🌑 Dark</span>
+        <div class="dk modal-shell">
+          <div class="modal-inner">
+            <div class="modal-title-dk">Dream²/夢² ✏</div>
+            <div class="modal-meta-dk">2026-02-23 23:24:26</div>
+            <span class="modal-tag-dk">portrait</span>
+            <div class="modal-btn-col dk">
+              <button class="btn btn-fav-on">★ お気に入り解除</button>
+              <button class="btn btn-world">🌐 VRChatワールドページを開く ↗</button>
+              <button class="btn btn-secondary">📁 エクスプローラーで表示</button>
+            </div>
+            <div class="sec-label-dk">タグ</div>
+            <div class="tag-row dk">
+              <input class="input-dk" value="夢" style="color:#8a9ab8;">
+              <button class="btn btn-action" style="width:auto; padding:8px 14px;">追加</button>
+            </div>
+            <div class="sec-label-dk">メモ</div>
+            <textarea class="textarea-dk" placeholder="メモを入力..."></textarea>
+            <div style="margin-top:8px;" class="dk">
+              <button class="btn btn-primary">メモを保存</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="mode-pill pill-light">☀️ Light</span>
+        <div class="lt modal-shell">
+          <div class="modal-inner">
+            <div class="modal-title-lt">Dream²/夢² ✏</div>
+            <div class="modal-meta-lt">2026-02-23 23:24:26</div>
+            <span class="modal-tag-lt">portrait</span>
+            <div class="modal-btn-col lt">
+              <button class="btn btn-fav-on">★ お気に入り解除</button>
+              <button class="btn btn-world">🌐 VRChatワールドページを開く ↗</button>
+              <button class="btn btn-secondary">📁 エクスプローラーで表示</button>
+            </div>
+            <div class="sec-label-lt">タグ</div>
+            <div class="tag-row lt">
+              <input class="input-lt" value="夢" style="color:#2a4a5a;">
+              <button class="btn btn-action lt" style="width:auto; padding:8px 14px;">追加</button>
+            </div>
+            <div class="sec-label-lt">メモ</div>
+            <textarea class="textarea-lt" placeholder="メモを入力..."></textarea>
+            <div style="margin-top:8px;" class="lt">
+              <button class="btn btn-primary">メモを保存</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ステート一覧テーブル -->
+    <div class="panel">
+      <h3>お気に入りボタン 4ステート詳細</h3>
+      <table class="st">
+        <thead><tr><th>ステート</th><th>Dark</th><th>Light</th><th>意図</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:#c8dce8; font-weight:600;">① Default (未登録)</td>
+            <td><code>surface-2 bg / dim border</code><br><span style="color:#2a3a50;font-size:11px;">文字: muted</span></td>
+            <td><code class="lm">surface-2 bg / dim border</code><br><span style="color:#2a3a50;font-size:11px;">文字: dim</span></td>
+            <td style="font-size:11px; color:#2a3a50;">存在は示すが主張しない</td>
+          </tr>
+          <tr>
+            <td style="color:#fbbf24; font-weight:600;">② Hover (未登録→登録予告)</td>
+            <td><code>amber-dim / amber-border</code><br><span style="color:#fbbf24;font-size:11px;">glow 12px</span></td>
+            <td><code class="lm">amber-dim / amber-border</code><br><span style="color:#d97706;font-size:11px;">shadow なし</span></td>
+            <td style="font-size:11px; color:#2a3a50;">アンバーで「お気に入りになる」を暗示</td>
+          </tr>
+          <tr>
+            <td style="color:#fbbf24; font-weight:600;">③ Selected (登録済)</td>
+            <td><code>amber-dim / amber-border</code><br><span style="color:#fbbf24;font-size:11px;">★テキスト変化 / glow 10px</span></td>
+            <td><code class="lm">amber-dim / amber-border</code><br><span style="color:#d97706;font-size:11px;">★テキスト変化</span></td>
+            <td style="font-size:11px; color:#2a3a50;">アンバーで登録済状態を明示</td>
+          </tr>
+          <tr>
+            <td style="color:#f87171; font-weight:600;">④ Selected + Hover (解除予告)</td>
+            <td><code>red-dim / red-border</code><br><span style="color:#f87171;font-size:11px;">glow 12px</span></td>
+            <td><code class="lm">red-dim / red-border</code><br><span style="color:#dc2626;font-size:11px;">文字: red</span></td>
+            <td style="font-size:11px; color:#2a3a50;">赤で「解除する」操作を危険として暗示</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ───────── 条件検索 ───────── -->
+  <div class="section">
+    <div class="badge">Filter Panel</div>
+    <h2>条件検索パネル — Dark / Light</h2>
+    <div class="two-col">
+      <!-- Dark filter -->
+      <div>
+        <span class="mode-pill pill-dark">🌑 Dark</span>
+        <div class="dk filter-wrap">
+          <div class="filter-body">
+            <div class="filter-title-dk">条件検索 <span class="badge-count-dk">2</span></div>
+            <h3>ワールド</h3>
+            <div class="dk">
+              <div class="filter-row fr-on"><div class="cb cb-dk-on"></div><span class="fl-name">•星들의 자리•</span><span class="fl-count">186枚</span></div>
+              <div class="filter-row fr-off"><div class="cb cb-dk-off"></div><span class="fl-name">Birthday Celebration</span><span class="fl-count">72枚</span></div>
+              <div class="filter-row fr-on"><div class="cb cb-dk-on"></div><span class="fl-name">Avatar Testing Chamber</span><span class="fl-count">936枚</span></div>
+              <div class="filter-row fr-off"><div class="cb cb-dk-off"></div><span class="fl-name">Brooklyn nights</span><span class="fl-count">188枚</span></div>
+              <div class="filter-row fr-off"><div class="cb cb-dk-off"></div><span class="fl-name">Cat Cafe</span><span class="fl-count">72枚</span></div>
+            </div>
+            <div style="margin-top:14px;">
+              <h3>向き</h3>
+              <div class="orient-group dk">
+                <button class="orient-btn orient-on">⊞ すべて</button>
+                <button class="orient-btn orient-off">⬜ 横長</button>
+                <button class="orient-btn orient-off">▭ 縦長</button>
+              </div>
+            </div>
+            <div style="margin-top:14px;">
+              <h3>絞り込み</h3>
+              <div class="fav-row fav-row-on dk"><span class="fav-star">★</span><span class="fav-text">お気に入りのみ</span><div class="cb cb-dk-amber" style="margin-left:auto;"></div></div>
+            </div>
+            <div style="margin-top:14px; font-size:12px; color:#2a3a50;">7244枚 <span style="color:#22d3ee;">認当</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Light filter -->
+      <div>
+        <span class="mode-pill pill-light">☀️ Light</span>
+        <div class="lt filter-wrap">
+          <div class="filter-body">
+            <div class="filter-title-lt">条件検索 <span class="badge-count-lt">2</span></div>
+            <h3 style="color:#9ab0bc;">ワールド</h3>
+            <div class="lt">
+              <div class="filter-row fr-on"><div class="cb cb-lt-on"></div><span class="fl-name">•星들의 자리•</span><span class="fl-count">186枚</span></div>
+              <div class="filter-row fr-off"><div class="cb cb-lt-off"></div><span class="fl-name">Birthday Celebration</span><span class="fl-count">72枚</span></div>
+              <div class="filter-row fr-on"><div class="cb cb-lt-on"></div><span class="fl-name">Avatar Testing Chamber</span><span class="fl-count">936枚</span></div>
+              <div class="filter-row fr-off"><div class="cb cb-lt-off"></div><span class="fl-name">Brooklyn nights</span><span class="fl-count">188枚</span></div>
+              <div class="filter-row fr-off"><div class="cb cb-lt-off"></div><span class="fl-name">Cat Cafe</span><span class="fl-count">72枚</span></div>
+            </div>
+            <div style="margin-top:14px;">
+              <h3 style="color:#9ab0bc;">向き</h3>
+              <div class="orient-group lt">
+                <button class="orient-btn orient-on">⊞ すべて</button>
+                <button class="orient-btn orient-off">⬜ 横長</button>
+                <button class="orient-btn orient-off">▭ 縦長</button>
+              </div>
+            </div>
+            <div style="margin-top:14px;">
+              <h3 style="color:#9ab0bc;">絞り込み</h3>
+              <div class="fav-row fav-row-on lt"><span class="fav-star">★</span><span class="fav-text">お気に入りのみ</span><div class="cb cb-lt-amber" style="margin-left:auto;"></div></div>
+            </div>
+            <div style="margin-top:14px; font-size:12px; color:#9ab0bc;">7244枚 <span style="color:#0e7490;">認当</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ───────── トグル & スキャン ───────── -->
+  <div class="section">
+    <div class="badge">Toggle / Scan</div>
+    <h2>トグルスイッチ & スキャンモーダル</h2>
+
+    <div class="two-col" style="margin-bottom:32px;">
+      <!-- Dark toggle -->
+      <div>
+        <span class="mode-pill pill-dark">🌑 Dark</span>
+        <div class="panel" style="padding:20px;">
+          <div class="toggle-wrap dk">
+            <div class="tgl tgl-off"></div>
+            <span class="tgl-label-dk">Windowsログイン時に自動起動 — OFF</span>
+          </div>
+          <div class="toggle-wrap dk">
+            <div class="tgl tgl-on"></div>
+            <span class="tgl-label-dk">Windowsログイン時に自動起動 — ON</span>
+          </div>
+          <div class="toggle-wrap dk" style="margin-top:8px;">
+            <div class="tgl tgl-off"></div>
+            <span class="tgl-label-dk">表示テーマ切替 — OFF</span>
+          </div>
+          <div class="toggle-wrap dk">
+            <div class="tgl tgl-on"></div>
+            <span class="tgl-label-dk">表示テーマ切替 — ON</span>
+          </div>
+        </div>
+      </div>
+      <!-- Light toggle -->
+      <div>
+        <span class="mode-pill pill-light">☀️ Light</span>
+        <div class="panel" style="padding:20px; background:#f0f5f8; border-color:rgba(14,116,144,0.12);">
+          <div class="toggle-wrap lt">
+            <div class="tgl tgl-off"></div>
+            <span class="tgl-label-lt">Windowsログイン時に自動起動 — OFF</span>
+          </div>
+          <div class="toggle-wrap lt">
+            <div class="tgl tgl-on"></div>
+            <span class="tgl-label-lt">Windowsログイン時に自動起動 — ON</span>
+          </div>
+          <div class="toggle-wrap lt" style="margin-top:8px;">
+            <div class="tgl tgl-off"></div>
+            <span class="tgl-label-lt">表示テーマ切替 — OFF</span>
+          </div>
+          <div class="toggle-wrap lt">
+            <div class="tgl tgl-on"></div>
+            <span class="tgl-label-lt">表示テーマ切替 — ON</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- スキャンモーダル -->
+    <div class="two-col">
+      <div>
+        <span class="mode-pill pill-dark">🌑 Dark</span>
+        <div class="dk scan-modal">
+          <div style="font-size:28px; margin-bottom:10px; opacity:.6;">↻</div>
+          <div style="font-size:15px; font-weight:600; color:#c8dce8; margin-bottom:6px;">スキャン中...</div>
+          <div style="font-size:12px; color:#4a5a70; margin-bottom:14px;">一覧表示に必要な情報を取り込んでいます</div>
+          <div style="height:4px; background:#141926; border-radius:2px; margin-bottom:10px; overflow:hidden;"><div style="height:100%; width:35%; background:linear-gradient(90deg,#0e7490,#22d3ee); border-radius:2px;"></div></div>
+          <div style="font-size:12px; color:#4a5a70; margin-bottom:16px;">1 / 72 — Unknown world</div>
+          <div class="dk"><button class="btn btn-danger" style="width:auto; padding:9px 24px; margin:0 auto;">スキャンを中断</button></div>
+        </div>
+      </div>
+      <div>
+        <span class="mode-pill pill-light">☀️ Light</span>
+        <div class="lt scan-modal">
+          <div style="font-size:28px; margin-bottom:10px; color:#9ab0bc;">↻</div>
+          <div style="font-size:15px; font-weight:600; color:#0a2535; margin-bottom:6px;">スキャン中...</div>
+          <div style="font-size:12px; color:#9ab0bc; margin-bottom:14px;">一覧表示に必要な情報を取り込んでいます</div>
+          <div style="height:4px; background:#eaf2f8; border-radius:2px; margin-bottom:10px; overflow:hidden;"><div style="height:100%; width:35%; background:linear-gradient(90deg,#0891b2,#0e7490); border-radius:2px;"></div></div>
+          <div style="font-size:12px; color:#9ab0bc; margin-bottom:16px;">1 / 72 — Unknown world</div>
+          <div class="lt"><button class="btn btn-danger" style="width:auto; padding:9px 24px; margin:0 auto;">スキャンを中断</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ───────── その他ボタン ───────── -->
+  <div class="section">
+    <div class="badge">Other</div>
+    <h2>その他ボタン — Dark / Light 比較</h2>
+    <div class="panel">
+      <table class="st">
+        <thead><tr><th>ボタン</th><th>🌑 Dark Default / Hover</th><th>☀️ Light Default / Hover</th><th>用途・意図</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:#f87171;font-weight:600;">スキャン中断</td>
+            <td><code>red-dim / red-border</code> → hover: 強化 + glow</td>
+            <td><code class="lm">red-dim / red-border</code> → hover: 強化</td>
+            <td style="font-size:11px;color:#2a3a50;">破壊的操作。派手にしすぎず「危険色」を示す</td>
+          </tr>
+          <tr>
+            <td style="color:#22d3ee;font-weight:600;">変更（フォルダ）</td>
+            <td><code>cyan-dim / cyan-border</code> → hover: glow強化</td>
+            <td><code class="lm">solid #0e7490</code> → hover: #0891b2</td>
+            <td style="font-size:11px;color:#2a3a50;">ライトは塗りでコントラスト確保。ダークはdimで抑制</td>
+          </tr>
+          <tr>
+            <td style="color:#4a5a70;font-weight:600;">リセット</td>
+            <td>ghost: transparent → surface-2</td>
+            <td>ghost: transparent → surface-2-lt</td>
+            <td style="font-size:11px;color:#2a3a50;">操作対象を消すだけ。存在感を最小限に</td>
+          </tr>
+          <tr>
+            <td style="color:#22d3ee;font-weight:600;">確認（カレンダー）</td>
+            <td><code>cyan-dim / cyan-border</code></td>
+            <td><code class="lm">cyan-dim-lm / cyan-border-lm</code></td>
+            <td style="font-size:11px;color:#2a3a50;">Primaryより1段弱いAction。日付確定の肯定操作</td>
+          </tr>
+          <tr>
+            <td style="color:#22d3ee;font-weight:600;">タグ追加</td>
+            <td><code>cyan-dim / cyan-border</code></td>
+            <td><code class="lm">cyan-dim-lm / cyan-border-lm</code></td>
+            <td style="font-size:11px;color:#2a3a50;">入力フィールドと横並びなので高さを揃える</td>
+          </tr>
+          <tr>
+            <td style="color:#ecfeff;font-weight:600;">メモを保存 (Primary)</td>
+            <td><code>gradient #0e7490→#0891b2</code> → hover: glow 18px</td>
+            <td><code class="lm">solid #0e7490</code> → hover: #0891b2 + shadow</td>
+            <td style="font-size:11px;color:#2a3a50;">最も視認性の高い唯一のPrimary。モーダル内の1点集中</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ───────── CSS ───────── -->
+  <div class="section">
+    <div class="badge">Implementation</div>
+    <h2>実装用 CSS スニペット</h2>
+    <div class="code">
+<span class="c-cm">/* ══ ボタン共通ベース ══ */</span>
+<span class="c-p">.btn</span> {
+  <span class="c-p">display</span>: <span class="c-n">inline-flex</span>;
+  <span class="c-p">align-items</span>: <span class="c-n">center</span>;
+  <span class="c-p">justify-content</span>: <span class="c-n">center</span>;
+  <span class="c-p">gap</span>: <span class="c-n">6px</span>;
+  <span class="c-p">padding</span>: <span class="c-n">9px 16px</span>;
+  <span class="c-p">border-radius</span>: <span class="c-n">8px</span>;
+  <span class="c-p">border</span>: <span class="c-n">1px solid</span>;
+  <span class="c-p">font-size</span>: <span class="c-n">13px</span>;
+  <span class="c-p">font-weight</span>: <span class="c-n">500</span>;
+  <span class="c-p">cursor</span>: <span class="c-n">pointer</span>;
+  <span class="c-p">transition</span>: <span class="c-n">all 0.15s ease</span>;
+}
+
+<span class="c-cm">/* ══ お気に入りボタン ══ */</span>
+<span class="c-p">.btn-fav</span>             { background: <span class="c-n">var(--surface-2)</span>;   border-color: <span class="c-n">rgba(255,255,255,.08)</span>; color: <span class="c-n">var(--text-muted)</span>; }
+<span class="c-p">.btn-fav:hover</span>        { background: <span class="c-n">var(--amber-dim)</span>;   border-color: <span class="c-n">var(--amber-border)</span>;  color: <span class="c-n">var(--amber)</span>;        box-shadow: <span class="c-n">0 0 12px var(--amber-glow)</span>; }
+<span class="c-p">.btn-fav.is-fav</span>       { background: <span class="c-n">var(--amber-dim)</span>;   border-color: <span class="c-n">var(--amber-border)</span>;  color: <span class="c-n">var(--amber)</span>;        box-shadow: <span class="c-n">0 0 10px var(--amber-glow)</span>; }
+<span class="c-p">.btn-fav.is-fav:hover</span> { background: <span class="c-n">var(--red-dim)</span>;     border-color: <span class="c-n">var(--red-border)</span>;    color: <span class="c-n">var(--red)</span>;          box-shadow: <span class="c-n">0 0 12px var(--red-glow)</span>; }
+
+<span class="c-cm">/* ══ ワールドページ ══ */</span>
+<span class="c-p">.btn-world</span>        { background: <span class="c-n">var(--cyan-dim)</span>; border-color: <span class="c-n">var(--cyan-border)</span>; color: <span class="c-n">var(--cyan)</span>; box-shadow: <span class="c-n">0 0 8px var(--cyan-glow)</span>; }
+<span class="c-p">.btn-world:hover</span>  { background: <span class="c-n">rgba(34,211,238,.18)</span>; border-color: <span class="c-n">rgba(34,211,238,.45)</span>; color: <span class="c-n">var(--cyan-lite)</span>; box-shadow: <span class="c-n">0 0 18px var(--cyan-glow)</span>; }
+<span class="c-cm">/* Light */</span>
+<span class="c-p">[data-theme="light"] .btn-world:hover</span> { background: <span class="c-n">rgba(14,116,144,.18)</span>; border-color: <span class="c-n">rgba(14,116,144,.48)</span>; box-shadow: <span class="c-n">none</span>; }
+
+<span class="c-cm">/* ══ エクスプローラー (secondary) ══ */</span>
+<span class="c-p">.btn-secondary</span>        { background: <span class="c-n">transparent</span>; border-color: <span class="c-n">rgba(255,255,255,.07)</span>; color: <span class="c-n">var(--text-dim)</span>; }
+<span class="c-p">.btn-secondary:hover</span>  { background: <span class="c-n">var(--surface-2)</span>; border-color: <span class="c-n">rgba(255,255,255,.14)</span>; color: <span class="c-n">var(--text-muted)</span>; }
+
+<span class="c-cm">/* ══ Primary (メモ保存) ══ */</span>
+<span class="c-p">.btn-primary</span>       { background: <span class="c-n">linear-gradient(135deg, #0e7490, #0891b2)</span>; border-color: <span class="c-n">rgba(34,211,238,.30)</span>; color: <span class="c-n">#ecfeff</span>; }
+<span class="c-p">.btn-primary:hover</span> { background: <span class="c-n">linear-gradient(135deg, #0891b2, #22d3ee)</span>; border-color: <span class="c-n">rgba(34,211,238,.55)</span>; box-shadow: <span class="c-n">0 0 18px rgba(34,211,238,.24)</span>; }
+<span class="c-cm">/* Light: フラットに */</span>
+<span class="c-p">[data-theme="light"] .btn-primary</span>       { background: <span class="c-n">#0e7490</span>; border-color: <span class="c-n">rgba(14,116,144,.40)</span>; }
+<span class="c-p">[data-theme="light"] .btn-primary:hover</span> { background: <span class="c-n">#0891b2</span>; box-shadow: <span class="c-n">0 0 14px rgba(14,116,144,.20)</span>; }
+
+<span class="c-cm">/* ══ Danger (中断) ══ */</span>
+<span class="c-p">.btn-danger</span>       { background: <span class="c-n">var(--red-dim)</span>; border-color: <span class="c-n">var(--red-border)</span>; color: <span class="c-n">var(--red)</span>; }
+<span class="c-p">.btn-danger:hover</span> { background: <span class="c-n">rgba(248,113,113,.20)</span>; border-color: <span class="c-n">rgba(248,113,113,.48)</span>; box-shadow: <span class="c-n">0 0 14px var(--red-glow)</span>; }
+
+<span class="c-cm">/* ══ チェックボックス ══ */</span>
+<span class="c-p">.checkbox</span>          { width: <span class="c-n">17px</span>; height: <span class="c-n">17px</span>; border-radius: <span class="c-n">5px</span>; border: <span class="c-n">1px solid rgba(255,255,255,.12)</span>; background: <span class="c-n">var(--surface-2)</span>; transition: <span class="c-n">all .12s</span>; }
+<span class="c-p">.checkbox.checked</span>  { background: <span class="c-n">var(--cyan-dim)</span>; border-color: <span class="c-n">var(--cyan-border)</span>; box-shadow: <span class="c-n">0 0 7px var(--cyan-glow)</span>; }
+<span class="c-p">.checkbox.fav</span>      { background: <span class="c-n">var(--amber-dim)</span>; border-color: <span class="c-n">var(--amber-border)</span>; box-shadow: <span class="c-n">0 0 7px var(--amber-glow)</span>; }
+
+<span class="c-cm">/* ══ トグル ══ */</span>
+<span class="c-p">.toggle</span>     { width:<span class="c-n">40px</span>; height:<span class="c-n">22px</span>; border-radius:<span class="c-n">11px</span>; background:<span class="c-n">var(--surface-3)</span>; border:<span class="c-n">1px solid rgba(255,255,255,.08)</span>; transition:<span class="c-n">all .18s</span>; }
+<span class="c-p">.toggle.on</span>  { background:<span class="c-n">var(--cyan-dim)</span>; border-color:<span class="c-n">rgba(34,211,238,.38)</span>; box-shadow:<span class="c-n">0 0 9px rgba(34,211,238,.14)</span>; }
+<span class="c-p">.toggle .knob</span>     { width:<span class="c-n">14px</span>; height:<span class="c-n">14px</span>; top:<span class="c-n">3px</span>; left:<span class="c-n">3px</span>; background:<span class="c-n">#2a3a50</span>; border-radius:<span class="c-n">50%</span>; transition:<span class="c-n">all .18s</span>; }
+<span class="c-p">.toggle.on .knob</span>  { left:<span class="c-n">21px</span>; background:<span class="c-n">var(--cyan)</span>; box-shadow:<span class="c-n">0 0 5px rgba(34,211,238,.5)</span>; }
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

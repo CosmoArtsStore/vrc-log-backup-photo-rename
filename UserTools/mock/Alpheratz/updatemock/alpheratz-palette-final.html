@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alpheratz — 配色ガイド 決定版 (案B)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', 'Noto Sans JP', sans-serif;
+  background: #07090f;
+  color: #c9d1d9;
+  line-height: 1.7;
+  padding: 56px 24px 96px;
+}
+
+.container { max-width: 1020px; margin: 0 auto; }
+
+/* ── Typography ── */
+.doc-title {
+  font-size: 30px; font-weight: 600; letter-spacing: -0.03em;
+  color: #e8f4f8; margin-bottom: 6px;
+}
+.doc-sub {
+  font-size: 14px; color: #2a3a50; margin-bottom: 56px;
+  font-style: italic;
+}
+h2 { font-size: 18px; font-weight: 600; color: #c8dce8; margin-bottom: 18px; letter-spacing: -0.01em; }
+h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #2a3a50; margin-bottom: 12px; }
+
+.section { margin-bottom: 80px; }
+hr { border: none; border-top: 1px solid rgba(34,211,238,0.06); margin: 64px 0; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(34,211,238,0.08);
+  border: 1px solid rgba(34,211,238,0.18);
+  color: #22d3ee; font-size: 11px; font-weight: 700;
+  padding: 3px 12px; border-radius: 99px;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* ── Layout ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+/* ── Surface card ── */
+.panel {
+  background: #0c1018;
+  border: 1px solid rgba(34,211,238,0.08);
+  border-radius: 16px;
+  padding: 28px;
+  margin-bottom: 20px;
+}
+.panel-inner {
+  background: #090c12;
+  border: 1px solid rgba(34,211,238,0.05);
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 16px;
+}
+
+/* ── Swatches ── */
+.swatch-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.sw {
+  width: 60px; height: 60px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.sw-label { font-size: 9.5px; color: #2a3a50; font-family: 'DM Mono', monospace; text-align: center; line-height: 1.5; }
+.sw-name { font-size: 10px; color: #4a5a70; font-weight: 500; text-align: center; }
+
+/* ── Mode toggle pill ── */
+.mode-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-bottom: 14px;
+}
+.mode-pill {
+  font-size: 11px; font-weight: 700; padding: 3px 12px; border-radius: 99px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.pill-dark { background: rgba(255,255,255,0.06); color: #6a7a90; border: 1px solid rgba(255,255,255,0.08); }
+.pill-light { background: rgba(14,116,144,0.12); color: #0e9ab8; border: 1px solid rgba(14,116,144,0.25); }
+
+/* ══════════════════════════════════════
+   DARK MODE UI PREVIEW
+══════════════════════════════════════ */
+.preview-dark {
+  background: #090c12;
+  border: 1px solid rgba(34,211,238,0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.dk-topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: #0c0f1a;
+  border-bottom: 1px solid rgba(34,211,238,0.07);
+}
+.dk-logo { font-size: 14px; font-weight: 700; color: #22d3ee; font-style: italic; letter-spacing: -0.02em; }
+.dk-search {
+  flex: 1; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(34,211,238,0.12);
+  border-radius: 6px; padding: 5px 10px;
+  font-size: 11px; color: #2a3a50;
+}
+
+.dk-body { display: grid; grid-template-columns: 110px 1fr; min-height: 180px; }
+.dk-sidebar {
+  background: #0a0d16;
+  border-right: 1px solid rgba(34,211,238,0.06);
+  padding: 12px 10px;
+}
+.dk-month-item {
+  padding: 6px 8px; border-radius: 6px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.dk-month-item.active {
+  background: rgba(34,211,238,0.07);
+  border-color: rgba(34,211,238,0.15);
+}
+.dk-month-label { font-size: 11px; color: #22d3ee; font-weight: 600; }
+.dk-month-count { font-size: 10px; color: #2a3a56; margin-top: 1px; }
+
+.dk-grid { padding: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.dk-card {
+  border-radius: 7px; overflow: hidden;
+  background: #0e121c;
+  border: 1px solid rgba(34,211,238,0.07);
+}
+.dk-img { height: 50px; background: linear-gradient(135deg, #12202e 0%, #0a1520 100%); }
+.dk-info { padding: 5px 6px; }
+.dk-tag {
+  font-size: 9px; color: #22d3ee;
+  background: rgba(34,211,238,0.08);
+  padding: 1px 5px; border-radius: 3px;
+  display: inline-block; margin-bottom: 2px;
+}
+.dk-name { font-size: 9px; color: #8a9ab8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dk-date { font-size: 8px; color: #2a3a56; margin-top: 1px; }
+
+/* ══════════════════════════════════════
+   LIGHT MODE UI PREVIEW
+══════════════════════════════════════ */
+.preview-light {
+  background: #f0f5f8;
+  border: 1px solid rgba(14,116,144,0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.lt-topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: #e8f0f5;
+  border-bottom: 1px solid rgba(14,116,144,0.12);
+}
+.lt-logo { font-size: 14px; font-weight: 700; color: #0e7490; font-style: italic; letter-spacing: -0.02em; }
+.lt-search {
+  flex: 1; background: rgba(14,116,144,0.06);
+  border: 1px solid rgba(14,116,144,0.15);
+  border-radius: 6px; padding: 5px 10px;
+  font-size: 11px; color: #9ab0bc;
+}
+
+.lt-body { display: grid; grid-template-columns: 110px 1fr; min-height: 180px; }
+.lt-sidebar {
+  background: #e4ecf2;
+  border-right: 1px solid rgba(14,116,144,0.10);
+  padding: 12px 10px;
+}
+.lt-month-item {
+  padding: 6px 8px; border-radius: 6px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.lt-month-item.active {
+  background: rgba(14,116,144,0.10);
+  border-color: rgba(14,116,144,0.20);
+}
+.lt-month-label { font-size: 11px; color: #0e7490; font-weight: 600; }
+.lt-month-count { font-size: 10px; color: #8aa0b0; margin-top: 1px; }
+
+.lt-grid { padding: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.lt-card {
+  border-radius: 7px; overflow: hidden;
+  background: #ffffff;
+  border: 1px solid rgba(14,116,144,0.10);
+  box-shadow: 0 1px 4px rgba(14,116,144,0.06);
+}
+.lt-img { height: 50px; background: linear-gradient(135deg, #d8eaf2 0%, #cce0ec 100%); }
+.lt-info { padding: 5px 6px; }
+.lt-tag {
+  font-size: 9px; color: #0e7490;
+  background: rgba(14,116,144,0.08);
+  padding: 1px 5px; border-radius: 3px;
+  display: inline-block; margin-bottom: 2px;
+}
+.lt-name { font-size: 9px; color: #2a4a5a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lt-date { font-size: 8px; color: #8aa0b0; margin-top: 1px; }
+
+/* ── code block ── */
+.code {
+  background: #050709;
+  border: 1px solid rgba(34,211,238,0.07);
+  color: #8a9ab8; border-radius: 10px;
+  padding: 22px 24px; font-family: 'DM Mono', 'Courier New', monospace;
+  font-size: 11.5px; line-height: 1.95; overflow-x: auto;
+  margin-top: 16px;
+}
+.c-cm { color: #1e2e40; }
+.c-v  { color: #67e8f9; }
+.c-n  { color: #86efac; }
+.c-p  { color: #a5b4fc; }
+
+/* ── comparison table ── */
+.cmp-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+.cmp-table th {
+  text-align: left; padding: 9px 14px;
+  border-bottom: 1px solid rgba(34,211,238,0.08);
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: #2a3a50;
+}
+.cmp-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  vertical-align: middle;
+}
+.cmp-table tr:last-child td { border-bottom: none; }
+code {
+  background: rgba(34,211,238,0.07);
+  color: #67e8f9; padding: 1px 6px;
+  border-radius: 4px; font-family: 'DM Mono', monospace; font-size: 10.5px;
+}
+code.lm { background: rgba(14,116,144,0.10); color: #0e9ab8; }
+
+/* ── contrast check ── */
+.contrast-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.contrast-chip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  font-size: 12px;
+}
+.cc-swatch { width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0; }
+.cc-info { line-height: 1.4; }
+.cc-ratio { font-size: 13px; font-weight: 700; }
+.cc-pass { color: #4ade80; font-size: 10px; font-weight: 600; }
+.cc-warn { color: #fbbf24; font-size: 10px; font-weight: 600; }
+
+@media (max-width: 700px) {
+  .two-col, .three-col { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="section">
+    <p class="doc-title">Alpheratz — 配色ガイド <span style="color:#22d3ee;">決定版</span></p>
+    <p class="doc-sub">案B ミッドナイト・シアン ／ Dark + Light 両モード ／ 2026-03-16</p>
+  </div>
+
+  <!-- ───────── コンセプト ───────── -->
+  <div class="section">
+    <div class="badge">Concept</div>
+    <h2>案B が Alpheratz に合う理由</h2>
+    <div class="panel">
+      <div class="three-col">
+        <div>
+          <h3>宇宙の暗さ</h3>
+          <p style="font-size:13px; color:#4a5a70; line-height:1.8;">背景は「純黒」でなく深みのある暗青（<code>#090c12</code>）。星空のような微妙な青みで、写真が浮き上がって見えます。</p>
+        </div>
+        <div>
+          <h3>シアンのグロウ</h3>
+          <p style="font-size:13px; color:#4a5a70; line-height:1.8;">アクセントカラー <code>#22d3ee</code> はボタン・選択状態に控えめな発光（box-shadow）を与えます。VRChatのネオン感と相性◎。</p>
+        </div>
+        <div>
+          <h3>ライトはアイシー</h3>
+          <p style="font-size:13px; color:#4a5a70; line-height:1.8;">ライトモードは白ではなく「氷のような」薄青グレー（<code>#f0f5f8</code>）ベース。ダークとトーンを揃えた統一感があります。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ───────── カラーパレット ───────── -->
+  <div class="section">
+    <div class="badge">Palette</div>
+    <h2>全カラートークン</h2>
+
+    <!-- ── ダークモードトークン ── -->
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="mode-label"><span class="mode-pill pill-dark">🌑 Dark Mode</span></div>
+      <h3>Surface（背景レイヤー）</h3>
+      <div class="swatch-row">
+        <div class="swatch"><div class="sw" style="background:#090c12"></div><span class="sw-name">surface-0</span><span class="sw-label">#090c12<br>最背面</span></div>
+        <div class="swatch"><div class="sw" style="background:#0c0f1a"></div><span class="sw-name">surface-top</span><span class="sw-label">#0c0f1a<br>トップバー</span></div>
+        <div class="swatch"><div class="sw" style="background:#0e121c"></div><span class="sw-name">surface-1</span><span class="sw-label">#0e121c<br>カード</span></div>
+        <div class="swatch"><div class="sw" style="background:#141926"></div><span class="sw-name">surface-2</span><span class="sw-label">#141926<br>入力欄</span></div>
+        <div class="swatch"><div class="sw" style="background:#1a2133"></div><span class="sw-name">surface-3</span><span class="sw-label">#1a2133<br>hover地</span></div>
+      </div>
+      <h3>Accent</h3>
+      <div class="swatch-row">
+        <div class="swatch"><div class="sw" style="background:#22d3ee"></div><span class="sw-name">cyan</span><span class="sw-label">#22d3ee<br>primary</span></div>
+        <div class="swatch"><div class="sw" style="background:#67e8f9"></div><span class="sw-name">cyan-lite</span><span class="sw-label">#67e8f9<br>hover時</span></div>
+        <div class="swatch"><div class="sw" style="background:rgba(34,211,238,0.12); border:1px solid rgba(34,211,238,0.25)"></div><span class="sw-name">cyan-dim</span><span class="sw-label">rgba<br>12%</span></div>
+        <div class="swatch"><div class="sw" style="background:#fbbf24"></div><span class="sw-name">amber</span><span class="sw-label">#fbbf24<br>お気に入り</span></div>
+        <div class="swatch"><div class="sw" style="background:#f87171"></div><span class="sw-name">red</span><span class="sw-label">#f87171<br>危険/解除</span></div>
+      </div>
+      <h3>Text</h3>
+      <div class="swatch-row">
+        <div class="swatch"><div class="sw" style="background:#e0f2fe"></div><span class="sw-name">text-bright</span><span class="sw-label">#e0f2fe<br>見出し</span></div>
+        <div class="swatch"><div class="sw" style="background:#b8c4d8"></div><span class="sw-name">text-primary</span><span class="sw-label">#b8c4d8<br>本文</span></div>
+        <div class="swatch"><div class="sw" style="background:#4a5a70"></div><span class="sw-name">text-muted</span><span class="sw-label">#4a5a70<br>補足</span></div>
+        <div class="swatch"><div class="sw" style="background:#2a3a50"></div><span class="sw-name">text-dim</span><span class="sw-label">#2a3a50<br>無効/枚数</span></div>
+      </div>
+    </div>
+
+    <!-- ── ライトモードトークン ── -->
+    <div class="panel">
+      <div class="mode-label"><span class="mode-pill pill-light">☀️ Light Mode</span></div>
+      <h3>Surface（背景レイヤー）</h3>
+      <div class="swatch-row">
+        <div class="swatch"><div class="sw" style="background:#f0f5f8; border:1px solid #d8e8f0"></div><span class="sw-name">surface-0</span><span class="sw-label">#f0f5f8<br>最背面</span></div>
+        <div class="swatch"><div class="sw" style="background:#e8f0f5; border:1px solid #d0e0ec"></div><span class="sw-name">surface-top</span><span class="sw-label">#e8f0f5<br>トップバー</span></div>
+        <div class="swatch"><div class="sw" style="background:#ffffff; border:1px solid #d8e8f0"></div><span class="sw-name">surface-1</span><span class="sw-label">#ffffff<br>カード</span></div>
+        <div class="swatch"><div class="sw" style="background:#eaf2f8; border:1px solid #c8dce8"></div><span class="sw-name">surface-2</span><span class="sw-label">#eaf2f8<br>入力欄</span></div>
+        <div class="swatch"><div class="sw" style="background:#ddeef8; border:1px solid #bcd4e4"></div><span class="sw-name">surface-3</span><span class="sw-label">#ddeef8<br>hover地</span></div>
+        <div class="swatch"><div class="sw" style="background:#e4ecf2; border:1px solid #c8dce8"></div><span class="sw-name">sidebar</span><span class="sw-label">#e4ecf2<br>サイドバー</span></div>
+      </div>
+      <h3>Accent（ライトモード用に彩度を落とす）</h3>
+      <div class="swatch-row">
+        <div class="swatch"><div class="sw" style="background:#0e7490"></div><span class="sw-name">cyan-lm</span><span class="sw-label">#0e7490<br>primary</span></div>
+        <div class="swatch"><div class="sw" style="background:#0891b2"></div><span class="sw-name">cyan-lm-h</span><span class="sw-label">#0891b2<br>hover時</span></div>
+        <div class="swatch"><div class="sw" style="background:rgba(14,116,144,0.10); border:1px solid rgba(14,116,144,0.20)"></div><span class="sw-name">cyan-dim-lm</span><span class="sw-label">rgba<br>10%</span></div>
+        <div class="swatch"><div class="sw" style="background:#d97706"></div><span class="sw-name">amber-lm</span><span class="sw-label">#d97706<br>お気に入り</span></div>
+        <div class="swatch"><div class="sw" style="background:#dc2626"></div><span class="sw-name">red-lm</span><span class="sw-label">#dc2626<br>危険/解除</span></div>
+      </div>
+      <h3>Text</h3>
+      <div class="swatch-row">
+        <div class="swatch"><div class="sw" style="background:#0a2535; border:1px solid #c0d0dc"></div><span class="sw-name">text-bright</span><span class="sw-label">#0a2535<br>見出し</span></div>
+        <div class="swatch"><div class="sw" style="background:#1e3a4a; border:1px solid #c0d0dc"></div><span class="sw-name">text-primary</span><span class="sw-label">#1e3a4a<br>本文</span></div>
+        <div class="swatch"><div class="sw" style="background:#6a8898; border:1px solid #c0d0dc"></div><span class="sw-name">text-muted</span><span class="sw-label">#6a8898<br>補足</span></div>
+        <div class="swatch"><div class="sw" style="background:#9ab0bc; border:1px solid #c0d0dc"></div><span class="sw-name">text-dim</span><span class="sw-label">#9ab0bc<br>無効/枚数</span></div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ───────── UI プレビュー並列 ───────── -->
+  <div class="section">
+    <div class="badge">Preview</div>
+    <h2>メイン画面プレビュー — Dark / Light 並列</h2>
+
+    <div class="two-col" style="margin-bottom:28px;">
+      <div>
+        <div class="mode-label"><span class="mode-pill pill-dark">🌑 Dark</span></div>
+        <div class="preview-dark">
+          <div class="dk-topbar">
+            <span class="dk-logo">Alpheratz</span>
+            <div class="dk-search">ワールド名で検索...</div>
+          </div>
+          <div class="dk-body">
+            <div class="dk-sidebar">
+              <div style="font-size:10px; color:#2a3a56; margin-bottom:8px; letter-spacing:.06em;">2026</div>
+              <div class="dk-month-item active">
+                <div class="dk-month-label">2月</div>
+                <div class="dk-month-count">7244枚</div>
+              </div>
+              <div class="dk-month-item" style="margin-top:4px;">
+                <div class="dk-month-label" style="color:#2a3a56;">1月</div>
+                <div class="dk-month-count">3102枚</div>
+              </div>
+            </div>
+            <div class="dk-grid">
+              <div class="dk-card"><div class="dk-img" style="background:linear-gradient(135deg,#1a2840,#0e1e30)"></div><div class="dk-info"><span class="dk-tag">landscape</span><div class="dk-name">Dream²/夢²</div><div class="dk-date">2026-02-23</div></div></div>
+              <div class="dk-card"><div class="dk-img" style="background:linear-gradient(135deg,#101c2e,#0a1620)"></div><div class="dk-info"><span class="dk-tag">portrait</span><div class="dk-name">Aurix</div><div class="dk-date">2026-02-20</div></div></div>
+              <div class="dk-card"><div class="dk-img" style="background:linear-gradient(135deg,#16202e,#0c1824)"></div><div class="dk-info"><span class="dk-tag">landscape</span><div class="dk-name">Seat of the Stars</div><div class="dk-date">2026-02-18</div></div></div>
+              <div class="dk-card"><div class="dk-img" style="background:linear-gradient(135deg,#121c2c,#0a141e)"></div><div class="dk-info"><span class="dk-tag">portrait</span><div class="dk-name">Brooklyn nights</div><div class="dk-date">2026-02-15</div></div></div>
+              <div class="dk-card"><div class="dk-img" style="background:linear-gradient(135deg,#0e1a2a,#0a1220)"></div><div class="dk-info"><span class="dk-tag">landscape</span><div class="dk-name">Dream²/夢²</div><div class="dk-date">2026-02-14</div></div></div>
+              <div class="dk-card"><div class="dk-img" style="background:linear-gradient(135deg,#141e30,#0c1626)"></div><div class="dk-info"><span class="dk-tag">landscape</span><div class="dk-name">Cat Cafe</div><div class="dk-date">2026-02-12</div></div></div>
+              <div class="dk-card"><div class="dk-img" style="background:linear-gradient(135deg,#102030,#0a1828)"></div><div class="dk-info"><span class="dk-tag">portrait</span><div class="dk-name">Aurix</div><div class="dk-date">2026-02-10</div></div></div>
+              <div class="dk-card"><div class="dk-img" style="background:linear-gradient(135deg,#131d2d,#0b1523)"></div><div class="dk-info"><span class="dk-tag">landscape</span><div class="dk-name">Dazzling.</div><div class="dk-date">2026-02-08</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="mode-label"><span class="mode-pill pill-light">☀️ Light</span></div>
+        <div class="preview-light">
+          <div class="lt-topbar">
+            <span class="lt-logo">Alpheratz</span>
+            <div class="lt-search">ワールド名で検索...</div>
+          </div>
+          <div class="lt-body">
+            <div class="lt-sidebar">
+              <div style="font-size:10px; color:#9ab0bc; margin-bottom:8px; letter-spacing:.06em;">2026</div>
+              <div class="lt-month-item active">
+                <div class="lt-month-label">2月</div>
+                <div class="lt-month-count">7244枚</div>
+              </div>
+              <div class="lt-month-item" style="margin-top:4px;">
+                <div class="lt-month-label" style="color:#9ab0bc;">1月</div>
+                <div class="lt-month-count">3102枚</div>
+              </div>
+            </div>
+            <div class="lt-grid">
+              <div class="lt-card"><div class="lt-img" style="background:linear-gradient(135deg,#cce0f0,#c0d8ec)"></div><div class="lt-info"><span class="lt-tag">landscape</span><div class="lt-name">Dream²/夢²</div><div class="lt-date">2026-02-23</div></div></div>
+              <div class="lt-card"><div class="lt-img" style="background:linear-gradient(135deg,#d0e4f4,#c4dcee)"></div><div class="lt-info"><span class="lt-tag">portrait</span><div class="lt-name">Aurix</div><div class="lt-date">2026-02-20</div></div></div>
+              <div class="lt-card"><div class="lt-img" style="background:linear-gradient(135deg,#c8e0f0,#bcd8ea)"></div><div class="lt-info"><span class="lt-tag">landscape</span><div class="lt-name">Seat of the Stars</div><div class="lt-date">2026-02-18</div></div></div>
+              <div class="lt-card"><div class="lt-img" style="background:linear-gradient(135deg,#d4e8f4,#c8e0f0)"></div><div class="lt-info"><span class="lt-tag">portrait</span><div class="lt-name">Brooklyn nights</div><div class="lt-date">2026-02-15</div></div></div>
+              <div class="lt-card"><div class="lt-img" style="background:linear-gradient(135deg,#cce0f0,#c0daea)"></div><div class="lt-info"><span class="lt-tag">landscape</span><div class="lt-name">Dream²/夢²</div><div class="lt-date">2026-02-14</div></div></div>
+              <div class="lt-card"><div class="lt-img" style="background:linear-gradient(135deg,#d0e4f0,#c4dcec)"></div><div class="lt-info"><span class="lt-tag">landscape</span><div class="lt-name">Cat Cafe</div><div class="lt-date">2026-02-12</div></div></div>
+              <div class="lt-card"><div class="lt-img" style="background:linear-gradient(135deg,#c8def0,#bed8ea)"></div><div class="lt-info"><span class="lt-tag">portrait</span><div class="lt-name">Aurix</div><div class="lt-date">2026-02-10</div></div></div>
+              <div class="lt-card"><div class="lt-img" style="background:linear-gradient(135deg,#cce2f2,#c0daec)"></div><div class="lt-info"><span class="lt-tag">landscape</span><div class="lt-name">Dazzling.</div><div class="lt-date">2026-02-08</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 設定モーダル並列 -->
+    <h2 style="margin-top:8px;">設定モーダル — Dark / Light</h2>
+    <div class="two-col">
+      <!-- Dark modal -->
+      <div>
+        <div class="mode-label"><span class="mode-pill pill-dark">🌑 Dark</span></div>
+        <div style="background:#090c12; border:1px solid rgba(34,211,238,0.08); border-radius:12px; padding:20px;">
+          <div style="font-size:15px; font-weight:600; color:#c8dce8; margin-bottom:16px;">設定</div>
+          <div style="font-size:10px; color:#2a3a50; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px;">VRChat写真フォルダ</div>
+          <div style="display:flex; gap:8px; margin-bottom:16px;">
+            <div style="flex:1; background:#141926; border:1px solid rgba(34,211,238,0.12); border-radius:6px; padding:7px 10px; font-size:12px; color:#6a8898;">F:\bk - コピー (2) - コピー</div>
+            <div style="background:rgba(34,211,238,0.12); border:1px solid rgba(34,211,238,0.25); border-radius:6px; padding:7px 14px; font-size:12px; color:#22d3ee; cursor:pointer;">変更</div>
+          </div>
+          <div style="font-size:10px; color:#2a3a50; text-transform:uppercase; letter-spacing:.07em; margin-bottom:10px;">ログイン時に起動</div>
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <div style="width:38px; height:22px; background:rgba(34,211,238,0.12); border:1px solid rgba(34,211,238,0.35); border-radius:11px; position:relative; box-shadow:0 0 8px rgba(34,211,238,0.12);">
+              <div style="position:absolute; top:3px; left:18px; width:14px; height:14px; background:#22d3ee; border-radius:50%; box-shadow:0 0 5px rgba(34,211,238,0.5);"></div>
+            </div>
+            <span style="font-size:12px; color:#8a9ab8;">Windowsログイン時に Alpheratz を自動で起動します。</span>
+          </div>
+          <div style="font-size:10px; color:#2a3a50; text-transform:uppercase; letter-spacing:.07em; margin-bottom:10px;">表示テーマ</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:38px; height:22px; background:#1a2133; border:1px solid rgba(255,255,255,0.08); border-radius:11px; position:relative;">
+              <div style="position:absolute; top:3px; left:3px; width:14px; height:14px; background:#2a3a50; border-radius:50%;"></div>
+            </div>
+            <span style="font-size:12px; color:#4a5a70;">ベース色をダークグレーへ切り替え...</span>
+          </div>
+        </div>
+      </div>
+      <!-- Light modal -->
+      <div>
+        <div class="mode-label"><span class="mode-pill pill-light">☀️ Light</span></div>
+        <div style="background:#ffffff; border:1px solid rgba(14,116,144,0.12); border-radius:12px; padding:20px; box-shadow:0 4px 24px rgba(14,116,144,0.08);">
+          <div style="font-size:15px; font-weight:600; color:#0a2535; margin-bottom:16px;">設定</div>
+          <div style="font-size:10px; color:#9ab0bc; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px;">VRChat写真フォルダ</div>
+          <div style="display:flex; gap:8px; margin-bottom:16px;">
+            <div style="flex:1; background:#eaf2f8; border:1px solid rgba(14,116,144,0.18); border-radius:6px; padding:7px 10px; font-size:12px; color:#4a6878;">F:\bk - コピー (2) - コピー</div>
+            <div style="background:#0e7490; border:1px solid rgba(14,116,144,0.3); border-radius:6px; padding:7px 14px; font-size:12px; color:#ffffff; cursor:pointer;">変更</div>
+          </div>
+          <div style="font-size:10px; color:#9ab0bc; text-transform:uppercase; letter-spacing:.07em; margin-bottom:10px;">ログイン時に起動</div>
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <div style="width:38px; height:22px; background:rgba(14,116,144,0.12); border:1px solid rgba(14,116,144,0.30); border-radius:11px; position:relative;">
+              <div style="position:absolute; top:3px; left:18px; width:14px; height:14px; background:#0e7490; border-radius:50%;"></div>
+            </div>
+            <span style="font-size:12px; color:#2a4a5a;">Windowsログイン時に Alpheratz を自動で起動します。</span>
+          </div>
+          <div style="font-size:10px; color:#9ab0bc; text-transform:uppercase; letter-spacing:.07em; margin-bottom:10px;">表示テーマ</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:38px; height:22px; background:#ddeef8; border:1px solid rgba(14,116,144,0.15); border-radius:11px; position:relative;">
+              <div style="position:absolute; top:3px; left:3px; width:14px; height:14px; background:#9ab0bc; border-radius:50%;"></div>
+            </div>
+            <span style="font-size:12px; color:#9ab0bc;">ベース色をダークグレーへ切り替え...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ───────── 対照表 ───────── -->
+  <div class="section">
+    <div class="badge">Token Map</div>
+    <h2>ダーク ↔ ライト トークン対照表</h2>
+    <div class="panel">
+      <table class="cmp-table">
+        <thead>
+          <tr><th>役割</th><th>🌑 Dark</th><th>☀️ Light</th><th>備考</th></tr>
+        </thead>
+        <tbody>
+          <tr><td style="color:#c8dce8; font-weight:600;">最背面</td><td><code>#090c12</code></td><td><code class="lm">#f0f5f8</code></td><td style="font-size:11px; color:#2a3a50;">ダークは深海、ライトは氷。どちらも純色ではない</td></tr>
+          <tr><td style="color:#c8dce8; font-weight:600;">トップバー</td><td><code>#0c0f1a</code></td><td><code class="lm">#e8f0f5</code></td><td style="font-size:11px; color:#2a3a50;">背面より1段締める</td></tr>
+          <tr><td style="color:#c8dce8; font-weight:600;">カード</td><td><code>#0e121c</code></td><td><code class="lm">#ffffff</code></td><td style="font-size:11px; color:#2a3a50;">ライトは白カードが背面の青みと対比</td></tr>
+          <tr><td style="color:#c8dce8; font-weight:600;">入力欄</td><td><code>#141926</code></td><td><code class="lm">#eaf2f8</code></td><td style="font-size:11px; color:#2a3a50;">カードより一段深く/薄く</td></tr>
+          <tr><td style="color:#c8dce8; font-weight:600;">サイドバー</td><td><code>#0a0d16</code></td><td><code class="lm">#e4ecf2</code></td><td style="font-size:11px; color:#2a3a50;">コンテンツ側と分離</td></tr>
+          <tr><td style="color:#22d3ee; font-weight:600;">Accent (primary)</td><td><code>#22d3ee</code></td><td><code class="lm">#0e7490</code></td><td style="font-size:11px; color:#2a3a50;">ライトは暗くしてコントラスト確保</td></tr>
+          <tr><td style="color:#22d3ee; font-weight:600;">Accent (hover)</td><td><code>#67e8f9</code></td><td><code class="lm">#0891b2</code></td><td style="font-size:11px; color:#2a3a50;">ダークは明化、ライトは強化</td></tr>
+          <tr><td style="color:#fbbf24; font-weight:600;">Amber (お気に入り)</td><td><code>#fbbf24</code></td><td><code class="lm">#d97706</code></td><td style="font-size:11px; color:#2a3a50;">ライトは暗くして白背景でも視認性確保</td></tr>
+          <tr><td style="color:#f87171; font-weight:600;">Red (危険/解除)</td><td><code>#f87171</code></td><td><code class="lm">#dc2626</code></td><td style="font-size:11px; color:#2a3a50;">同上</td></tr>
+          <tr><td style="color:#c8dce8; font-weight:600;">本文テキスト</td><td><code>#b8c4d8</code></td><td><code class="lm">#1e3a4a</code></td><td style="font-size:11px; color:#2a3a50;">WCAG AA 達成</td></tr>
+          <tr><td style="color:#c8dce8; font-weight:600;">補足テキスト</td><td><code>#4a5a70</code></td><td><code class="lm">#6a8898</code></td><td style="font-size:11px; color:#2a3a50;">枚数・メタ情報など</td></tr>
+          <tr><td style="color:#c8dce8; font-weight:600;">ボーダー (通常)</td><td><code>rgba(34,211,238,0.08)</code></td><td><code class="lm">rgba(14,116,144,0.12)</code></td><td style="font-size:11px; color:#2a3a50;">アクセントの薄膜で統一感</td></tr>
+          <tr><td style="color:#c8dce8; font-weight:600;">ボーダー (選択)</td><td><code>rgba(34,211,238,0.25)</code></td><td><code class="lm">rgba(14,116,144,0.30)</code></td><td style="font-size:11px; color:#2a3a50;">選択・フォーカス時</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ───────── CSS Variables ───────── -->
+  <div class="section">
+    <div class="badge">Implementation</div>
+    <h2>実装用 CSS Variables</h2>
+    <div class="code">
+<span class="c-cm">/* ══ Alpheratz Design Tokens — 案B 決定版 ══ */</span>
+
+<span class="c-p">:root</span> {
+  <span class="c-cm">/* ── Surface: Dark (default) ── */</span>
+  <span class="c-v">--surface-0</span>:    <span class="c-n">#090c12</span>;
+  <span class="c-v">--surface-top</span>:  <span class="c-n">#0c0f1a</span>;
+  <span class="c-v">--surface-1</span>:    <span class="c-n">#0e121c</span>;
+  <span class="c-v">--surface-2</span>:    <span class="c-n">#141926</span>;
+  <span class="c-v">--surface-3</span>:    <span class="c-n">#1a2133</span>;
+  <span class="c-v">--surface-side</span>: <span class="c-n">#0a0d16</span>;
+
+  <span class="c-cm">/* ── Accent: Cyan ── */</span>
+  <span class="c-v">--cyan</span>:         <span class="c-n">#22d3ee</span>;
+  <span class="c-v">--cyan-lite</span>:    <span class="c-n">#67e8f9</span>;
+  <span class="c-v">--cyan-dim</span>:     <span class="c-n">rgba(34, 211, 238, 0.12)</span>;
+  <span class="c-v">--cyan-border</span>:  <span class="c-n">rgba(34, 211, 238, 0.25)</span>;
+  <span class="c-v">--cyan-glow</span>:    <span class="c-n">rgba(34, 211, 238, 0.20)</span>;
+
+  <span class="c-cm">/* ── Accent: Amber (お気に入り専用) ── */</span>
+  <span class="c-v">--amber</span>:        <span class="c-n">#fbbf24</span>;
+  <span class="c-v">--amber-dim</span>:    <span class="c-n">rgba(251, 191, 36, 0.12)</span>;
+  <span class="c-v">--amber-border</span>: <span class="c-n">rgba(251, 191, 36, 0.30)</span>;
+  <span class="c-v">--amber-glow</span>:   <span class="c-n">rgba(251, 191, 36, 0.18)</span>;
+
+  <span class="c-cm">/* ── Accent: Red (危険・解除ホバー) ── */</span>
+  <span class="c-v">--red</span>:          <span class="c-n">#f87171</span>;
+  <span class="c-v">--red-dim</span>:      <span class="c-n">rgba(248, 113, 113, 0.12)</span>;
+  <span class="c-v">--red-border</span>:   <span class="c-n">rgba(248, 113, 113, 0.28)</span>;
+  <span class="c-v">--red-glow</span>:     <span class="c-n">rgba(248, 113, 113, 0.18)</span>;
+
+  <span class="c-cm">/* ── Text: Dark ── */</span>
+  <span class="c-v">--text-bright</span>:  <span class="c-n">#e0f2fe</span>;
+  <span class="c-v">--text-primary</span>: <span class="c-n">#b8c4d8</span>;
+  <span class="c-v">--text-muted</span>:   <span class="c-n">#4a5a70</span>;
+  <span class="c-v">--text-dim</span>:     <span class="c-n">#2a3a50</span>;
+
+  <span class="c-cm">/* ── Border ── */</span>
+  <span class="c-v">--border</span>:       <span class="c-n">rgba(34, 211, 238, 0.08)</span>;
+  <span class="c-v">--border-focus</span>: <span class="c-n">rgba(34, 211, 238, 0.25)</span>;
+}
+
+<span class="c-cm">/* ══ Light Mode Override ══ */</span>
+<span class="c-p">[data-theme="light"]</span>, <span class="c-p">.light</span> {
+  <span class="c-v">--surface-0</span>:    <span class="c-n">#f0f5f8</span>;
+  <span class="c-v">--surface-top</span>:  <span class="c-n">#e8f0f5</span>;
+  <span class="c-v">--surface-1</span>:    <span class="c-n">#ffffff</span>;
+  <span class="c-v">--surface-2</span>:    <span class="c-n">#eaf2f8</span>;
+  <span class="c-v">--surface-3</span>:    <span class="c-n">#ddeef8</span>;
+  <span class="c-v">--surface-side</span>: <span class="c-n">#e4ecf2</span>;
+
+  <span class="c-v">--cyan</span>:         <span class="c-n">#0e7490</span>;
+  <span class="c-v">--cyan-lite</span>:    <span class="c-n">#0891b2</span>;
+  <span class="c-v">--cyan-dim</span>:     <span class="c-n">rgba(14, 116, 144, 0.10)</span>;
+  <span class="c-v">--cyan-border</span>:  <span class="c-n">rgba(14, 116, 144, 0.30)</span>;
+  <span class="c-v">--cyan-glow</span>:    <span class="c-n">rgba(14, 116, 144, 0.14)</span>;
+
+  <span class="c-v">--amber</span>:        <span class="c-n">#d97706</span>;
+  <span class="c-v">--amber-dim</span>:    <span class="c-n">rgba(217, 119, 6, 0.10)</span>;
+  <span class="c-v">--amber-border</span>: <span class="c-n">rgba(217, 119, 6, 0.28)</span>;
+  <span class="c-v">--amber-glow</span>:   <span class="c-n">rgba(217, 119, 6, 0.12)</span>;
+
+  <span class="c-v">--red</span>:          <span class="c-n">#dc2626</span>;
+  <span class="c-v">--red-dim</span>:      <span class="c-n">rgba(220, 38, 38, 0.08)</span>;
+  <span class="c-v">--red-border</span>:   <span class="c-n">rgba(220, 38, 38, 0.25)</span>;
+  <span class="c-v">--red-glow</span>:     <span class="c-n">rgba(220, 38, 38, 0.12)</span>;
+
+  <span class="c-v">--text-bright</span>:  <span class="c-n">#0a2535</span>;
+  <span class="c-v">--text-primary</span>: <span class="c-n">#1e3a4a</span>;
+  <span class="c-v">--text-muted</span>:   <span class="c-n">#6a8898</span>;
+  <span class="c-v">--text-dim</span>:     <span class="c-n">#9ab0bc</span>;
+
+  <span class="c-v">--border</span>:       <span class="c-n">rgba(14, 116, 144, 0.12)</span>;
+  <span class="c-v">--border-focus</span>: <span class="c-n">rgba(14, 116, 144, 0.30)</span>;
+}
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

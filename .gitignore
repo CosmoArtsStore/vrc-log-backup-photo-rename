@@ -1,47 +1,43 @@
-# Rust build artifacts
+# Secrets and local environment
+.env
+.env*.local
+credentials.json
+*.pem
+
+# Dependency directories
+node_modules/
+**/node_modules/
+
+# Build artifacts and caches
+target/
 **/target/
 tmp/
-
-# Node.js
-node_modules/
-package-lock.json
-
-# Local env files
-.env*.local
-.env
-
-# Build outputs
 dist/
 build/
+**/gen/
+*.tsbuildinfo
+all_codes_combined.txt
 
 # Debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS
+# OS files
 .DS_Store
 
-# API Keys (IMPORTANT)
-credentials.json
-*.pem
-
-# Dev tools
-all_codes_combined.txt
-*.tsbuildinfo
-
-# Tauri gen
-**/gen/
-
-# Internal workspaces and private working files
-.agents/
-AITools/
-UserTools/
-tasks/
-
-# AI investigation tools and outputs
+# Generated investigation outputs and scratch areas
 AITools/output/
-
-# Local test and scratch assets
+AITools/tmp/
 public/log-check/
 public/test_case/
+tasks/
+
+# Potentially sensitive local media and raw logs
+UserTools/**/*.mp4
+UserTools/**/*.png
+UserTools/**/*.jpg
+UserTools/**/*.jpeg
+UserTools/images/
+UserTools/log-check/raw-log/
+UserTools/log-check/tmp-bench/

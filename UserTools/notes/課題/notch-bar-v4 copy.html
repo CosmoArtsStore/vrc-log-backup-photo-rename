@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notch Timeline Bar v4</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #111;
+  font-family: 'DM Mono', monospace;
+  overflow-x: hidden;
+}
+
+.gallery {
+  padding: 32px 80px 80px 32px;
+  max-width: 900px;
+}
+.month-section { margin-bottom: 48px; }
+.month-heading {
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: #333;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1e1e1e;
+}
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 4px;
+}
+.photo-tile { aspect-ratio: 1; border-radius: 4px; }
+
+/* ── Notchバー ── */
+.bar-frame {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 48px;
+  cursor: ns-resize;
+  user-select: none;
+  z-index: 100;
+}
+
+.notch-spine {
+  position: absolute;
+  left: 50%;
+  top: 20px; bottom: 20px;
+  width: 1px;
+  background: #1e1e1e;
+  transform: translateX(-50%);
+}
+
+/* 目盛り線 */
+.notch-tick {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: 1px;
+  transition: background .12s, width .12s;
+}
+.notch-tick.year  { width: 26px; background: #2a2a2a; }
+.notch-tick.month { width: 14px; background: #222; }
+
+
+/* 年ラベル */
+.year-label {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 7px;
+  letter-spacing: .05em;
+  color: #2a2a2a;
+  white-space: nowrap;
+  pointer-events: none;
+  background: #111;
+  padding: 0 3px;
+  z-index: 1;
+  transition: color .15s;
+}
+.year-label.active-year { color: #555; }
+.bar-frame:hover .year-label { color: #3a3a3a; }
+.bar-frame:hover .year-label.active-year { color: #888; }
+
+/* ── スキャンライン（ドットの代わり）── */
+.scan-line {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 1px;
+  background: rgba(232, 213, 163, 0.6);
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 4;
+  /* transitionなし→リアルタイム */
+}
+/* 左右の短い端キャップ */
+.scan-line::before,
+.scan-line::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 5px;
+  background: rgba(232, 213, 163, 0.5);
+}
+.scan-line::before { left: 0; }
+.scan-line::after  { right: 0; }
+
+/* ── 単一ツールチップ ── */
+.single-tip {
+  position: fixed;
+  right: 60px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.single-tip.visible { opacity: 1; }
+
+.single-tip-inner {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  padding: 5px 13px;
+  white-space: nowrap;
+  position: relative;
+}
+.single-tip-inner::after {
+  content: '';
+  position: absolute;
+  right: -5px; top: 50%;
+  transform: translateY(-50%);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 5px solid rgba(255,255,255,.08);
+}
+.tip-year  { font-size: 9px; font-weight: 300; color: rgba(255,255,255,.3); letter-spacing: .06em; }
+.tip-month { font-size: 14px; font-weight: 500; color: rgba(255,255,255,.85); letter-spacing: .02em; }
+</style>
+</head>
+<body>
+
+<div class="gallery" id="gallery"></div>
+
+<div class="bar-frame" id="barFrame">
+  <div class="notch-spine"></div>
+  <div id="notchTicks"></div>
+  <div class="scan-line" id="scanLine"></div>
+</div>
+
+<div class="single-tip" id="singleTip">
+  <div class="single-tip-inner">
+    <span class="tip-year"  id="tipYear">2025</span>
+    <span class="tip-month" id="tipMonth">8月</span>
+  </div>
+</div>
+
+<script>
+const DATA = [
+  { year: 2026, month: 3,  count: 18 },
+  { year: 2026, month: 2,  count: 27 },
+  { year: 2026, month: 1,  count: 34 },
+  { year: 2025, month: 12, count: 41 },
+  { year: 2025, month: 11, count: 53 },
+  { year: 2025, month: 10, count: 38 },
+  { year: 2025, month: 9,  count: 29 },
+  { year: 2025, month: 8,  count: 62 },
+  { year: 2025, month: 7,  count: 45 },
+  { year: 2025, month: 6,  count: 31 },
+  { year: 2025, month: 5,  count: 22 },
+  { year: 2025, month: 4,  count: 19 },
+  { year: 2025, month: 3,  count: 24 },
+  { year: 2025, month: 2,  count: 17 },
+  { year: 2025, month: 1,  count: 28 },
+  { year: 2024, month: 12, count: 36 },
+  { year: 2024, month: 11, count: 44 },
+  { year: 2024, month: 10, count: 33 },
+  { year: 2024, month: 9,  count: 21 },
+  { year: 2024, month: 8,  count: 55 },
+];
+
+const N = DATA.length;
+function isFirstOfYear(i) { return i === 0 || DATA[i-1].year !== DATA[i].year; }
+
+// ギャラリー生成
+const gallery = document.getElementById('gallery');
+const sections = [];
+DATA.forEach((d, i) => {
+  const sec = document.createElement('div');
+  sec.className = 'month-section';
+  const hd = document.createElement('div');
+  hd.className = 'month-heading';
+  hd.textContent = `${d.year}年${d.month}月`;
+  const grid = document.createElement('div');
+  grid.className = 'photo-grid';
+  for (let j = 0; j < d.count; j++) {
+    const t = document.createElement('div');
+    t.className = 'photo-tile';
+    const hue = (i * 31 + j * 17) % 360;
+    t.style.background = `hsl(${hue},14%,${18+(j%4)*3}%)`;
+    grid.appendChild(t);
+  }
+  sec.appendChild(hd);
+  sec.appendChild(grid);
+  gallery.appendChild(sec);
+  sections.push(sec);
+});
+
+// バー構築
+const ticksEl  = document.getElementById('notchTicks');
+const scanLine = document.getElementById('scanLine');
+const barFrame = document.getElementById('barFrame');
+const tip      = document.getElementById('singleTip');
+const tipYear  = document.getElementById('tipYear');
+const tipMonth = document.getElementById('tipMonth');
+
+DATA.forEach((d, i) => {
+  const fy  = isFirstOfYear(i);
+  const pct = ((i + 0.5) / N) * 100;
+
+  const tick = document.createElement('div');
+  tick.className = 'notch-tick ' + (fy ? 'year' : 'month');
+  tick.dataset.idx = i;
+  tick.style.top = `${pct}%`;
+  ticksEl.appendChild(tick);
+
+  if (fy) {
+    const yl = document.createElement('div');
+    yl.className = 'year-label';
+    yl.dataset.year = d.year;
+    yl.style.top = `${pct}%`;
+    yl.textContent = d.year;
+    ticksEl.appendChild(yl);
+  }
+});
+
+// スクロール → スキャンライン位置
+function getScrollRatio() {
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  return max > 0 ? Math.max(0, Math.min(1, window.scrollY / max)) : 0;
+}
+
+function updateScanLine(ratio) {
+  const barH   = barFrame.getBoundingClientRect().height;
+  const spineH = barH - 40;
+  const lineY  = 20 + ratio * spineH;
+  scanLine.style.top = `${lineY}px`;
+
+  // ツールチップ位置
+  const barTop = barFrame.getBoundingClientRect().top;
+  tip.style.top = `${barTop + lineY}px`;
+}
+
+// スキャンラインが当たってる目盛りを探す（最近傍）
+function findActiveByRatio(ratio) {
+  const barH   = barFrame.getBoundingClientRect().height;
+  const spineH = barH - 40;
+  const lineY  = 20 + ratio * spineH; // px from bar top
+
+  let best = 0, bestDist = Infinity;
+  ticksEl.querySelectorAll('.notch-tick').forEach(el => {
+    const i    = parseInt(el.dataset.idx);
+    const pct  = ((i + 0.5) / N);
+    const tickY = 20 + pct * spineH;
+    const dist  = Math.abs(tickY - lineY);
+    if (dist < bestDist) { bestDist = dist; best = i; }
+  });
+  return best;
+}
+
+function updateActive(i) {
+  ticksEl.querySelectorAll('.year-label').forEach(el => {
+    el.classList.toggle('active-year', parseInt(el.dataset.year) === DATA[i].year);
+  });
+  tipYear.textContent  = DATA[i].year;
+  tipMonth.textContent = `${DATA[i].month}月`;
+}
+
+let tipTimer = null;
+let isDragging = false;
+let rafPending = false;
+
+window.addEventListener('scroll', () => {
+  const ratio = getScrollRatio();
+  updateScanLine(ratio);          // 即時
+  tip.classList.add('visible');
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => tip.classList.remove('visible'), 1200);
+
+  if (!rafPending) {
+    rafPending = true;
+    requestAnimationFrame(() => {
+      updateActive(findActiveByRatio(ratio));
+      rafPending = false;
+    });
+  }
+}, { passive: true });
+
+// バードラッグ
+function jumpByEvent(e) {
+  const r   = barFrame.getBoundingClientRect();
+  const rel = Math.max(0, Math.min(1, (e.clientY - r.top - 20) / (r.height - 40)));
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  window.scrollTo({ top: rel * max, behavior: isDragging ? 'instant' : 'smooth' });
+  tip.classList.add('visible');
+}
+
+barFrame.addEventListener('mousedown', e => {
+  isDragging = true; jumpByEvent(e); e.preventDefault();
+});
+document.addEventListener('mousemove', e => { if (isDragging) jumpByEvent(e); });
+document.addEventListener('mouseup', () => {
+  if (isDragging) {
+    isDragging = false;
+    tipTimer = setTimeout(() => tip.classList.remove('visible'), 1200);
+  }
+});
+barFrame.addEventListener('click', jumpByEvent);
+
+// 初期
+updateScanLine(0);
+updateActive(0);
+</script>
+</body>
+</html>

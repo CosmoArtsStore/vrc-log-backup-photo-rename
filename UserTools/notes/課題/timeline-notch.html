@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notch Timeline Bar</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #111;
+  font-family: 'DM Mono', monospace;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bar-frame {
+  width: 48px;
+  height: 560px;
+  position: relative;
+  cursor: ns-resize;
+  user-select: none;
+}
+
+/* 中心軸 */
+.notch-spine {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: #222;
+  transform: translateX(-50%);
+}
+
+/* 目盛り線 */
+.notch-tick {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: 1px;
+  background: #2e2e2e;
+  transition: background 0.15s, width 0.15s;
+}
+.notch-tick.year     { background: #3a3a3a; width: 28px !important; }
+.notch-tick.active   { background: #e8d5a3 !important; width: 32px !important; }
+.notch-tick.active.year { width: 38px !important; }
+
+/* ラベル */
+.notch-label {
+  position: absolute;
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transform: translateY(-50%);
+  transition: opacity 0.2s, color 0.15s;
+  pointer-events: none;
+}
+.notch-label.right { left: calc(50% + 18px); color: #333; opacity: 0; }
+.notch-label.left  { right: calc(50% + 18px); color: #333; opacity: 0; text-align: right; }
+.notch-label.year-lbl { color: #444; opacity: 1; }
+.notch-label.active   { color: #e8d5a3 !important; opacity: 1 !important; }
+.bar-frame:hover .notch-label          { opacity: 0.6; }
+.bar-frame:hover .notch-label.year-lbl { opacity: 1; }
+
+/* つまみ */
+.notch-thumb {
+  position: absolute;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  background: #e8d5a3;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px rgba(232,213,163,0.5);
+  transition: top 0.06s linear;
+  pointer-events: none;
+}
+</style>
+</head>
+<body>
+
+<div class="bar-frame" id="barA">
+  <div class="notch-spine"></div>
+  <div id="notchTicks"></div>
+  <div class="notch-thumb" id="notchThumb"></div>
+</div>
+
+<script>
+const DATA = [
+  { year: 2026, month: 3,  count: 18, lbl: '3月' },
+  { year: 2026, month: 2,  count: 27, lbl: '2月' },
+  { year: 2026, month: 1,  count: 34, lbl: '1月' },
+  { year: 2025, month: 12, count: 41, lbl: '12月' },
+  { year: 2025, month: 11, count: 53, lbl: '11月' },
+  { year: 2025, month: 10, count: 38, lbl: '10月' },
+  { year: 2025, month: 9,  count: 29, lbl: '9月' },
+  { year: 2025, month: 8,  count: 62, lbl: '8月' },
+  { year: 2025, month: 7,  count: 45, lbl: '7月' },
+  { year: 2025, month: 6,  count: 31, lbl: '6月' },
+  { year: 2025, month: 5,  count: 22, lbl: '5月' },
+  { year: 2025, month: 4,  count: 19, lbl: '4月' },
+  { year: 2025, month: 3,  count: 24, lbl: '3月' },
+  { year: 2025, month: 2,  count: 17, lbl: '2月' },
+  { year: 2025, month: 1,  count: 28, lbl: '1月' },
+  { year: 2024, month: 12, count: 36, lbl: '12月' },
+  { year: 2024, month: 11, count: 44, lbl: '11月' },
+  { year: 2024, month: 10, count: 33, lbl: '10月' },
+  { year: 2024, month: 9,  count: 21, lbl: '9月' },
+  { year: 2024, month: 8,  count: 55, lbl: '8月' },
+];
+
+const N = DATA.length;
+function isFirstOfYear(i) { return i === 0 || DATA[i-1].year !== DATA[i].year; }
+function getPosPct(i) { return ((i + 0.5) / N) * 100; }
+
+const container = document.getElementById('notchTicks');
+const thumb     = document.getElementById('notchThumb');
+const frame     = document.getElementById('barA');
+
+DATA.forEach((d, i) => {
+  const fy  = isFirstOfYear(i);
+  const pct = getPosPct(i);
+
+  const tick = document.createElement('div');
+  tick.className = 'notch-tick' + (fy ? ' year' : '');
+  tick.dataset.idx = i;
+  tick.style.top   = `${pct}%`;
+  tick.style.width = fy ? '28px' : '16px';
+  container.appendChild(tick);
+
+  if (fy) {
+    const lbl = document.createElement('div');
+    lbl.className = 'notch-label right year-lbl';
+    lbl.dataset.idx = i;
+    lbl.style.top   = `${pct}%`;
+    lbl.textContent = d.year;
+    container.appendChild(lbl);
+  } else {
+    const lbl = document.createElement('div');
+    lbl.className = 'notch-label left';
+    lbl.dataset.idx = i;
+    lbl.style.top   = `${pct}%`;
+    lbl.textContent = d.lbl;
+    container.appendChild(lbl);
+  }
+});
+
+function setActive(i) {
+  thumb.style.top = `${getPosPct(i)}%`;
+  container.querySelectorAll('.notch-tick').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.idx) === i);
+  });
+  container.querySelectorAll('.notch-label').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.idx) === i);
+  });
+}
+
+let dragging = false;
+function hit(e) {
+  const r   = frame.getBoundingClientRect();
+  const rel = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+  setActive(Math.max(0, Math.min(N - 1, Math.floor(rel * N))));
+}
+
+frame.addEventListener('mousedown', e => { dragging = true; hit(e); e.preventDefault(); });
+document.addEventListener('mousemove', e => { if (dragging) hit(e); });
+document.addEventListener('mouseup',   () => { dragging = false; });
+frame.addEventListener('click', hit);
+
+setActive(4);
+</script>
+</body>
+</html>

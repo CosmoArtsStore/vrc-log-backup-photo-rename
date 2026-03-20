@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alpheratz</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'DM Sans', 'Segoe UI', sans-serif;
+      background: #f0f0f5;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      color: #222;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      height: 52px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e8;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-logo {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-logo svg {
+      height: 28px;
+    }
+
+    .logo-text {
+      font-size: 22px;
+      font-style: italic;
+      font-weight: 300;
+      letter-spacing: 1px;
+      color: #5a5acd;
+      font-family: 'Georgia', serif;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    /* Search bar in header */
+    .search-bar {
+      display: flex;
+      align-items: center;
+      background: #f5f5fa;
+      border: 1.5px solid #d0d0e8;
+      border-radius: 22px;
+      padding: 0 14px;
+      height: 34px;
+      gap: 8px;
+      width: 320px;
+    }
+
+    .search-bar input {
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      color: #444;
+      outline: none;
+      width: 100%;
+    }
+
+    .search-bar input::placeholder {
+      color: #aaa;
+    }
+
+    .search-icon {
+      color: #aaa;
+      font-size: 14px;
+    }
+
+    .status-badge {
+      font-size: 11px;
+      color: #888;
+      background: #f0f0f5;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 3px 10px;
+      white-space: nowrap;
+    }
+
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      font-size: 16px;
+      transition: background 0.15s;
+    }
+
+    .icon-btn:hover {
+      background: #f0f0f8;
+    }
+
+    /* ── BODY LAYOUT ── */
+    .body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── LEFT SIDEBAR ── */
+    .left-sidebar {
+      width: 110px;
+      background: #fff;
+      border-right: 1px solid #e0e0e8;
+      padding: 16px 8px;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+
+    .year-label {
+      font-size: 11px;
+      color: #aaa;
+      font-weight: 600;
+      padding: 0 8px;
+      margin-bottom: 6px;
+    }
+
+    .month-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #444;
+    }
+
+    .month-item:hover {
+      background: #f5f5fb;
+    }
+
+    .month-item.active {
+      background: #eeeef8;
+      color: #5a5acd;
+      font-weight: 600;
+    }
+
+    .month-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #5a5acd;
+      flex-shrink: 0;
+    }
+
+    .month-count {
+      font-size: 10px;
+      color: #aaa;
+      margin-left: auto;
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: #ccc transparent;
+    }
+
+    /* favorite hint */
+    .fav-hint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff;
+      border: 1px solid #e0e0e8;
+      border-radius: 10px;
+      padding: 8px 14px;
+      margin-bottom: 12px;
+      font-size: 12.5px;
+      color: #444;
+    }
+
+    .fav-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #5a5acd;
+      flex-shrink: 0;
+    }
+
+    /* Photo grid */
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+    }
+
+    .photo-card {
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .photo-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .photo-thumb {
+      aspect-ratio: 1;
+      background: linear-gradient(135deg, #8ab4d4 0%, #6090b8 40%, #4a7a9e 70%, #2c5f80 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Fake photo content variations */
+    .photo-thumb::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 30% 60%, rgba(0, 180, 200, 0.4) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 60% at 70% 30%, rgba(200, 220, 240, 0.5) 0%, transparent 60%);
+    }
+
+    .photo-thumb:nth-child(odd)::before {
+      background:
+        radial-gradient(ellipse 50% 50% at 60% 40%, rgba(100, 180, 220, 0.5) 0%, transparent 70%),
+        radial-gradient(ellipse 30% 40% at 20% 70%, rgba(0, 100, 150, 0.4) 0%, transparent 60%);
+    }
+
+    .rank-badge {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+
+    .photo-info {
+      padding: 6px 8px 8px;
+    }
+
+    .tag-label {
+      font-size: 10px;
+      color: #5a5acd;
+      font-weight: 500;
+      margin-bottom: 3px;
+    }
+
+    .world-name {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: #222;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .photo-date {
+      font-size: 10px;
+      color: #999;
+    }
+
+    .photo-date.alt {
+      color: #e67e22;
+    }
+
+    /* ── RIGHT SIDEBAR ── */
+    .right-sidebar {
+      width: 48px;
+      background: #fff;
+      border-left: 1px solid #e0e0e8;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+    }
+
+    .right-sidebar-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .right-sidebar-divider {
+      width: 28px;
+      height: 1px;
+      background: #e0e0e8;
+      margin: 6px 0;
+    }
+
+    .right-icon-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      font-size: 16px;
+      transition: background 0.15s;
+    }
+
+    .right-icon-btn:hover {
+      background: #f0f0f8;
+    }
+
+    .right-icon-btn.active {
+      background: #eeeef8;
+      color: #5a5acd;
+    }
+
+    /* view mode group */
+    .view-mode-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 4px;
+      background: #f5f5fa;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <button class="icon-btn" title="メニュー">☰</button>
+      <button class="icon-btn" title="設定">⚙️</button>
+    </div>
+
+    <div class="header-logo">
+      <span class="logo-text">Alpheratz</span>
+    </div>
+
+    <div class="header-right">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="ワールド名で検索...">
+      </div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- LEFT SIDEBAR -->
+    <div class="left-sidebar">
+      <div class="year-label">2026</div>
+      <div class="month-item active">
+        <span class="month-dot"></span>
+        2月
+        <span class="month-count">7244</span>
+      </div>
+      <div class="month-item">
+        <span style="width:7px"></span>
+        1月
+        <span class="month-count">3120</span>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+      <div class="photo-grid" id="grid"></div>
+    </div>
+
+    <!-- RIGHT SIDEBAR -->
+    <div class="right-sidebar">
+      <!-- All controls at bottom -->
+      <div style="flex:1"></div>
+      <div class="right-sidebar-controls">
+        <div class="view-mode-group">
+          <button class="right-icon-btn active" title="グリッド表示">⊞</button>
+          <button class="right-icon-btn" title="テーブル表示">⊟</button>
+        </div>
+        <div class="right-sidebar-divider"></div>
+        <button class="right-icon-btn" title="リロード">↻</button>
+        <button class="right-icon-btn" title="設定">⚙</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Generate dummy photo cards
+    const grid = document.getElementById('grid');
+    const worlds = ['Dream²/夢²', 'Neon Valley', 'Crystal Sky', 'Aurora Base'];
+    const tags = ['portrait', 'landscape', 'event'];
+    const ranks = ['1st', '2nd', '53w5'];
+
+    for (let i = 0; i < 30; i++) {
+      const world = worlds[i % worlds.length];
+      const tag = tags[i % tags.length];
+      const rank = i % 7 < 2 ? ranks[2] : ranks[0];
+      const hasAlt = i % 9 === 0;
+
+      const card = document.createElement('div');
+      card.className = 'photo-card';
+      card.innerHTML = `
+      <div class="photo-thumb" style="filter: hue-rotate(${i * 11}deg) saturate(${0.8 + (i % 3) * 0.2})">
+        <span class="rank-badge">${rank}</span>
+      </div>
+      <div class="photo-info">
+        <div class="tag-label">${tag}</div>
+        <div class="world-name">${world}</div>
+        <div class="photo-date ${hasAlt ? 'alt' : ''}">2026-02-23 23:24:26</div>
+      </div>
+    `;
+      grid.appendChild(card);
+    }
+  </script>
+</body>
+
+</html>
