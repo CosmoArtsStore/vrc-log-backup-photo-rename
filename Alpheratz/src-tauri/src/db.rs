@@ -1,15 +1,13 @@
-use crate::config::{load_backup_paths, save_backup_paths, BackupPathEntry};
 use crate::config::load_setting;
+use crate::config::{load_backup_paths, save_backup_paths, BackupPathEntry};
 use crate::models::PhotoRecord;
 use crate::utils::{
-    clear_directory_contents, get_alpheratz_backup_dir,
-    get_alpheratz_db_cache_dir, get_alpheratz_img_cache_dir, get_alpheratz_install_dir,
-    get_alpheratz_log_dir, get_stella_record_install_dir,
+    clear_directory_contents, get_alpheratz_backup_dir, get_alpheratz_db_cache_dir,
+    get_alpheratz_img_cache_dir, get_alpheratz_install_dir, get_alpheratz_log_dir,
 };
 use chrono::Local;
 use rusqlite::Connection;
 use serde::Serialize;
-use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -32,10 +30,6 @@ fn resolve_source_slot_by_photo_folder(photo_folder_path: &str) -> i64 {
     }
 }
 
-fn get_stella_record_db_path() -> Option<PathBuf> {
-    Some(get_stella_record_install_dir()?.join("stellarecord.db"))
-}
-
 pub fn configured_source_slots() -> Vec<i64> {
     vec![1, 2]
 }
@@ -54,7 +48,6 @@ fn get_legacy_alpheratz_db_paths() -> Vec<PathBuf> {
 }
 
 pub fn open_alpheratz_connection(source_slot: i64) -> Result<Connection, String> {
-    let _ = source_slot;
     let db_path = get_alpheratz_db_path(source_slot)
         .ok_or_else(|| "Alpheratz DB の保存先を取得できません".to_string())?;
     if !db_path.exists() {
@@ -124,16 +117,17 @@ fn primary_key_column(conn: &Connection, table_name: &str) -> Result<Option<Stri
         .map_err(|e| format!("主キー情報を確認できません [{}]: {}", pragma_sql, e))?;
     let rows = stmt
         .query_map([], |row| {
-            Ok((
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(5)?,
-            ))
+            Ok((row.get::<_, String>(1)?, row.get::<_, i64>(5)?))
         })
         .map_err(|e| format!("主キー列情報を取得できません [{}]: {}", pragma_sql, e))?;
 
     for row in rows {
-        let (column_name, pk_order) =
-            row.map_err(|e| format!("主キー列情報の読み取りに失敗しました [{}]: {}", pragma_sql, e))?;
+        let (column_name, pk_order) = row.map_err(|e| {
+            format!(
+                "主キー列情報の読み取りに失敗しました [{}]: {}",
+                pragma_sql, e
+            )
+        })?;
         if pk_order == 1 {
             return Ok(Some(column_name));
         }
@@ -327,7 +321,6 @@ fn ensure_alpheratz_schema(conn: &Connection) -> Result<(), String> {
     // Intentional: pre-release cleanup. We only keep the current schema and remove abandoned tables.
     conn.execute("DROP TABLE IF EXISTS photo_embeddings", [])
         .map_err(|e| format!("不要テーブル photo_embeddings の削除に失敗しました: {}", e))?;
-    let _ = get_stella_record_db_path();
     Ok(())
 }
 
@@ -344,9 +337,13 @@ pub fn get_photos(
     orientation: Option<String>,
     favorites_only: Option<bool>,
     tag_filters: Option<Vec<String>>,
+    include_phash: Option<bool>,
 ) -> Result<Vec<PhotoRecord>, String> {
     let conn = open_alpheratz_connection(1)?;
-    let mut sql = "SELECT photo_filename, photo_path, world_id, world_name, timestamp, '' AS memo, phash, orientation, image_width, image_height, source_slot, is_favorite, match_source, is_missing FROM photos WHERE is_missing = 0".to_string();
+    let mut sql = format!(
+        "SELECT photo_filename, photo_path, world_id, world_name, timestamp, '' AS memo, {} AS phash, orientation, image_width, image_height, source_slot, is_favorite, match_source, is_missing FROM photos WHERE is_missing = 0",
+        if include_phash == Some(true) { "phash" } else { "NULL" }
+    );
 
     if start_date.is_some() {
         sql.push_str(" AND timestamp >= :start");
@@ -445,33 +442,6 @@ pub fn get_photos(
         }
     }
 
-    if results.is_empty() {
-        return Ok(results);
-    }
-
-    let mut tag_stmt = conn
-        .prepare(
-            "SELECT pt.photo_path, t.name
-             FROM photo_tags pt
-             INNER JOIN tags t ON t.id = pt.tag_id
-             ORDER BY t.name COLLATE NOCASE ASC",
-        )
-        .map_err(|e| format!("タグ一覧クエリを準備できません: {}", e))?;
-    let tag_rows = tag_stmt
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
-        .map_err(|e| format!("タグ一覧クエリを実行できません: {}", e))?;
-
-    let mut tags_by_photo: HashMap<String, Vec<String>> = HashMap::new();
-    for row in tag_rows {
-        match row {
-            Ok((photo_path, tag)) => tags_by_photo.entry(photo_path).or_default().push(tag),
-            Err(err) => crate::utils::log_warn(&format!("photo tag row decode failed: {}", err)),
-        }
-    }
-
-    for record in &mut results {
-        record.tags = tags_by_photo.remove(&record.photo_path).unwrap_or_default();
-    }
     Ok(results)
 }
 
@@ -518,13 +488,19 @@ pub fn get_photo_tags(source_slot: i64, filename: &str) -> Result<Vec<String>, S
     for row in rows {
         match row {
             Ok(tag) => tags.push(tag),
-            Err(err) => crate::utils::log_warn(&format!("photo tag decode failed [{}]: {}", filename, err)),
+            Err(err) => {
+                crate::utils::log_warn(&format!("photo tag decode failed [{}]: {}", filename, err))
+            }
         }
     }
     Ok(tags)
 }
 
-pub fn set_photo_favorite(source_slot: i64, filename: &str, is_favorite: bool) -> Result<(), String> {
+pub fn set_photo_favorite(
+    source_slot: i64,
+    filename: &str,
+    is_favorite: bool,
+) -> Result<(), String> {
     let conn = open_alpheratz_connection(source_slot)?;
     let changed = conn
         .execute(
@@ -641,9 +617,12 @@ pub fn delete_tag_master(tag: &str) -> Result<(), String> {
     }
 
     let conn = open_alpheratz_connection(1)?;
-    let tx = conn
-        .unchecked_transaction()
-        .map_err(|err| format!("タグ削除トランザクションを開始できません [{}]: {}", normalized, err))?;
+    let tx = conn.unchecked_transaction().map_err(|err| {
+        format!(
+            "タグ削除トランザクションを開始できません [{}]: {}",
+            normalized, err
+        )
+    })?;
 
     tx.execute(
         "DELETE FROM photo_tags WHERE tag_id IN (SELECT id FROM tags WHERE name = ?1)",
@@ -651,8 +630,11 @@ pub fn delete_tag_master(tag: &str) -> Result<(), String> {
     )
     .map_err(|err| format!("写真とタグの関連を削除できません [{}]: {}", normalized, err))?;
 
-    tx.execute("DELETE FROM tags WHERE name = ?1", rusqlite::params![normalized])
-        .map_err(|err| format!("タグマスタを削除できません [{}]: {}", normalized, err))?;
+    tx.execute(
+        "DELETE FROM tags WHERE name = ?1",
+        rusqlite::params![normalized],
+    )
+    .map_err(|err| format!("タグマスタを削除できません [{}]: {}", normalized, err))?;
 
     tx.commit()
         .map_err(|err| format!("タグ削除を確定できません [{}]: {}", normalized, err))?;
@@ -669,7 +651,9 @@ pub fn get_backup_candidate(photo_folder_path: &str) -> Result<Option<BackupCand
         .ok_or_else(|| "バックアップフォルダを取得できません".to_string())?;
 
     let mut entries = load_backup_paths();
-    let candidate = entries.iter().find(|entry| entry.photo_folder_path == normalized);
+    let candidate = entries
+        .iter()
+        .find(|entry| entry.photo_folder_path == normalized);
 
     let Some(entry) = candidate.cloned() else {
         return Ok(None);
@@ -696,7 +680,11 @@ pub fn create_cache_backup(photo_folder_path: &str) -> Result<Option<BackupCandi
     }
 
     let source_slot = resolve_source_slot_by_photo_folder(normalized);
-    let slot_cache_name = if source_slot == 2 { "2nd-cache" } else { "1st-cache" };
+    let slot_cache_name = if source_slot == 2 {
+        "2nd-cache"
+    } else {
+        "1st-cache"
+    };
     let img_cache_dir = get_alpheratz_img_cache_dir(source_slot)
         .ok_or_else(|| "imgCache の保存先を取得できません".to_string())?;
     let db_cache_dir = get_alpheratz_db_cache_dir(source_slot)
@@ -704,12 +692,24 @@ pub fn create_cache_backup(photo_folder_path: &str) -> Result<Option<BackupCandi
 
     let has_img_cache = img_cache_dir.exists()
         && fs::read_dir(&img_cache_dir)
-            .map_err(|err| format!("imgCache を確認できません [{}]: {}", img_cache_dir.display(), err))?
+            .map_err(|err| {
+                format!(
+                    "imgCache を確認できません [{}]: {}",
+                    img_cache_dir.display(),
+                    err
+                )
+            })?
             .next()
             .is_some();
     let has_db_cache = db_cache_dir.exists()
         && fs::read_dir(&db_cache_dir)
-            .map_err(|err| format!("dbCache を確認できません [{}]: {}", db_cache_dir.display(), err))?
+            .map_err(|err| {
+                format!(
+                    "dbCache を確認できません [{}]: {}",
+                    db_cache_dir.display(),
+                    err
+                )
+            })?
             .next()
             .is_some();
 
@@ -799,7 +799,11 @@ pub fn restore_cache_backup(photo_folder_path: &str) -> Result<bool, String> {
     };
 
     let source_slot = resolve_source_slot_by_photo_folder(normalized);
-    let slot_cache_name = if source_slot == 2 { "2nd-cache" } else { "1st-cache" };
+    let slot_cache_name = if source_slot == 2 {
+        "2nd-cache"
+    } else {
+        "1st-cache"
+    };
     let backup_root = get_alpheratz_backup_dir()
         .ok_or_else(|| "バックアップフォルダを取得できません".to_string())?;
     let backup_dir = backup_root.join(&candidate.backup_folder_name);
@@ -861,7 +865,13 @@ pub fn restore_cache_backup(photo_folder_path: &str) -> Result<bool, String> {
     }
 
     if backup_slot_dir.exists() {
-        let _ = fs::remove_dir_all(&backup_slot_dir);
+        if let Err(err) = fs::remove_dir_all(&backup_slot_dir) {
+            crate::utils::log_warn(&format!(
+                "復元後の一時バックアップ フォルダを削除できません [{}]: {}",
+                backup_slot_dir.display(),
+                err
+            ));
+        }
     }
     if backup_dir.exists() {
         let slot_entries_remaining = fs::read_dir(&backup_dir)
@@ -869,7 +879,13 @@ pub fn restore_cache_backup(photo_folder_path: &str) -> Result<bool, String> {
             .and_then(|mut entries| entries.next())
             .is_some();
         if !slot_entries_remaining {
-            let _ = fs::remove_dir_all(&backup_dir);
+            if let Err(err) = fs::remove_dir_all(&backup_dir) {
+                crate::utils::log_warn(&format!(
+                    "空のバックアップ ルートを削除できません [{}]: {}",
+                    backup_dir.display(),
+                    err
+                ));
+            }
         }
     }
 
@@ -881,9 +897,12 @@ pub fn restore_cache_backup(photo_folder_path: &str) -> Result<bool, String> {
 
 pub fn reset_photo_cache() -> Result<(), String> {
     let conn = open_alpheratz_connection(1)?;
-    let tx = conn
-        .unchecked_transaction()
-        .map_err(|err| format!("写真キャッシュ削除トランザクションを開始できません: {}", err))?;
+    let tx = conn.unchecked_transaction().map_err(|err| {
+        format!(
+            "写真キャッシュ削除トランザクションを開始できません: {}",
+            err
+        )
+    })?;
 
     tx.execute("DELETE FROM photo_tags", [])
         .map_err(|err| format!("photo_tags を削除できません: {}", err))?;

@@ -29,7 +29,11 @@ pub struct AlpheratzSetting {
     pub startup_preference_set: bool,
     #[serde(default, rename = "tweetTemplates", alias = "tweet_templates")]
     pub tweet_templates: Vec<String>,
-    #[serde(default, rename = "activeTweetTemplate", alias = "active_tweet_template")]
+    #[serde(
+        default,
+        rename = "activeTweetTemplate",
+        alias = "active_tweet_template"
+    )]
     pub active_tweet_template: String,
 }
 
@@ -110,7 +114,13 @@ pub fn load_setting() -> AlpheratzSetting {
             match fs::read_to_string(&legacy_path) {
                 Ok(content) => match serde_json::from_str::<AlpheratzSetting>(&content) {
                     Ok(setting) => {
-                        let _ = save_setting(&setting);
+                        if let Err(err) = save_setting(&setting) {
+                            utils::log_warn(&format!(
+                                "Failed to migrate legacy settings ({}): {}",
+                                legacy_path.display(),
+                                err
+                            ));
+                        }
                         return setting;
                     }
                     Err(err) => utils::log_warn(&format!(

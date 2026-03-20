@@ -68,11 +68,14 @@ pub fn start_phash_worker(app: AppHandle) {
 
 pub fn get_phash_progress(app: &AppHandle) -> PHashProgressPayload {
     let state = app.state::<PHashWorkerState>();
-    state
-        .progress
-        .lock()
-        .map(|progress| progress.clone())
-        .unwrap_or_default()
+    let progress = match state.progress.lock() {
+        Ok(progress) => progress.clone(),
+        Err(err) => {
+            crate::utils::log_warn(&format!("PDQ 進捗状態を読み取れませんでした: {}", err));
+            PHashProgressPayload::default()
+        }
+    };
+    progress
 }
 
 pub fn has_pending_phash() -> Result<bool, String> {
@@ -97,7 +100,9 @@ pub fn has_unknown_worlds() -> Result<bool, String> {
     Ok(false)
 }
 
-pub fn infer_world_name_from_unknown_photo(_path: &Path) -> Result<Option<PHashWorldMatch>, String> {
+pub fn infer_world_name_from_unknown_photo(
+    _path: &Path,
+) -> Result<Option<PHashWorldMatch>, String> {
     Ok(None)
 }
 
@@ -135,9 +140,12 @@ async fn run_phash_worker(app: AppHandle) -> Result<(), String> {
                 emit_event(&app, "phash_progress", get_phash_progress(&app));
             }
 
-            let batch_results = tauri::async_runtime::spawn_blocking(move || compute_pdq_batch(pending_batch))
-                .await
-                .map_err(|err| format!("PDQ バッチ計算タスクの join に失敗しました: {}", err))??;
+            let batch_results =
+                tauri::async_runtime::spawn_blocking(move || compute_pdq_batch(pending_batch))
+                    .await
+                    .map_err(|err| {
+                        format!("PDQ バッチ計算タスクの join に失敗しました: {}", err)
+                    })??;
 
             let conn = open_alpheratz_connection(1)?;
             for chunk in batch_results.chunks(PHASH_UPDATE_BATCH_SIZE) {
@@ -146,7 +154,10 @@ async fn run_phash_worker(app: AppHandle) -> Result<(), String> {
                 for result in chunk {
                     done += 1;
                     if let Some(err) = &result.error {
-                        crate::utils::log_warn(&format!("PDQ skipped [{}]: {}", result.filename, err));
+                        crate::utils::log_warn(&format!(
+                            "PDQ skipped [{}]: {}",
+                            result.filename, err
+                        ));
                     }
 
                     update_progress(&app, done, total, Some(result.filename.clone()));
@@ -196,13 +207,16 @@ fn fetch_pending_batch() -> Result<Vec<(i64, String, String)>, String> {
         )
         .map_err(|err| format!("PDQ 対象クエリを準備できません: {}", err))?;
     let rows = stmt
-        .query_map(rusqlite::params![PHASH_VERSION, PHASH_BATCH_SIZE as i64], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-            ))
-        })
+        .query_map(
+            rusqlite::params![PHASH_VERSION, PHASH_BATCH_SIZE as i64],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            },
+        )
         .map_err(|err| format!("PDQ 対象を読み出せません: {}", err))?;
 
     let mut batch = Vec::new();
@@ -229,21 +243,23 @@ fn compute_pdq_batch(batch: Vec<(i64, String, String)>) -> Result<Vec<PdqCompute
         handles.push(thread::spawn(move || {
             owned_chunk
                 .into_iter()
-                .map(|(source_slot, filename, path)| match compute_pdq_variants_from_path(&path, source_slot) {
-                    Ok(hash) => PdqComputeResult {
-                        source_slot,
-                        path,
-                        filename,
-                        hash: Some(hash),
-                        error: None,
-                    },
-                    Err(err) => PdqComputeResult {
-                        source_slot,
-                        path,
-                        filename,
-                        hash: None,
-                        error: Some(err),
-                    },
+                .map(|(source_slot, filename, path)| {
+                    match compute_pdq_variants_from_path(&path, source_slot) {
+                        Ok(hash) => PdqComputeResult {
+                            source_slot,
+                            path,
+                            filename,
+                            hash: Some(hash),
+                            error: None,
+                        },
+                        Err(err) => PdqComputeResult {
+                            source_slot,
+                            path,
+                            filename,
+                            hash: None,
+                            error: Some(err),
+                        },
+                    }
                 })
                 .collect::<Vec<PdqComputeResult>>()
         }));
@@ -253,7 +269,7 @@ fn compute_pdq_batch(batch: Vec<(i64, String, String)>) -> Result<Vec<PdqCompute
     for handle in handles {
         let mut chunk_results = handle
             .join()
-            .map_err(|_| "PDQ worker thread panicked".to_string())?;
+            .map_err(|_| "PDQ ワーカースレッドが panic しました".to_string())?;
         results.append(&mut chunk_results);
     }
     Ok(results)
@@ -280,8 +296,13 @@ fn apply_pdq_updates(conn: &Connection, results: &[PdqComputeResult]) -> Result<
                 continue;
             };
 
-            stmt.execute(rusqlite::params![hash, PHASH_VERSION, result.path, result.source_slot])
-                .map_err(|err| format!("PDQ を更新できません [{}]: {}", result.path, err))?;
+            stmt.execute(rusqlite::params![
+                hash,
+                PHASH_VERSION,
+                result.path,
+                result.source_slot
+            ])
+            .map_err(|err| format!("PDQ を更新できません [{}]: {}", result.path, err))?;
         }
     }
 
@@ -292,10 +313,15 @@ fn apply_pdq_updates(conn: &Connection, results: &[PdqComputeResult]) -> Result<
 
 fn update_progress(app: &AppHandle, done: usize, total: usize, current: Option<String>) {
     let state = app.state::<PHashWorkerState>();
-    if let Ok(mut progress) = state.progress.lock() {
-        progress.done = done;
-        progress.total = total;
-        progress.current = current;
+    match state.progress.lock() {
+        Ok(mut progress) => {
+            progress.done = done;
+            progress.total = total;
+            progress.current = current;
+        }
+        Err(err) => {
+            crate::utils::log_warn(&format!("PDQ 進捗状態を更新できませんでした: {}", err));
+        }
     };
 }
 
@@ -309,19 +335,24 @@ fn compute_pdq_variants_from_path(path: &str, source_slot: i64) -> Result<String
     let thumb_path = utils::create_thumbnail_file(path, source_slot)?;
     let image = image::open(&thumb_path)
         .map_err(|err| format!("PDQ 用サムネイルを開けません [{}]: {}", thumb_path, err))?;
-    Ok(compute_pdq_variants(&image).join("|"))
+    Ok(compute_pdq_variants(&image)?.join("|"))
 }
 
-fn compute_pdq_variants(image: &DynamicImage) -> [String; 4] {
-    [
-        compute_pdq_hash(image),
-        compute_pdq_hash(&image.rotate90()),
-        compute_pdq_hash(&image.rotate180()),
-        compute_pdq_hash(&image.rotate270()),
-    ]
+fn compute_pdq_variants(image: &DynamicImage) -> Result<[String; 4], String> {
+    Ok([
+        compute_pdq_hash(image)?,
+        compute_pdq_hash(&image.rotate90())?,
+        compute_pdq_hash(&image.rotate180())?,
+        compute_pdq_hash(&image.rotate270())?,
+    ])
 }
 
-fn compute_pdq_hash(image: &DynamicImage) -> String {
-    let (hash, _quality) = generate_pdq(image).unwrap_or(([0u8; 32], 0.0));
-    hash.iter().map(|byte| format!("{:02x}", byte)).collect::<String>()
+fn compute_pdq_hash(image: &DynamicImage) -> Result<String, String> {
+    let Some((hash, _quality)) = generate_pdq(image) else {
+        return Err("PDQ ハッシュを計算できませんでした".to_string());
+    };
+    Ok(hash
+        .iter()
+        .map(|byte| format!("{:02x}", byte))
+        .collect::<String>())
 }

@@ -12,6 +12,7 @@ type PhotoQueryFilters = {
     orientationFilter: string;
     favoritesOnly: boolean;
     tagFilters: string[];
+    includePhash?: boolean;
 };
 
 export const usePhotos = (
@@ -32,6 +33,7 @@ export const usePhotos = (
                 orientation: filters.orientationFilter === "all" ? null : filters.orientationFilter,
                 favoritesOnly: filters.favoritesOnly || null,
                 tagFilters: filters.tagFilters.length > 0 ? filters.tagFilters : null,
+                includePhash: !!filters.includePhash,
             });
             setPhotos(results);
         } catch (err) {

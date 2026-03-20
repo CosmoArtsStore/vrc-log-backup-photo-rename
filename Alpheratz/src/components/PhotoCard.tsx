@@ -23,10 +23,16 @@ export const PhotoCard = ({
   useEffect(() => {
     if (!photo) return;
     let isMounted = true;
-    invoke<string>("create_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
+    invoke<string>("create_display_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
       .then((path) => { if (isMounted) setThumbUrl(convertFileSrc(path)); })
-      .catch(() => { if (isMounted) setThumbUrl(null); });
-    return () => { isMounted = false; };
+      .catch((err) => {
+        console.warn(`サムネイル生成に失敗しました [${photo.photo_path}]`, err);
+        if (isMounted) setThumbUrl(null);
+      });
+    return () => {
+      isMounted = false;
+      setThumbUrl(null);
+    };
   }, [photo?.photo_path, photo?.source_slot]);
 
   if (!photo) return null;
@@ -36,7 +42,7 @@ export const PhotoCard = ({
       <div className="photo-card">
         <div className="photo-thumb-container">
           {thumbUrl
-            ? <img src={thumbUrl} alt={photo.photo_filename} className="photo-thumb" />
+            ? <img src={thumbUrl} alt={photo.photo_filename} className="photo-thumb" loading="lazy" decoding="async" draggable={false} />
             : <div className="photo-thumb-skeleton" />
           }
           {photo.is_favorite && (
@@ -56,7 +62,7 @@ export const PhotoCard = ({
         <div className="photo-info">
           <div className="photo-meta-row">
             {photo.match_source === "stella_db" && <span className="photo-pill">DB</span>}
-            {photo.match_source === "phash" && <span className="photo-pill">pHash</span>}
+            {photo.match_source === "phash" && <span className="photo-pill">類似一致</span>}
             {photo.orientation && (
               <span className="photo-pill">{photo.orientation}</span>
             )}

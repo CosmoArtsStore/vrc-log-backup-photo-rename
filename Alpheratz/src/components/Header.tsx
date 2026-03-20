@@ -1,47 +1,23 @@
+import logoUrl from "../assets/Alpheratz-logo.png";
 import { Icons } from "./Icons";
 
 interface HeaderProps {
-  isFilterOpen: boolean;
-  setIsFilterOpen: (val: boolean) => void;
-  isExtensionOpen: boolean;
-  setIsExtensionOpen: (val: boolean) => void;
+  onRefresh: () => void;
+  onOpenSettings: () => void;
   searchQuery: string;
   setSearchQuery: (val: string) => void;
 }
 
 export const Header = ({
-  isFilterOpen,
-  setIsFilterOpen,
-  isExtensionOpen,
-  setIsExtensionOpen,
+  onRefresh,
+  onOpenSettings,
   searchQuery,
   setSearchQuery,
 }: HeaderProps) => {
   return (
     <header className="header">
-      <div className="header-left-tools">
-        <button
-          className={`header-icon-button ${isFilterOpen ? "active" : ""}`}
-          onClick={() => setIsFilterOpen(!isFilterOpen)}
-          aria-label="条件検索"
-          title="条件検索"
-          type="button"
-        >
-          <Icons.Menu />
-        </button>
-        <button
-          className={`header-icon-button ${isExtensionOpen ? "active" : ""}`}
-          onClick={() => setIsExtensionOpen(!isExtensionOpen)}
-          aria-label="拡張機能"
-          title="拡張機能"
-          type="button"
-        >
-          <Icons.Extension />
-        </button>
-      </div>
-
       <div className="logo-group" aria-label="Alpheratz">
-        <img className="header-logo-image" src="/Alpheratz-logo.png" alt="Alpheratz" />
+        <img className="header-logo-image" src={logoUrl} alt="Alpheratz" />
       </div>
 
       <div className="search-bar">
@@ -54,6 +30,27 @@ export const Header = ({
             onChange={(event) => setSearchQuery(event.target.value)}
           />
         </div>
+      </div>
+
+      <div className="header-right-tools">
+        <button
+          className="header-icon-button"
+          onClick={onRefresh}
+          aria-label="再読み込み"
+          title="再読み込み"
+          type="button"
+        >
+          <Icons.Refresh />
+        </button>
+        <button
+          className="header-icon-button"
+          onClick={onOpenSettings}
+          aria-label="設定"
+          title="設定"
+          type="button"
+        >
+          <Icons.Settings />
+        </button>
       </div>
     </header>
   );

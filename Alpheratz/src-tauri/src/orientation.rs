@@ -43,11 +43,14 @@ pub fn start_orientation_worker(app: AppHandle) {
 
 pub fn get_orientation_progress(app: &AppHandle) -> OrientationProgressPayload {
     let state = app.state::<OrientationWorkerState>();
-    state
-        .progress
-        .lock()
-        .map(|progress| progress.clone())
-        .unwrap_or_default()
+    let progress = match state.progress.lock() {
+        Ok(progress) => progress.clone(),
+        Err(err) => {
+            crate::utils::log_warn(&format!("縦横進捗状態を読み取れませんでした: {}", err));
+            OrientationProgressPayload::default()
+        }
+    };
+    progress
 }
 
 pub fn has_pending_orientation() -> Result<bool, String> {
@@ -95,11 +98,10 @@ async fn run_orientation_worker(app: AppHandle) -> Result<(), String> {
             let current_path = path.clone();
             let filename_for_progress = filename.clone();
             let result = tauri::async_runtime::spawn_blocking(move || {
-                let dimensions = read_image_dimensions(Path::new(&current_path));
+                let dimensions = read_image_dimensions(Path::new(&current_path))?;
                 let orientation = infer_orientation_from_dimensions(dimensions);
-                let (image_width, image_height) = dimensions
-                    .map(|(width, height)| (i64::from(width), i64::from(height)))
-                    .unwrap_or((0, 0));
+                let (image_width, image_height) =
+                    (i64::from(dimensions.0), i64::from(dimensions.1));
                 let conn = open_alpheratz_connection(source_slot)?;
                 conn.execute(
                     "UPDATE photos
@@ -107,7 +109,12 @@ async fn run_orientation_worker(app: AppHandle) -> Result<(), String> {
                      WHERE photo_path = ?4",
                     rusqlite::params![orientation, image_width, image_height, current_path],
                 )
-                .map_err(|err| format!("縦横情報を保存できません [{}]: {}", filename_for_progress, err))?;
+                .map_err(|err| {
+                    format!(
+                        "縦横情報を保存できません [{}]: {}",
+                        filename_for_progress, err
+                    )
+                })?;
                 Ok::<(), String>(())
             })
             .await
@@ -174,29 +181,47 @@ fn fetch_pending_orientation_batch() -> Result<Vec<(i64, String, String)>, Strin
     for row in rows {
         match row {
             Ok(item) => batch.push(item),
-            Err(err) => crate::utils::log_warn(&format!("orientation target row decode failed: {}", err)),
+            Err(err) => {
+                crate::utils::log_warn(&format!("orientation target row decode failed: {}", err))
+            }
         }
     }
     Ok(batch)
 }
 
-fn infer_orientation_from_dimensions(dimensions: Option<(u32, u32)>) -> Option<String> {
-    let Some((width, height)) = dimensions else {
-        return Some("unknown".to_string());
-    };
-    Some(if height > width { "portrait" } else { "landscape" }.to_string())
+fn infer_orientation_from_dimensions(dimensions: (u32, u32)) -> Option<String> {
+    let (width, height) = dimensions;
+    Some(
+        if height > width {
+            "portrait"
+        } else {
+            "landscape"
+        }
+        .to_string(),
+    )
 }
 
-fn read_image_dimensions(path: &Path) -> Option<(u32, u32)> {
-    image::image_dimensions(path).ok()
+fn read_image_dimensions(path: &Path) -> Result<(u32, u32), String> {
+    image::image_dimensions(path).map_err(|err| {
+        format!(
+            "画像サイズを取得できません。縦横解析をスキップします [{}]: {}",
+            path.display(),
+            err
+        )
+    })
 }
 
 fn update_progress(app: &AppHandle, done: usize, total: usize, current: Option<String>) {
     let state = app.state::<OrientationWorkerState>();
-    if let Ok(mut progress) = state.progress.lock() {
-        progress.done = done;
-        progress.total = total;
-        progress.current = current;
+    match state.progress.lock() {
+        Ok(mut progress) => {
+            progress.done = done;
+            progress.total = total;
+            progress.current = current;
+        }
+        Err(err) => {
+            crate::utils::log_warn(&format!("縦横進捗状態を更新できませんでした: {}", err));
+        }
     };
 }
 

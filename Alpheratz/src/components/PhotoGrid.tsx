@@ -75,7 +75,7 @@ export const PhotoGrid = ({
     onGridRef,
 }: PhotoGridProps) => {
     if (viewMode === "gallery") {
-        const overscan = 900;
+        const overscan = 240;
         const visibleTop = Math.max(0, scrollTop - overscan);
         const visibleBottom = scrollTop + gridHeight + overscan;
         const visibleItems = (galleryLayout?.items ?? []).filter((item) => (

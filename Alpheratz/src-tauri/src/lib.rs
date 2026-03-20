@@ -23,7 +23,10 @@ use db::init_alpheratz_db;
 use models::PhotoRecord;
 
 static WORLD_ID_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^wrld_[A-Za-z0-9_-]+$").expect("world id regex must be valid"));
+    // 正規表現は固定値であり、壊れていたら起動継続は不正なので即時停止する。
+    LazyLock::new(|| {
+        Regex::new(r"^wrld_[A-Za-z0-9_-]+$").expect("world id regex must be valid")
+    });
 
 // --- Commands ---
 
@@ -59,26 +62,42 @@ async fn get_photos(
     orientation: Option<String>,
     favorites_only: Option<bool>,
     tag_filters: Option<Vec<String>>,
+    include_phash: Option<bool>,
 ) -> Result<Vec<PhotoRecord>, String> {
-    db::get_photos(start_date, end_date, world_query, world_exact, orientation, favorites_only, tag_filters)
+    db::get_photos(
+        start_date,
+        end_date,
+        world_query,
+        world_exact,
+        orientation,
+        favorites_only,
+        tag_filters,
+        include_phash,
+    )
 }
 
 #[tauri::command]
-async fn create_thumbnail(path: String, source_slot: Option<i64>) -> Result<String, String> {
+async fn create_display_thumbnail(path: String, source_slot: Option<i64>) -> Result<String, String> {
     let display_path = path.clone();
     let resolved_slot = source_slot.unwrap_or(1);
-    tauri::async_runtime::spawn_blocking(move || utils::create_thumbnail_file(&path, resolved_slot))
+    tauri::async_runtime::spawn_blocking(move || {
+        utils::create_display_thumbnail_file(&path, resolved_slot)
+    })
         .await
         .map_err(|e| {
             format!(
-                "サムネイル生成タスクの待機に失敗しました ({}): {}",
+                "表示用サムネイル生成タスクの待機に失敗しました ({}): {}",
                 display_path, e
             )
         })?
 }
 
 #[tauri::command]
-async fn save_photo_memo_cmd(photo_path: String, memo: String, source_slot: i64) -> Result<(), String> {
+async fn save_photo_memo_cmd(
+    photo_path: String,
+    memo: String,
+    source_slot: i64,
+) -> Result<(), String> {
     db::save_photo_memo(source_slot, &photo_path, &memo)
 }
 
@@ -93,17 +112,29 @@ async fn get_photo_tags_cmd(photo_path: String, source_slot: i64) -> Result<Vec<
 }
 
 #[tauri::command]
-async fn set_photo_favorite_cmd(photo_path: String, is_favorite: bool, source_slot: i64) -> Result<(), String> {
+async fn set_photo_favorite_cmd(
+    photo_path: String,
+    is_favorite: bool,
+    source_slot: i64,
+) -> Result<(), String> {
     db::set_photo_favorite(source_slot, &photo_path, is_favorite)
 }
 
 #[tauri::command]
-async fn add_photo_tag_cmd(photo_path: String, tag: String, source_slot: i64) -> Result<(), String> {
+async fn add_photo_tag_cmd(
+    photo_path: String,
+    tag: String,
+    source_slot: i64,
+) -> Result<(), String> {
     db::add_photo_tag(source_slot, &photo_path, &tag)
 }
 
 #[tauri::command]
-async fn remove_photo_tag_cmd(photo_path: String, tag: String, source_slot: i64) -> Result<(), String> {
+async fn remove_photo_tag_cmd(
+    photo_path: String,
+    tag: String,
+    source_slot: i64,
+) -> Result<(), String> {
     db::remove_photo_tag(source_slot, &photo_path, &tag)
 }
 
@@ -128,12 +159,16 @@ async fn reset_photo_cache_cmd() -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_backup_candidate_cmd(photo_folder_path: String) -> Result<Option<db::BackupCandidate>, String> {
+fn get_backup_candidate_cmd(
+    photo_folder_path: String,
+) -> Result<Option<db::BackupCandidate>, String> {
     db::get_backup_candidate(&photo_folder_path)
 }
 
 #[tauri::command]
-fn create_cache_backup_cmd(photo_folder_path: String) -> Result<Option<db::BackupCandidate>, String> {
+fn create_cache_backup_cmd(
+    photo_folder_path: String,
+) -> Result<Option<db::BackupCandidate>, String> {
     db::create_cache_backup(&photo_folder_path)
 }
 
@@ -159,15 +194,17 @@ async fn open_tweet_intent_cmd(app: AppHandle, intent_url: String) -> Result<(),
     if !intent_url.starts_with("https://twitter.com/intent/tweet?text=")
         && !intent_url.starts_with("https://x.com/intent/tweet?text=")
     {
-        return Err(format!(
-            "Tweet intent URL の形式が不正です: {}",
-            intent_url
-        ));
+        return Err(format!("Tweet intent URL の形式が不正です: {}", intent_url));
     }
 
     app.opener()
         .open_url(&intent_url, None::<&str>)
-        .map_err(|err| format!("Tweet intent URL を開けませんでした [{}]: {}", intent_url, err))?;
+        .map_err(|err| {
+            format!(
+                "Tweet intent URL を開けませんでした [{}]: {}",
+                intent_url, err
+            )
+        })?;
     Ok(())
 }
 
@@ -232,7 +269,9 @@ fn get_orientation_progress_cmd(app: AppHandle) -> OrientationProgressPayload {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if let Err(err) = init_alpheratz_db() {
-        utils::log_err(&format!("Database initialization failed: {}", err));
+        let message = format!("Alpheratz DB の初期化に失敗したため起動できません: {}", err);
+        utils::log_err(&message);
+        panic!("{}", message);
     }
 
     let run_result = Builder::default()
@@ -250,7 +289,16 @@ pub fn run() {
             progress: std::sync::Mutex::new(OrientationProgressPayload::default()),
         })
         .setup(|app| {
-            let has_pending = phash::has_pending_phash().unwrap_or(false);
+            let has_pending = match phash::has_pending_phash() {
+                Ok(value) => value,
+                Err(err) => {
+                    utils::log_warn(&format!(
+                        "未処理の PDQ 状態を確認できませんでした。自動再開をスキップします: {}",
+                        err
+                    ));
+                    false
+                }
+            };
             if has_pending {
                 phash::start_phash_worker(app.handle().clone());
             }
@@ -262,7 +310,7 @@ pub fn run() {
             initialize_scan,
             cancel_scan,
             get_photos,
-            create_thumbnail,
+            create_display_thumbnail,
             save_photo_memo_cmd,
             get_photo_memo_cmd,
             get_photo_tags_cmd,

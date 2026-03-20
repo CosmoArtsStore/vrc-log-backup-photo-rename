@@ -183,9 +183,10 @@ pub fn get_alpheratz_backup_dir() -> Option<PathBuf> {
     Some(backup_dir)
 }
 
-pub fn get_alpheratz_db_cache_dir(source_slot: i64) -> Option<PathBuf> {
-    let _ = source_slot;
-    let db_cache_dir = get_alpheratz_cache_dir()?.join("shared-cache").join("dbCache");
+pub fn get_alpheratz_db_cache_dir(_source_slot: i64) -> Option<PathBuf> {
+    let db_cache_dir = get_alpheratz_cache_dir()?
+        .join("shared-cache")
+        .join("dbCache");
     if let Err(err) = fs::create_dir_all(&db_cache_dir) {
         write_bootstrap_log(
             "WARN",
@@ -292,7 +293,12 @@ pub fn get_thumbnail_cache_dir() -> Result<PathBuf, String> {
     Ok(cache_dir)
 }
 
-pub fn create_thumbnail_file(path: &str, source_slot: i64) -> Result<String, String> {
+fn create_thumbnail_file_with_size(
+    path: &str,
+    source_slot: i64,
+    size: u32,
+    cache_version: &str,
+) -> Result<String, String> {
     let cache_dir = get_alpheratz_img_cache_dir(source_slot)
         .ok_or_else(|| "Alpheratz の imgCache フォルダを取得できません".to_string())?;
     let path_p = Path::new(path);
@@ -300,7 +306,7 @@ pub fn create_thumbnail_file(path: &str, source_slot: i64) -> Result<String, Str
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or_else(|| format!("サムネイル対象のファイル名を解決できません: {}", path))?;
-    let cache_path = cache_dir.join(format!("{}.thumb.jpg", filename));
+    let cache_path = cache_dir.join(format!("{}.thumb.{}.jpg", filename, cache_version));
 
     if cache_path.exists() {
         return Ok(cache_path.to_string_lossy().to_string());
@@ -308,7 +314,7 @@ pub fn create_thumbnail_file(path: &str, source_slot: i64) -> Result<String, Str
 
     let img =
         image::open(path).map_err(|e| format!("サムネイル用画像を開けません ({}): {}", path, e))?;
-    let thumb = img.thumbnail(256, 256);
+    let thumb = img.thumbnail(size, size);
     thumb.save(&cache_path).map_err(|e| {
         format!(
             "サムネイルを保存できません ({}): {}",
@@ -318,6 +324,15 @@ pub fn create_thumbnail_file(path: &str, source_slot: i64) -> Result<String, Str
     })?;
 
     Ok(cache_path.to_string_lossy().to_string())
+}
+
+pub fn create_thumbnail_file(path: &str, source_slot: i64) -> Result<String, String> {
+    create_thumbnail_file_with_size(path, source_slot, 192, "pdq.v1")
+}
+
+pub fn create_display_thumbnail_file(path: &str, source_slot: i64) -> Result<String, String> {
+    // WebView2 のデコード負荷を抑えるため、一覧表示用は 514px に制限する。
+    create_thumbnail_file_with_size(path, source_slot, 514, "display.v2")
 }
 
 pub fn set_startup_enabled(value_name: &str, enabled: bool) -> Result<(), String> {

@@ -32,13 +32,11 @@ export const GalleryPhotoCard = ({
 
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries.some((entry) => entry.isIntersecting)) {
-                    setShouldLoadThumb(true);
-                    observer.disconnect();
-                }
+                const isNearViewport = entries.some((entry) => entry.isIntersecting);
+                setShouldLoadThumb(isNearViewport);
             },
             {
-                rootMargin: "800px 0px",
+                rootMargin: "120px 0px",
                 threshold: 0.01,
             },
         );
@@ -51,16 +49,18 @@ export const GalleryPhotoCard = ({
 
     useEffect(() => {
         if (!shouldLoadThumb) {
+            setThumbUrl(null);
             return;
         }
         let isMounted = true;
-        invoke<string>("create_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
+        invoke<string>("create_display_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
             .then((path) => {
                 if (isMounted) {
                     setThumbUrl(convertFileSrc(path));
                 }
             })
-            .catch(() => {
+            .catch((err) => {
+                console.warn(`サムネイル生成に失敗しました [${photo.photo_path}]`, err);
                 if (isMounted) {
                     setThumbUrl(null);
                 }
@@ -104,6 +104,7 @@ export const GalleryPhotoCard = ({
                         className="gallery-photo-image"
                         loading="lazy"
                         decoding="async"
+                        draggable={false}
                     />
                 ) : (
                     <div className="photo-thumb-skeleton" />
@@ -121,7 +122,7 @@ export const GalleryPhotoCard = ({
                         <div className="photo-meta-row">
                             {photo.is_favorite && <span className="photo-pill favorite">★ Favorite</span>}
                             {photo.match_source === "stella_db" && <span className="photo-pill">DB</span>}
-                            {photo.match_source === "phash" && <span className="photo-pill">pHash</span>}
+                            {photo.match_source === "phash" && <span className="photo-pill">類似一致</span>}
                         </div>
                     </div>
                     <div className="gallery-photo-bottomline">

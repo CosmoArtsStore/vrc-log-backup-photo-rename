@@ -48,7 +48,7 @@ type BackupCandidate = {
 };
 // Tuned against F:\bk_photo poster samples while avoiding chain-merging unrelated neighbors.
 const SIMILAR_PHOTO_MAX_DISTANCE = 124;
-const MAX_SIMILAR_PHOTOS_IN_MODAL = 60;
+const MAX_SIMILAR_PHOTOS_IN_MODAL = 24;
 const DEFAULT_TWEET_TEMPLATE = [
   "{world}",
   "{date}",
@@ -330,7 +330,7 @@ function App() {
 
   const { rightPanelRef, gridWrapperRef, panelWidth, gridHeight, columnCount } = useGridDimensions(CARD_WIDTH);
   const { toasts, addToast } = useToasts();
-  const { isRunning: isPhashRunning } = usePhashWorker();
+  const { progress: similarPrepProgress, isRunning: isPhashRunning } = usePhashWorker();
   const photoFilters = useMemo(() => ({
     searchQuery: debouncedQuery,
     worldFilters,
@@ -339,7 +339,8 @@ function App() {
     orientationFilter,
     favoritesOnly,
     tagFilters,
-  }), [debouncedQuery, worldFilters, dateFrom, dateTo, orientationFilter, favoritesOnly, tagFilters]);
+    includePhash: groupingMode === "similar",
+  }), [debouncedQuery, worldFilters, dateFrom, dateTo, orientationFilter, favoritesOnly, tagFilters, groupingMode]);
   const { photos, setPhotos, loadPhotos, isLoading } = usePhotos(photoFilters, addToast);
   const {
     scanStatus,
@@ -806,8 +807,8 @@ function App() {
     }
   };
 
-  const handleAddTweetTemplate = async () => {
-    const normalized = tweetTemplateDraft.trim();
+  const handleAddTweetTemplate = async (template: string) => {
+    const normalized = template.trim();
     if (!normalized) {
       addToast("ツイートテンプレートを入力してください。", "error");
       return;
@@ -830,7 +831,6 @@ function App() {
       if (!activeTweetTemplate) {
         setActiveTweetTemplate(normalized);
       }
-      setTweetTemplateDraft("");
       addToast("ツイートテンプレートを登録しました。");
     } catch (err) {
       addToast(`ツイートテンプレートの保存に失敗しました: ${String(err)}`, "error");
@@ -910,10 +910,10 @@ function App() {
     }
   };
 
-  const worldNameList = useMemo(
-    () => Array.from(new Set(photos.map((photo) => photo.world_name || ""))).sort(),
-    [photos],
-  );
+  const worldNameList = useMemo(() => {
+    const names = Array.from(new Set(photos.map((photo) => photo.world_name || ""))).sort();
+    return names.some((name) => !!name.trim()) ? names : [];
+  }, [photos]);
   const worldCounts = useMemo(() => (
     photos.reduce<Record<string, number>>((acc, photo) => {
       const key = photo.world_name || "unknown";
@@ -952,10 +952,14 @@ function App() {
   return (
     <div className={`alpheratz-root ${themeMode === "dark" ? "theme-dark" : "theme-light"}`}>
       <Header
-        isFilterOpen={isFilterOpen}
-        setIsFilterOpen={setIsFilterOpen}
-        isExtensionOpen={isExtensionOpen}
-        setIsExtensionOpen={setIsExtensionOpen}
+        onRefresh={() => {
+          if (scanStatus === "scanning") {
+            cancelScan();
+            return;
+          }
+          void startScan();
+        }}
+        onOpenSettings={() => setShowSettings(true)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />
@@ -997,7 +1001,7 @@ function App() {
                   className={`extension-toolbar-button ${groupingMode === "similar" ? "active" : ""}`}
                   onClick={() => setGroupingMode("similar")}
                   disabled={!isSimilarGroupingAvailable}
-                  title={isSimilarGroupingAvailable ? "隣接画像の類似度でまとめる" : "pHash 計算が完了するまで使えません"}
+                  title={isSimilarGroupingAvailable ? "隣接画像の類似度でまとめる" : "似た写真の準備が終わるまで使えません"}
                   type="button"
                 >
                   似た写真
@@ -1011,6 +1015,14 @@ function App() {
                 </button>
               </div>
             </div>
+            {!isSimilarGroupingAvailable && (
+              <div className="similar-prep-status" role="status" aria-live="polite">
+                <span className="similar-prep-title">似た写真の準備中</span>
+                <span className="similar-prep-value">
+                  {similarPrepProgress.done} / {similarPrepProgress.total || 0}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1051,14 +1063,82 @@ function App() {
           onReset={resetFilters}
         />
         <div className="grid-area">
-          {viewMode === "standard" && groupingMode === "none" && (
-            <MonthNav
-              monthsByYear={monthsByYear}
-              monthGroups={monthGroups}
-              activeMonthIndex={activeMonthIndex}
-              handleJumpToMonth={(group) => handleJumpToRow(group.rowIndex)}
-            />
-          )}
+          <aside className="left-rail" aria-label="表示操作">
+            <div className="left-rail-spacer" />
+            <div className="left-rail-controls">
+              <div className="left-rail-group">
+                <button
+                  className={`left-rail-button ${viewMode === "standard" ? "active" : ""}`}
+                  onClick={() => void handleViewModeChange("standard")}
+                  aria-label="標準グリッド"
+                  title="標準グリッド"
+                  type="button"
+                >
+                  <span className="left-rail-icon"><Icons.Grid /></span>
+                  <span className="left-rail-label">標準</span>
+                </button>
+                <button
+                  className={`left-rail-button ${viewMode === "gallery" ? "active" : ""}`}
+                  onClick={() => void handleViewModeChange("gallery")}
+                  aria-label="ギャラリー"
+                  title="ギャラリー"
+                  type="button"
+                >
+                  <span className="left-rail-icon"><Icons.Gallery /></span>
+                  <span className="left-rail-label">ギャラリー</span>
+                </button>
+              </div>
+              <div className="left-rail-divider" />
+              <button
+                className="left-rail-button"
+                onClick={() => setIsFilterOpen((prev) => !prev)}
+                aria-label="条件検索"
+                title="条件検索"
+                type="button"
+              >
+                <span className="left-rail-icon"><Icons.Menu /></span>
+                <span className="left-rail-label">検索条件</span>
+              </button>
+              <button
+                className="left-rail-button"
+                onClick={() => setIsExtensionOpen((prev) => !prev)}
+                aria-label="拡張機能"
+                title="拡張機能"
+                type="button"
+              >
+                <span className="left-rail-icon"><Icons.Extension /></span>
+                <span className="left-rail-label">拡張機能</span>
+              </button>
+              <button
+                className="left-rail-button"
+                onClick={() => {
+                  if (scanStatus === "scanning") {
+                    cancelScan();
+                    return;
+                  }
+                  void startScan();
+                }}
+                aria-label={scanStatus === "scanning" ? "スキャンを中止" : "再読み込み"}
+                title={scanStatus === "scanning" ? "スキャンを中止" : "再読み込み"}
+                type="button"
+              >
+                <span className="left-rail-icon">
+                  {scanStatus === "scanning" ? <Icons.Close /> : <Icons.Refresh />}
+                </span>
+                <span className="left-rail-label">{scanStatus === "scanning" ? "中止" : "更新"}</span>
+              </button>
+              <button
+                className="left-rail-button"
+                onClick={() => setIsTweetTemplatePanelOpen(true)}
+                aria-label="投稿テンプレート"
+                title="投稿テンプレート"
+                type="button"
+              >
+                <span className="left-rail-icon"><Icons.Quill /></span>
+                <span className="left-rail-label">テンプレート</span>
+              </button>
+            </div>
+          </aside>
 
           <div className="right-panel" ref={rightPanelRef}>
             {quickActionHint && (
@@ -1107,65 +1187,14 @@ function App() {
             </div>
           </div>
 
-          <aside className="right-rail" aria-label="表示操作">
-            <div className="right-rail-spacer" />
-            <div className="right-rail-controls">
-              <div className="right-rail-group">
-                <button
-                  className={`right-rail-button ${viewMode === "standard" ? "active" : ""}`}
-                  onClick={() => void handleViewModeChange("standard")}
-                  aria-label="標準グリッド"
-                  title="標準グリッド"
-                  type="button"
-                >
-                  <span className="right-rail-icon"><span>▦</span></span>
-                </button>
-                <button
-                  className={`right-rail-button ${viewMode === "gallery" ? "active" : ""}`}
-                  onClick={() => void handleViewModeChange("gallery")}
-                  aria-label="ギャラリー"
-                  title="ギャラリー"
-                  type="button"
-                >
-                  <span className="right-rail-icon"><span>▥</span></span>
-                </button>
-              </div>
-              <div className="right-rail-divider" />
-              <button
-                className="right-rail-button"
-                onClick={() => {
-                  if (scanStatus === "scanning") {
-                    cancelScan();
-                    return;
-                  }
-                  void startScan();
-                }}
-                aria-label={scanStatus === "scanning" ? "スキャンを中止" : "再読み込み"}
-                title={scanStatus === "scanning" ? "スキャンを中止" : "再読み込み"}
-                type="button"
-              >
-                <span className="right-rail-icon">{scanStatus === "scanning" ? "×" : "↻"}</span>
-              </button>
-              <button
-                className="right-rail-button"
-                onClick={() => setIsTweetTemplatePanelOpen(true)}
-                aria-label="ツイートテンプレート"
-                title="ツイートテンプレート"
-                type="button"
-              >
-                <Icons.Quill />
-              </button>
-              <button
-                className="right-rail-button"
-                onClick={() => setShowSettings(true)}
-                aria-label="設定"
-                title="設定"
-                type="button"
-              >
-                <Icons.Settings />
-              </button>
-            </div>
-          </aside>
+          {viewMode === "standard" && groupingMode === "none" && (
+            <MonthNav
+              monthsByYear={monthsByYear}
+              monthGroups={monthGroups}
+              activeMonthIndex={activeMonthIndex}
+              handleJumpToMonth={(group) => handleJumpToRow(group.rowIndex)}
+            />
+          )}
         </div>
       </main>
 
@@ -1288,7 +1317,7 @@ function App() {
             </button>
             <div className="modal-body" style={{ gridTemplateColumns: "1fr" }}>
               <div className="modal-info">
-                <div className="info-header"><h2>ツイートテンプレート</h2></div>
+                <div className="info-header"><h2>投稿テンプレート</h2></div>
                 <div className="memo-section">
                   <label>新規テンプレート</label>
                   <textarea
@@ -1300,11 +1329,17 @@ function App() {
                   <div className="tweet-template-help">
                     使える置換: {"{world}"} {"{date}"} {"{file}"} {"{memo}"} {"{tags}"}
                   </div>
-                  <button className="save-button" onClick={() => void handleAddTweetTemplate()} type="button">
+                  <button
+                    className="save-button"
+                    onClick={() => {
+                      void handleAddTweetTemplate(tweetTemplateDraft);
+                      setTweetTemplateDraft("");
+                    }}
+                    type="button"
+                  >
                     登録
                   </button>
                 </div>
-
                 <div className="memo-section">
                   <label>登録済みテンプレート</label>
                   <div className="tweet-template-list">

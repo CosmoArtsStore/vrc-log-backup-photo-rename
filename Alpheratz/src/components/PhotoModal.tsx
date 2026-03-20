@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { Photo } from "../types";
 import { Icons } from "./Icons";
@@ -39,16 +39,52 @@ const SimilarPhotoThumb = ({
   onSelect: (photo: Photo) => void;
 }) => {
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const [shouldLoadThumb, setShouldLoadThumb] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
+    const node = buttonRef.current;
+    if (!node) {
+      return;
+    }
+
+    if (!("IntersectionObserver" in window)) {
+      setShouldLoadThumb(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const isNearViewport = entries.some((entry) => entry.isIntersecting);
+        setShouldLoadThumb(isNearViewport);
+      },
+      {
+        rootMargin: "80px 0px",
+        threshold: 0.01,
+      },
+    );
+
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [photo.photo_path]);
+
+  useEffect(() => {
+    if (!shouldLoadThumb) {
+      setThumbUrl(null);
+      return;
+    }
+
     let isMounted = true;
-    invoke<string>("create_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
+    invoke<string>("create_display_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
       .then((path) => {
         if (isMounted) {
           setThumbUrl(convertFileSrc(path));
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.warn(`類似写真サムネイルの生成に失敗しました [${photo.photo_path}]`, err);
         if (isMounted) {
           setThumbUrl(null);
         }
@@ -57,16 +93,17 @@ const SimilarPhotoThumb = ({
     return () => {
       isMounted = false;
     };
-  }, [photo.photo_path, photo.source_slot]);
+  }, [shouldLoadThumb, photo.photo_path, photo.source_slot]);
 
   return (
     <button
+      ref={buttonRef}
       className={`similar-photo-thumb ${isActive ? "active" : ""}`}
       onClick={() => onSelect(photo)}
       type="button"
       title={photo.photo_filename}
     >
-      {thumbUrl ? <img src={thumbUrl} alt={photo.photo_filename} /> : <span className="similar-photo-thumb-skeleton" />}
+      {thumbUrl ? <img src={thumbUrl} alt={photo.photo_filename} loading="lazy" decoding="async" draggable={false} /> : <span className="similar-photo-thumb-skeleton" />}
     </button>
   );
 };
@@ -171,7 +208,7 @@ export const PhotoModal = ({
               <div className="photo-modal-meta">
                 <div className="photo-meta-badges">
                   <span className={`photo-meta-badge ${isDbMatched ? "active db" : ""}`}>STELLA DB</span>
-                  <span className={`photo-meta-badge ${isPhashMatched ? "active phash" : ""}`}>pHash</span>
+                  <span className={`photo-meta-badge ${isPhashMatched ? "active phash" : ""}`}>類似一致</span>
                 </div>
               </div>
             </div>

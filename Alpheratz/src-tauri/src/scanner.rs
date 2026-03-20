@@ -71,7 +71,8 @@ fn compile_regex(pattern: &str, name: &str) -> Regex {
     match Regex::new(pattern) {
         Ok(re) => re,
         Err(err) => {
-            crate::utils::log_err(&format!("Invalid regex {name}: {err}"));
+            crate::utils::log_err(&format!("正規表現の初期化に失敗しました [{name}]: {err}"));
+            // フォールバックは絶対に一致しない固定値で、継続中のスキャンを安全側に倒す。
             Regex::new(r"^$").expect("fallback regex must be valid")
         }
     }
@@ -137,7 +138,10 @@ fn resolve_photo_dirs() -> Result<Vec<(i64, PathBuf)>, PhotoDirErrorKind> {
         if !configured_path.exists() {
             return Err(PhotoDirErrorKind::Missing(configured_path));
         }
-        if !photo_dirs.iter().any(|(_, existing_path)| existing_path == &configured_path) {
+        if !photo_dirs
+            .iter()
+            .any(|(_, existing_path)| existing_path == &configured_path)
+        {
             photo_dirs.push((2, configured_path));
         }
     }
@@ -175,7 +179,7 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
         ScanProgress {
             processed: 0,
             total: 0,
-            current_world: "Collecting files...".into(),
+            current_world: "ファイルを収集中...".into(),
             phase: "scan".into(),
         },
     );
@@ -187,8 +191,8 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
     }
 
     if cancel_status.0.load(Ordering::SeqCst) {
-        crate::utils::log_warn("Scan cancelled during collection.");
-        emit_warn(&app, "scan:error", "Scan cancelled");
+        crate::utils::log_warn("ファイル収集中にスキャンが中断されました。");
+        emit_warn(&app, "scan:error", "スキャンを中断しました");
         return Ok(());
     }
 
@@ -207,7 +211,8 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
                 Some(existing) => {
                     let filename_changed = existing.photo_filename != filename;
                     let missing_features = false;
-                    let missing_world = existing.world_name.is_none() && existing.world_id.is_none();
+                    let missing_world =
+                        existing.world_name.is_none() && existing.world_id.is_none();
                     let reappeared = existing.is_missing;
                     let source_changed = existing.source_slot != slot;
 
@@ -232,23 +237,31 @@ pub async fn do_scan(app: AppHandle) -> Result<(), String> {
         ScanProgress {
             processed: 0,
             total,
-            current_world: format!("{} files to refresh", total),
+            current_world: format!("{} 件の更新対象を確認しました", total),
             phase: "scan".into(),
         },
     );
 
-    for (index, (filename, path, source_slot, refresh_kind)) in candidate_files.into_iter().enumerate() {
+    for (index, (filename, path, source_slot, refresh_kind)) in
+        candidate_files.into_iter().enumerate()
+    {
         if cancel_status.0.load(Ordering::SeqCst) {
-            crate::utils::log_warn("Scan cancelled by user.");
-            emit_warn(&app, "scan:error", "Scan cancelled");
+            crate::utils::log_warn("ユーザー操作でスキャンが中断されました。");
+            emit_warn(&app, "scan:error", "スキャンを中断しました");
             return Ok(());
         }
 
-        if let Some(photo) = analyze_photo(&path, &filename, source_slot, &existing_photos, refresh_kind)? {
+        if let Some(photo) = analyze_photo(
+            &path,
+            &filename,
+            source_slot,
+            &existing_photos,
+            refresh_kind,
+        )? {
             let current_world = photo
                 .world_name
                 .clone()
-                .unwrap_or_else(|| "Unknown world".to_string());
+                .unwrap_or_else(|| "ワールド不明".to_string());
             upsert_photo_batch(&mut conn, &[photo])?;
 
             if index % 10 == 0 || index == total.saturating_sub(1) {
@@ -281,7 +294,7 @@ fn get_existing_photos(conn: &Connection) -> Result<HashMap<String, ExistingPhot
             "SELECT photo_filename, photo_path, world_id, world_name, timestamp, orientation, image_width, image_height, source_slot, is_missing
              FROM photos",
         )
-        .map_err(|e| scan_err("Failed to prepare existing photo query", e))?;
+        .map_err(|e| scan_err("既存写真一覧クエリを準備できません", e))?;
     let rows = stmt
         .query_map([], |row| {
             Ok(ExistingPhotoInfo {
@@ -296,11 +309,12 @@ fn get_existing_photos(conn: &Connection) -> Result<HashMap<String, ExistingPhot
                 is_missing: row.get::<_, i64>(9)? != 0,
             })
         })
-        .map_err(|e| scan_err("Failed to execute existing photo query", e))?;
+        .map_err(|e| scan_err("既存写真一覧クエリを実行できません", e))?;
 
     let mut map = HashMap::new();
     for row in rows {
-        if let Some(info) = warn_row_error(row, "existing photo row decode failed") {
+        if let Some(info) = warn_row_error(row, "既存写真行の読み取りに失敗しました")
+        {
             map.insert(info.photo_path.clone(), info);
         }
     }
@@ -325,9 +339,13 @@ fn analyze_photo(
             existing.and_then(|photo| photo.world_id.clone()),
             None,
         ),
-        ScanRefreshKind::Full | ScanRefreshKind::MetadataOnly => {
-            resolve_world_info_lightweight(&normalized_path, filename, path, &timestamp, existing_photos)
-        }
+        ScanRefreshKind::Full | ScanRefreshKind::MetadataOnly => resolve_world_info_lightweight(
+            &normalized_path,
+            filename,
+            path,
+            &timestamp,
+            existing_photos,
+        ),
     };
     let (orientation, image_width, image_height) = match refresh_kind {
         ScanRefreshKind::PathOnly => (
@@ -336,9 +354,26 @@ fn analyze_photo(
             existing.and_then(|photo| photo.image_height),
         ),
         ScanRefreshKind::Full | ScanRefreshKind::MetadataOnly => {
-            let dimensions = image::image_dimensions(path).ok();
+            let dimensions = match image::image_dimensions(path) {
+                Ok(value) => Some(value),
+                Err(err) => {
+                    crate::utils::log_warn(&format!(
+                        "画像サイズを取得できなかったため unknown として扱います [{}]: {}",
+                        path.display(),
+                        err
+                    ));
+                    None
+                }
+            };
             let orientation = dimensions
-                .map(|(width, height)| if height > width { "portrait" } else { "landscape" }.to_string())
+                .map(|(width, height)| {
+                    if height > width {
+                        "portrait"
+                    } else {
+                        "landscape"
+                    }
+                    .to_string()
+                })
                 .or_else(|| Some("unknown".to_string()));
             let image_width = dimensions.map(|(width, _)| i64::from(width));
             let image_height = dimensions.map(|(_, height)| i64::from(height));
@@ -411,14 +446,22 @@ fn resolve_world_info_lightweight(
 
 fn resolve_photo_timestamp(path: &Path, filename: &str) -> Result<String, String> {
     if let Some(captures) = RE_PARSE.captures(filename) {
-        return Ok(format!("{} {}", &captures[1], captures[2].replace("-", ":")));
+        return Ok(format!(
+            "{} {}",
+            &captures[1],
+            captures[2].replace("-", ":")
+        ));
     }
 
-    let metadata = fs::metadata(path)
-        .map_err(|err| scan_err(&format!("Failed to read metadata for {}", path.display()), err))?;
+    let metadata = fs::metadata(path).map_err(|err| {
+        scan_err(
+            &format!("ファイルメタデータを取得できません [{}]", path.display()),
+            err,
+        )
+    })?;
     let modified = metadata.modified().map_err(|err| {
         scan_err(
-            &format!("Failed to read modified time for {}", path.display()),
+            &format!("更新日時を取得できません [{}]", path.display()),
             err,
         )
     })?;
@@ -436,7 +479,7 @@ fn lookup_world_name_from_stella_record(timestamp: &str) -> Option<String> {
         Ok(conn) => conn,
         Err(err) => {
             crate::utils::log_warn(&format!(
-                "STELLA RECORD DB を開けません ({}): {}",
+                "STELLA RECORD DB を開けないためワールド補完をスキップします ({}): {}",
                 db_path.display(),
                 err
             ));
@@ -481,27 +524,27 @@ fn mark_missing_photos(
 
     let tx = conn
         .unchecked_transaction()
-        .map_err(|e| scan_err("Failed to start missing mark transaction", e))?;
+        .map_err(|e| scan_err("欠損写真の反映トランザクションを開始できません", e))?;
     {
         let mut mark_missing = tx
             .prepare("UPDATE photos SET is_missing = 1 WHERE photo_path = ?1")
-            .map_err(|e| scan_err("Failed to prepare missing mark statement", e))?;
+            .map_err(|e| scan_err("欠損写真更新ステートメントを準備できません", e))?;
 
         for photo_path in missing {
             mark_missing
                 .execute(params![photo_path])
-                .map_err(|e| scan_err("Failed to mark missing photo", e))?;
+                .map_err(|e| scan_err("欠損写真を更新できません", e))?;
         }
     }
     tx.commit()
-        .map_err(|e| scan_err("Failed to commit missing mark transaction", e))?;
+        .map_err(|e| scan_err("欠損写真の反映を確定できません", e))?;
     Ok(())
 }
 
 fn upsert_photo_batch(conn: &mut Connection, items: &[ScanPhotoData]) -> Result<(), String> {
     let tx = conn
         .transaction()
-        .map_err(|e| format!("Failed to start insert transaction: {}", e))?;
+        .map_err(|e| format!("写真更新トランザクションを開始できません: {}", e))?;
     {
         let mut stmt = tx
             .prepare(
@@ -530,7 +573,7 @@ fn upsert_photo_batch(conn: &mut Connection, items: &[ScanPhotoData]) -> Result<
                     match_source = COALESCE(excluded.match_source, photos.match_source),
                     is_missing = 0",
             )
-            .map_err(|e| format!("Failed to prepare insert statement: {}", e))?;
+            .map_err(|e| format!("写真更新ステートメントを準備できません: {}", e))?;
 
         for item in items {
             stmt.execute(params![
@@ -545,11 +588,11 @@ fn upsert_photo_batch(conn: &mut Connection, items: &[ScanPhotoData]) -> Result<
                 item.source_slot,
                 item.match_source,
             ])
-            .map_err(|e| format!("Failed to upsert photo {}: {}", item.filename, e))?;
+            .map_err(|e| format!("写真を更新できません [{}]: {}", item.filename, e))?;
         }
     }
     tx.commit()
-        .map_err(|e| format!("Failed to commit insert transaction: {}", e))?;
+        .map_err(|e| format!("写真更新トランザクションを確定できません: {}", e))?;
     Ok(())
 }
 
@@ -557,7 +600,11 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
     let file = match fs::File::open(path) {
         Ok(file) => file,
         Err(err) => {
-            crate::utils::log_err(&format!("[PNG parse] Failed to open {:?}: {}", path, err));
+            crate::utils::log_err(&format!(
+                "PNG メタデータ解析用にファイルを開けません [{}]: {}",
+                path.display(),
+                err
+            ));
             return (None, None);
         }
     };
@@ -565,7 +612,10 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
     let mut reader = BufReader::new(file);
     let mut sig = [0u8; 8];
     if reader.read_exact(&mut sig).is_err() || sig != *b"\x89PNG\r\n\x1a\n" {
-        crate::utils::log_warn(&format!("[PNG parse] Invalid PNG signature for {:?}", path));
+        crate::utils::log_warn(&format!(
+            "PNG シグネチャが不正なためメタデータ解析をスキップします [{}]",
+            path.display()
+        ));
         return (None, None);
     }
 
@@ -583,7 +633,8 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
             if chunk_len > MAX_ITXT_SIZE {
                 if let Err(err) = reader.seek(SeekFrom::Current(chunk_len as i64 + 4)) {
                     crate::utils::log_warn(&format!(
-                        "[PNG parse] Failed to seek after iTXt skip: {}",
+                        "大きすぎる iTXt をスキップできませんでした [{}]: {}",
+                        path.display(),
                         err
                     ));
                     break;
@@ -593,7 +644,10 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
             chunk_data.clear();
             chunk_data.resize(chunk_len, 0u8);
             if reader.read_exact(&mut chunk_data).is_err() {
-                crate::utils::log_err("[PNG parse] Failed to read iTXt chunk data");
+                crate::utils::log_err(&format!(
+                    "iTXt チャンクを読み取れませんでした [{}]",
+                    path.display()
+                ));
                 break;
             }
             if let Some(null_pos) = chunk_data.iter().position(|&b| b == 0) {
@@ -615,7 +669,8 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
             }
             if let Err(err) = reader.seek(SeekFrom::Current(4)) {
                 crate::utils::log_warn(&format!(
-                    "[PNG parse] Failed to seek after iTXt CRC: {}",
+                    "iTXt CRC をスキップできませんでした [{}]: {}",
+                    path.display(),
                     err
                 ));
                 break;
@@ -624,7 +679,8 @@ fn extract_vrc_metadata_from_png(path: &Path) -> (Option<String>, Option<String>
             break;
         } else if let Err(err) = reader.seek(SeekFrom::Current(chunk_len as i64 + 4)) {
             crate::utils::log_warn(&format!(
-                "[PNG parse] Failed to seek after chunk skip: {}",
+                "PNG チャンクをスキップできませんでした [{}]: {}",
+                path.display(),
                 err
             ));
             break;
@@ -660,7 +716,7 @@ fn collect_photos_recursive(
         Ok(entries) => entries,
         Err(err) => {
             crate::utils::log_warn(&format!(
-                "Failed to read directory {}: {}",
+                "ディレクトリを読み取れないため走査をスキップします [{}]: {}",
                 dir.display(),
                 err
             ));
@@ -673,7 +729,7 @@ fn collect_photos_recursive(
             Ok(entry) => entry,
             Err(err) => {
                 crate::utils::log_warn(&format!(
-                    "Failed to read entry in {}: {}",
+                    "ディレクトリエントリの読み取りに失敗しました [{}]: {}",
                     dir.display(),
                     err
                 ));
@@ -682,9 +738,18 @@ fn collect_photos_recursive(
         };
 
         let path = entry.path();
-        if let Ok(meta) = fs::symlink_metadata(&path) {
-            if meta.file_type().is_symlink() {
-                continue;
+        match fs::symlink_metadata(&path) {
+            Ok(meta) => {
+                if meta.file_type().is_symlink() {
+                    continue;
+                }
+            }
+            Err(err) => {
+                crate::utils::log_warn(&format!(
+                    "シンボリックリンク情報を取得できませんでした [{}]: {}",
+                    path.display(),
+                    err
+                ));
             }
         }
 
