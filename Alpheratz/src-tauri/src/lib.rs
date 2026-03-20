@@ -1,4 +1,5 @@
 use regex::Regex;
+use serde::Deserialize;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::LazyLock;
@@ -27,6 +28,13 @@ static WORLD_ID_RE: LazyLock<Regex> =
     LazyLock::new(|| {
         Regex::new(r"^wrld_[A-Za-z0-9_-]+$").expect("world id regex must be valid")
     });
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PhotoBatchEntry {
+    photo_path: String,
+    source_slot: i64,
+}
 
 // --- Commands ---
 
@@ -93,6 +101,22 @@ async fn create_display_thumbnail(path: String, source_slot: Option<i64>) -> Res
 }
 
 #[tauri::command]
+async fn create_grid_thumbnail(path: String, source_slot: Option<i64>) -> Result<String, String> {
+    let display_path = path.clone();
+    let resolved_slot = source_slot.unwrap_or(1);
+    tauri::async_runtime::spawn_blocking(move || {
+        utils::create_grid_thumbnail_file(&path, resolved_slot)
+    })
+        .await
+        .map_err(|e| {
+            format!(
+                "一覧用サムネイル生成タスクの待機に失敗しました ({}): {}",
+                display_path, e
+            )
+        })?
+}
+
+#[tauri::command]
 async fn save_photo_memo_cmd(
     photo_path: String,
     memo: String,
@@ -121,12 +145,34 @@ async fn set_photo_favorite_cmd(
 }
 
 #[tauri::command]
+async fn bulk_set_photo_favorite_cmd(
+    photos: Vec<PhotoBatchEntry>,
+    is_favorite: bool,
+) -> Result<(), String> {
+    for photo in photos {
+        db::set_photo_favorite(photo.source_slot, &photo.photo_path, is_favorite)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn add_photo_tag_cmd(
     photo_path: String,
     tag: String,
     source_slot: i64,
 ) -> Result<(), String> {
     db::add_photo_tag(source_slot, &photo_path, &tag)
+}
+
+#[tauri::command]
+async fn bulk_add_photo_tag_cmd(
+    photos: Vec<PhotoBatchEntry>,
+    tag: String,
+) -> Result<(), String> {
+    for photo in photos {
+        db::add_photo_tag(photo.source_slot, &photo.photo_path, &tag)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -216,6 +262,24 @@ async fn show_in_explorer(path: String) -> Result<(), String> {
     }
     opener::reveal(path_ref)
         .map_err(|e| format!("エクスプローラーで表示できません [{}]: {}", path, e))
+}
+
+#[tauri::command]
+async fn bulk_copy_photos_cmd(
+    photo_paths: Vec<String>,
+    destination_dir: String,
+) -> Result<usize, String> {
+    let destination_for_error = destination_dir.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        utils::copy_photo_files(&photo_paths, &destination_dir)
+    })
+    .await
+    .map_err(|err| {
+        format!(
+            "一括コピー処理の待機に失敗しました [{}]: {}",
+            destination_for_error, err
+        )
+    })?
 }
 
 #[tauri::command]
@@ -311,11 +375,14 @@ pub fn run() {
             cancel_scan,
             get_photos,
             create_display_thumbnail,
+            create_grid_thumbnail,
             save_photo_memo_cmd,
             get_photo_memo_cmd,
             get_photo_tags_cmd,
             set_photo_favorite_cmd,
+            bulk_set_photo_favorite_cmd,
             add_photo_tag_cmd,
+            bulk_add_photo_tag_cmd,
             remove_photo_tag_cmd,
             get_all_tags_cmd,
             create_tag_master_cmd,
@@ -327,6 +394,7 @@ pub fn run() {
             open_world_url,
             open_tweet_intent_cmd,
             show_in_explorer,
+            bulk_copy_photos_cmd,
             get_startup_preference_cmd,
             save_startup_preference_cmd,
             start_phash_calculation_cmd,

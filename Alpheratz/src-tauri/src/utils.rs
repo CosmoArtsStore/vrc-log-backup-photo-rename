@@ -331,8 +331,82 @@ pub fn create_thumbnail_file(path: &str, source_slot: i64) -> Result<String, Str
 }
 
 pub fn create_display_thumbnail_file(path: &str, source_slot: i64) -> Result<String, String> {
-    // WebView2 のデコード負荷を抑えるため、一覧表示用は 514px に制限する。
+    // 大きめ表示向けキャッシュ。小さい一覧には使わない。
     create_thumbnail_file_with_size(path, source_slot, 514, "display.v2")
+}
+
+pub fn create_grid_thumbnail_file(path: &str, source_slot: i64) -> Result<String, String> {
+    // WebView2 GPU プロセスの負荷を抑えつつ視認性を保つため、一覧表示は中間サイズにする。
+    create_thumbnail_file_with_size(path, source_slot, 384, "grid.v2")
+}
+
+pub fn copy_photo_files(photo_paths: &[String], destination_dir: &str) -> Result<usize, String> {
+    let destination_path = Path::new(destination_dir);
+    if !destination_path.exists() {
+        return Err(format!(
+            "コピー先フォルダが見つかりません: {}",
+            destination_path.display()
+        ));
+    }
+    if !destination_path.is_dir() {
+        return Err(format!(
+            "コピー先がフォルダではありません: {}",
+            destination_path.display()
+        ));
+    }
+
+    let mut copied_count = 0usize;
+
+    for photo_path in photo_paths {
+        let source_path = Path::new(photo_path);
+        if !source_path.exists() {
+            return Err(format!("コピー元ファイルが見つかりません: {}", source_path.display()));
+        }
+
+        let file_name = source_path.file_name().ok_or_else(|| {
+            format!("コピー元ファイル名を解決できません: {}", source_path.display())
+        })?;
+        let destination_file = unique_copy_target(destination_path, file_name);
+        fs::copy(source_path, &destination_file).map_err(|err| {
+            format!(
+                "ファイルをコピーできません [{} -> {}]: {}",
+                source_path.display(),
+                destination_file.display(),
+                err
+            )
+        })?;
+        copied_count += 1;
+    }
+
+    Ok(copied_count)
+}
+
+fn unique_copy_target(destination_dir: &Path, file_name: &std::ffi::OsStr) -> PathBuf {
+    let initial_target = destination_dir.join(file_name);
+    if !initial_target.exists() {
+        return initial_target;
+    }
+
+    let stem = Path::new(file_name)
+        .file_stem()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| "copy".to_string());
+    let extension = Path::new(file_name)
+        .extension()
+        .map(|value| value.to_string_lossy().to_string());
+
+    let mut index = 1usize;
+    loop {
+        let candidate_name = match &extension {
+            Some(extension) if !extension.is_empty() => format!("{stem}_{index}.{extension}"),
+            _ => format!("{stem}_{index}"),
+        };
+        let candidate = destination_dir.join(candidate_name);
+        if !candidate.exists() {
+            return candidate;
+        }
+        index += 1;
+    }
 }
 
 pub fn set_startup_enabled(value_name: &str, enabled: bool) -> Result<(), String> {

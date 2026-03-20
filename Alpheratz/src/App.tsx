@@ -29,7 +29,6 @@ const ROW_HEIGHT = 246;
 type DatePreset = "none" | "today" | "last7days" | "thisMonth" | "lastMonth" | "halfYear" | "oneYear" | "custom";
 type ThemeMode = "light" | "dark";
 type ViewMode = "standard" | "gallery";
-type QuickActionMode = "idle" | "favorite" | "tag";
 type GroupingMode = "none" | "similar" | "world";
 type AppSetting = {
   photoFolderPath?: string;
@@ -49,11 +48,27 @@ type BackupCandidate = {
 // Tuned against F:\bk_photo poster samples while avoiding chain-merging unrelated neighbors.
 const SIMILAR_PHOTO_MAX_DISTANCE = 124;
 const MAX_SIMILAR_PHOTOS_IN_MODAL = 24;
-const DEFAULT_TWEET_TEMPLATE = [
-  "{world}",
-  "{date}",
-  "{tags}",
-].join("\n");
+const DEFAULT_TWEET_TEMPLATES = [
+  [
+    "おは{world-name}",
+    "",
+    "#{タグを追加}",
+  ].join("\n"),
+  [
+    "World: {world-name}",
+    "Author:",
+    "",
+    "#VRChat_world紹介",
+  ].join("\n"),
+  [
+    "World: {world-name}",
+    "Author:",
+    "Cloth:",
+    "",
+    "#VRChatPhotography",
+  ].join("\n"),
+];
+const DEFAULT_TWEET_TEMPLATE = DEFAULT_TWEET_TEMPLATES[0];
 
 const replaceTemplateToken = (template: string, token: string, value: string) => (
   template.split(token).join(value)
@@ -312,16 +327,17 @@ function App() {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [masterTags, setMasterTags] = useState<string[]>([]);
-  const [isExtensionOpen, setIsExtensionOpen] = useState(false);
-  const [quickActionMode, setQuickActionMode] = useState<QuickActionMode>("idle");
   const [groupingMode, setGroupingMode] = useState<GroupingMode>("none");
-  const [quickTagSelection, setQuickTagSelection] = useState("");
-  const [quickTagDraft, setQuickTagDraft] = useState("");
-  const [pendingQuickTagModal, setPendingQuickTagModal] = useState(false);
+  const [selectedPhotoPaths, setSelectedPhotoPaths] = useState<string[]>([]);
+  const [selectionAnchorPhotoPath, setSelectionAnchorPhotoPath] = useState<string | null>(null);
+  const [bulkTagSelection, setBulkTagSelection] = useState("");
+  const [bulkTagDraft, setBulkTagDraft] = useState("");
+  const [isBulkTagModalOpen, setIsBulkTagModalOpen] = useState(false);
   const [tweetTemplates, setTweetTemplates] = useState<string[]>([DEFAULT_TWEET_TEMPLATE]);
   const [activeTweetTemplate, setActiveTweetTemplate] = useState(DEFAULT_TWEET_TEMPLATE);
   const [isTweetTemplatePanelOpen, setIsTweetTemplatePanelOpen] = useState(false);
   const [tweetTemplateDraft, setTweetTemplateDraft] = useState("");
+  const [editingTweetTemplate, setEditingTweetTemplate] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -374,6 +390,7 @@ function App() {
   const isSimilarGroupingAvailable = !isPhashRunning && areAllPHashesReady;
 
   const displayPhotos = useMemo(() => filteredPhotos, [filteredPhotos]);
+  const selectedPhotoPathSet = useMemo(() => new Set(selectedPhotoPaths), [selectedPhotoPaths]);
 
   const displayPhotoItems = useMemo<DisplayPhotoItem[]>(() => {
     if (groupingMode === "world") {
@@ -419,6 +436,16 @@ function App() {
       setGroupingMode("none");
     }
   }, [isSimilarGroupingAvailable, groupingMode]);
+
+  useEffect(() => {
+    setSelectedPhotoPaths((prev) => prev.filter((photoPath) => photos.some((photo) => photo.photo_path === photoPath)));
+  }, [photos]);
+
+  useEffect(() => {
+    if (selectionAnchorPhotoPath && !photos.some((photo) => photo.photo_path === selectionAnchorPhotoPath)) {
+      setSelectionAnchorPhotoPath(null);
+    }
+  }, [photos, selectionAnchorPhotoPath]);
 
   const updatePhoto = (photoPath: string, updater: (photo: Photo) => Photo) => {
     setPhotos((prev) => prev.map((photo) => (
@@ -496,73 +523,39 @@ function App() {
     }
   };
 
-  const stopQuickAction = () => {
-    setQuickActionMode("idle");
-    setQuickTagSelection("");
-    setQuickTagDraft("");
-    setPendingQuickTagModal(false);
-  };
+  const toggleSelectedPhoto = (item: DisplayPhotoItem, shiftKey: boolean) => {
+    const photoPath = item.photo.photo_path;
+    if (shiftKey && selectionAnchorPhotoPath) {
+      const anchorIndex = displayPhotoItems.findIndex((entry) => entry.photo.photo_path === selectionAnchorPhotoPath);
+      const targetIndex = displayPhotoItems.findIndex((entry) => entry.photo.photo_path === photoPath);
+      if (anchorIndex >= 0 && targetIndex >= 0) {
+        const startIndex = Math.min(anchorIndex, targetIndex);
+        const endIndex = Math.max(anchorIndex, targetIndex);
+        const rangePhotoPaths = displayPhotoItems
+          .slice(startIndex, endIndex + 1)
+          .map((entry) => entry.photo.photo_path);
 
-  const startQuickFavorite = () => {
-    if (quickActionMode === "favorite") {
-      stopQuickAction();
-      return;
-    }
-    setPendingQuickTagModal(false);
-    setQuickTagSelection("");
-    setQuickTagDraft("");
-    setQuickActionMode("favorite");
-  };
-
-  const startQuickTag = () => {
-    if (pendingQuickTagModal) {
-      setPendingQuickTagModal(false);
-      setQuickTagSelection("");
-      setQuickTagDraft("");
-      return;
-    }
-    if (quickActionMode === "tag") {
-      stopQuickAction();
-      return;
-    }
-    setPendingQuickTagModal(true);
-    setQuickTagSelection("");
-    setQuickTagDraft("");
-  };
-
-  const applyQuickTagMode = () => {
-    const resolvedTag = quickTagDraft.trim() || quickTagSelection.trim();
-    if (!resolvedTag) {
-      addToast("クイックタグ付けに使うタグを選択してください。", "error");
-      return;
-    }
-    setQuickTagSelection(resolvedTag);
-    setQuickTagDraft("");
-    setPendingQuickTagModal(false);
-    setQuickActionMode("tag");
-  };
-
-  const handlePhotoActivate = async (item: DisplayPhotoItem) => {
-    const photo = item.photo;
-    if (quickActionMode === "favorite") {
-      await toggleFavorite(photo.photo_path, photo.is_favorite);
-      return;
-    }
-
-    if (quickActionMode === "tag") {
-      if (!quickTagSelection) {
-        addToast("クイックタグ付けのタグが未設定です。", "error");
+        setSelectedPhotoPaths((prev) => Array.from(new Set([...prev, ...rangePhotoPaths])));
+        setSelectionAnchorPhotoPath(photoPath);
         return;
       }
-      if (photo.tags.includes(quickTagSelection)) {
-        await removeTag(photo.photo_path, quickTagSelection);
-        return;
-      }
-      await addTag(photo.photo_path, quickTagSelection);
-      return;
     }
 
-    onSelectPhoto(photo);
+    setSelectedPhotoPaths((prev) => (
+      prev.includes(photoPath)
+        ? prev.filter((currentPath) => currentPath !== photoPath)
+        : [...prev, photoPath]
+    ));
+    setSelectionAnchorPhotoPath(photoPath);
+  };
+
+  const clearSelectedPhotos = () => {
+    setSelectedPhotoPaths([]);
+    setSelectionAnchorPhotoPath(null);
+  };
+
+  const handlePhotoActivate = (item: DisplayPhotoItem) => {
+    onSelectPhoto(item.photo);
   };
 
   const resetFilters = () => {
@@ -596,19 +589,19 @@ function App() {
     () => buildVirtualGalleryLayout(displayPhotoItems.map((item) => item.photo), panelWidth, columnCount),
     [displayPhotoItems, panelWidth, columnCount],
   );
+  const standardColumnWidth = useMemo(
+    () => Math.max(CARD_WIDTH, Math.floor(panelWidth / Math.max(1, columnCount))),
+    [panelWidth, columnCount],
+  );
 
   const {
     scrollTop,
-    thumbTop,
-    thumbHeight,
-    isDragging,
     totalHeight,
     onGridRef,
     handleGridScroll,
     handleGridWheel,
-    handleScrollbarMouseDown,
-    handleTrackClick,
-    handleJumpToRow,
+    handleJumpToRatio,
+    maxScrollTop,
   } = useScroll({
     photosLength: displayPhotoItems.length,
     columnCount,
@@ -731,7 +724,7 @@ function App() {
         setViewMode(setting.viewMode === "gallery" ? "gallery" : "standard");
         const resolvedTemplates = setting.tweetTemplates && setting.tweetTemplates.length > 0
           ? setting.tweetTemplates
-          : [DEFAULT_TWEET_TEMPLATE];
+          : DEFAULT_TWEET_TEMPLATES;
         const resolvedActiveTemplate = resolvedTemplates.includes(setting.activeTweetTemplate ?? "")
           ? setting.activeTweetTemplate ?? DEFAULT_TWEET_TEMPLATE
           : resolvedTemplates[0];
@@ -837,6 +830,58 @@ function App() {
     }
   };
 
+  const handleStartTweetTemplateEdit = (template: string) => {
+    setEditingTweetTemplate(template);
+    setTweetTemplateDraft(template);
+  };
+
+  const handleCancelTweetTemplateEdit = () => {
+    setEditingTweetTemplate(null);
+    setTweetTemplateDraft("");
+  };
+
+  const handleSaveTweetTemplate = async () => {
+    const normalized = tweetTemplateDraft.trim();
+    if (!normalized) {
+      addToast("ツイートテンプレートを入力してください。", "error");
+      return;
+    }
+
+    if (!editingTweetTemplate) {
+      await handleAddTweetTemplate(normalized);
+      setTweetTemplateDraft("");
+      return;
+    }
+
+    if (editingTweetTemplate !== normalized && tweetTemplates.includes(normalized)) {
+      addToast("同じテンプレートは登録済みです。", "error");
+      return;
+    }
+
+    const nextTemplates = tweetTemplates.map((template) => (
+      template === editingTweetTemplate ? normalized : template
+    ));
+    const nextActiveTemplate = activeTweetTemplate === editingTweetTemplate
+      ? normalized
+      : activeTweetTemplate;
+
+    try {
+      await invoke("save_setting_cmd", {
+        setting: buildSettingPayload({
+          tweetTemplates: nextTemplates,
+          activeTweetTemplate: nextActiveTemplate,
+        }),
+      });
+      setTweetTemplates(nextTemplates);
+      setActiveTweetTemplate(nextActiveTemplate);
+      setEditingTweetTemplate(null);
+      setTweetTemplateDraft("");
+      addToast("ツイートテンプレートを更新しました。");
+    } catch (err) {
+      addToast(`ツイートテンプレートの更新に失敗しました: ${String(err)}`, "error");
+    }
+  };
+
   const handleSelectTweetTemplate = async (template: string) => {
     try {
       await invoke("save_setting_cmd", {
@@ -868,6 +913,10 @@ function App() {
       });
       setTweetTemplates(nextTemplates);
       setActiveTweetTemplate(nextActiveTemplate);
+      if (editingTweetTemplate === template) {
+        setEditingTweetTemplate(null);
+        setTweetTemplateDraft("");
+      }
       addToast("ツイートテンプレートを削除しました。");
     } catch (err) {
       addToast(`ツイートテンプレートの削除に失敗しました: ${String(err)}`, "error");
@@ -883,6 +932,7 @@ function App() {
 
     return [
       ["{world}", world],
+      ["{world-name}", world],
       ["{date}", date],
       ["{file}", photo.photo_filename],
       ["{memo}", memo],
@@ -904,7 +954,10 @@ function App() {
 
     const intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
     try {
-      await invoke("open_tweet_intent_cmd", { intentUrl });
+      await Promise.all([
+        invoke("open_tweet_intent_cmd", { intentUrl }),
+        invoke("show_in_explorer", { path: photo.photo_path }),
+      ]);
     } catch (err) {
       addToast(`投稿ページを開けませんでした: ${String(err)}`, "error");
     }
@@ -925,15 +978,17 @@ function App() {
     masterTags.slice().sort((left, right) => left.localeCompare(right, "ja"))
   ), [masterTags]);
   const hasMasterTags = tagOptions.length > 0;
-  const quickActionHint = useMemo(() => {
-    if (quickActionMode === "favorite") {
-      return "お気に入りにする画像を選択してください";
-    }
-    if (quickActionMode === "tag") {
-      return `「${quickTagSelection}」を付ける画像を選択してください`;
-    }
-    return null;
-  }, [quickActionMode, quickTagSelection]);
+  const selectedPhotos = useMemo(
+    () => selectedPhotoPaths
+      .map((photoPath) => photos.find((photo) => photo.photo_path === photoPath))
+      .filter((photo): photo is Photo => photo !== undefined),
+    [selectedPhotoPaths, photos],
+  );
+  const selectedCount = selectedPhotos.length;
+  const bulkFavoriteWillEnable = useMemo(
+    () => selectedPhotos.some((photo) => !photo.is_favorite),
+    [selectedPhotos],
+  );
   const activeFilterCount = useMemo(() => (
     [
       worldFilters.length > 0,
@@ -943,9 +998,108 @@ function App() {
       tagFilters.length > 0,
     ].filter(Boolean).length
   ), [worldFilters, dateFrom, dateTo, orientationFilter, favoritesOnly, tagFilters]);
+
+  const handleBulkFavorite = async () => {
+    if (selectedPhotos.length === 0) {
+      return;
+    }
+
+    const nextFavoriteState = bulkFavoriteWillEnable;
+    try {
+      await invoke("bulk_set_photo_favorite_cmd", {
+        photos: selectedPhotos.map((photo) => ({
+          photoPath: photo.photo_path,
+          sourceSlot: photo.source_slot ?? 1,
+        })),
+        isFavorite: nextFavoriteState,
+      });
+      setPhotos((prev) => prev.map((photo) => (
+        selectedPhotoPathSet.has(photo.photo_path)
+          ? { ...photo, is_favorite: nextFavoriteState }
+          : photo
+      )));
+    } catch (err) {
+      addToast(`一括お気に入り更新に失敗しました: ${String(err)}`, "error");
+    }
+  };
+
+  const openBulkTagModal = () => {
+    setBulkTagSelection("");
+    setBulkTagDraft("");
+    setIsBulkTagModalOpen(true);
+  };
+
+  const applyBulkTag = async () => {
+    const resolvedTag = (bulkTagDraft.trim() || bulkTagSelection.trim());
+    if (!resolvedTag) {
+      addToast("一括タグ付けに使うタグを選択してください。", "error");
+      return;
+    }
+    if (selectedPhotos.length === 0) {
+      setIsBulkTagModalOpen(false);
+      return;
+    }
+
+    try {
+      await invoke("bulk_add_photo_tag_cmd", {
+        photos: selectedPhotos.map((photo) => ({
+          photoPath: photo.photo_path,
+          sourceSlot: photo.source_slot ?? 1,
+        })),
+        tag: resolvedTag,
+      });
+      setPhotos((prev) => prev.map((photo) => (
+        selectedPhotoPathSet.has(photo.photo_path) && !photo.tags.includes(resolvedTag)
+          ? {
+            ...photo,
+            tags: [...photo.tags, resolvedTag].sort((left, right) => left.localeCompare(right, "ja")),
+          }
+          : photo
+      )));
+      setBulkTagDraft("");
+      setBulkTagSelection("");
+      setIsBulkTagModalOpen(false);
+      addToast(`${selectedPhotos.length}件にタグを追加しました。`);
+    } catch (err) {
+      addToast(`一括タグ付けに失敗しました: ${String(err)}`, "error");
+    }
+  };
+
+  const handleBulkCopy = async () => {
+    if (selectedPhotos.length === 0) {
+      return;
+    }
+
+    try {
+      const destination = await open({
+        directory: true,
+        multiple: false,
+        title: "コピー先フォルダを選択",
+      });
+
+      if (!destination || Array.isArray(destination)) {
+        return;
+      }
+
+      await invoke("bulk_copy_photos_cmd", {
+        photoPaths: selectedPhotos.map((photo) => photo.photo_path),
+        destinationDir: destination,
+      });
+    } catch (err) {
+      addToast(`一括コピーに失敗しました: ${String(err)}`, "error");
+    }
+  };
+
   const cellProps = useMemo(
-    () => ({ data: displayPhotoItems, onSelect: handlePhotoActivate, columnCount }),
-    [displayPhotoItems, columnCount, handlePhotoActivate],
+    () => ({
+      data: displayPhotoItems,
+      onSelect: handlePhotoActivate,
+      onToggleSelect: toggleSelectedPhoto,
+      isSelected: (item: DisplayPhotoItem) => selectedPhotoPathSet.has(item.photo.photo_path),
+      showTags: selectedCount > 0,
+      columnCount,
+    }),
+    [displayPhotoItems, columnCount, selectedPhotoPathSet, selectedCount],
   );
   const displayTotalRows = Math.ceil(displayPhotoItems.length / columnCount);
 
@@ -960,72 +1114,12 @@ function App() {
           void startScan();
         }}
         onOpenSettings={() => setShowSettings(true)}
+        onToggleFilters={() => setIsFilterOpen((prev) => !prev)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        hashProgressLabel={isPhashRunning ? `ハッシュ計測中... ${similarPrepProgress.done}/${similarPrepProgress.total || 0}` : null}
+        activeFilterCount={activeFilterCount}
       />
-
-      {isExtensionOpen && (
-        <div className="extension-toolbar">
-          <div className="extension-toolbar-title">拡張機能</div>
-          <div className="extension-toolbar-actions">
-            <div className="toolbar-group">
-              <span className="toolbar-group-label">クイック操作</span>
-              <div className="toolbar-group-actions">
-                <button
-                  className={`extension-toolbar-button ${quickActionMode === "favorite" ? "active" : ""}`}
-                  onClick={startQuickFavorite}
-                  type="button"
-                >
-                  お気に入り
-                </button>
-                <button
-                  className={`extension-toolbar-button ${quickActionMode === "tag" || pendingQuickTagModal ? "active" : ""}`}
-                  onClick={startQuickTag}
-                  type="button"
-                >
-                  タグ
-                </button>
-              </div>
-            </div>
-            <div className="toolbar-group">
-              <span className="toolbar-group-label">グループ</span>
-              <div className="toolbar-group-actions">
-                <button
-                  className={`extension-toolbar-button ${groupingMode === "none" ? "active" : ""}`}
-                  onClick={() => setGroupingMode("none")}
-                  type="button"
-                >
-                  なし
-                </button>
-                <button
-                  className={`extension-toolbar-button ${groupingMode === "similar" ? "active" : ""}`}
-                  onClick={() => setGroupingMode("similar")}
-                  disabled={!isSimilarGroupingAvailable}
-                  title={isSimilarGroupingAvailable ? "隣接画像の類似度でまとめる" : "似た写真の準備が終わるまで使えません"}
-                  type="button"
-                >
-                  似た写真
-                </button>
-                <button
-                  className={`extension-toolbar-button ${groupingMode === "world" ? "active" : ""}`}
-                  onClick={() => setGroupingMode("world")}
-                  type="button"
-                >
-                  ワールド
-                </button>
-              </div>
-            </div>
-            {!isSimilarGroupingAvailable && (
-              <div className="similar-prep-status" role="status" aria-live="polite">
-                <span className="similar-prep-title">似た写真の準備中</span>
-                <span className="similar-prep-value">
-                  {similarPrepProgress.done} / {similarPrepProgress.total || 0}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       <main className={`main-content ${isFilterOpen ? "filter-open" : ""}`}>
         {scanStatus === "scanning" && (
@@ -1064,88 +1158,92 @@ function App() {
         />
         <div className="grid-area">
           <aside className="left-rail" aria-label="表示操作">
-            <div className="left-rail-spacer" />
             <div className="left-rail-controls">
-              <div className="left-rail-group">
-                <button
-                  className={`left-rail-button ${viewMode === "standard" ? "active" : ""}`}
-                  onClick={() => void handleViewModeChange("standard")}
-                  aria-label="標準グリッド"
-                  title="標準グリッド"
-                  type="button"
-                >
-                  <span className="left-rail-icon"><Icons.Grid /></span>
-                  <span className="left-rail-label">標準</span>
-                </button>
-                <button
-                  className={`left-rail-button ${viewMode === "gallery" ? "active" : ""}`}
-                  onClick={() => void handleViewModeChange("gallery")}
-                  aria-label="ギャラリー"
-                  title="ギャラリー"
-                  type="button"
-                >
-                  <span className="left-rail-icon"><Icons.Gallery /></span>
-                  <span className="left-rail-label">ギャラリー</span>
-                </button>
+              <div className="left-rail-section">
+                <div className="left-rail-section-title">編集</div>
+                <div className="left-rail-nav-group" role="group" aria-label="編集">
+                  <button
+                    className="left-rail-button"
+                    onClick={() => setShowSettings(true)}
+                    aria-label="タグマスタ編集"
+                    title="タグマスタ編集"
+                    type="button"
+                  >
+                    <span className="left-rail-icon"><Icons.Tag /></span>
+                    <span className="left-rail-label">タグマスタ編集</span>
+                  </button>
+                  <button
+                    className="left-rail-button"
+                    onClick={() => setIsTweetTemplatePanelOpen(true)}
+                    aria-label="テンプレート編集"
+                    title="テンプレート編集"
+                    type="button"
+                  >
+                    <span className="left-rail-icon"><Icons.Template /></span>
+                    <span className="left-rail-label">テンプレート編集</span>
+                  </button>
+                </div>
               </div>
-              <div className="left-rail-divider" />
-              <button
-                className="left-rail-button"
-                onClick={() => setIsFilterOpen((prev) => !prev)}
-                aria-label="条件検索"
-                title="条件検索"
-                type="button"
-              >
-                <span className="left-rail-icon"><Icons.Menu /></span>
-                <span className="left-rail-label">検索条件</span>
-              </button>
-              <button
-                className="left-rail-button"
-                onClick={() => setIsExtensionOpen((prev) => !prev)}
-                aria-label="拡張機能"
-                title="拡張機能"
-                type="button"
-              >
-                <span className="left-rail-icon"><Icons.Extension /></span>
-                <span className="left-rail-label">拡張機能</span>
-              </button>
-              <button
-                className="left-rail-button"
-                onClick={() => {
-                  if (scanStatus === "scanning") {
-                    cancelScan();
-                    return;
-                  }
-                  void startScan();
-                }}
-                aria-label={scanStatus === "scanning" ? "スキャンを中止" : "再読み込み"}
-                title={scanStatus === "scanning" ? "スキャンを中止" : "再読み込み"}
-                type="button"
-              >
-                <span className="left-rail-icon">
-                  {scanStatus === "scanning" ? <Icons.Close /> : <Icons.Refresh />}
-                </span>
-                <span className="left-rail-label">{scanStatus === "scanning" ? "中止" : "更新"}</span>
-              </button>
-              <button
-                className="left-rail-button"
-                onClick={() => setIsTweetTemplatePanelOpen(true)}
-                aria-label="投稿テンプレート"
-                title="投稿テンプレート"
-                type="button"
-              >
-                <span className="left-rail-icon"><Icons.Quill /></span>
-                <span className="left-rail-label">テンプレート</span>
-              </button>
+              <div className="left-rail-section">
+                <div className="left-rail-section-title">グループ化</div>
+                <div className="left-rail-nav-group" role="group" aria-label="グループ化">
+                  <button
+                    className={`left-rail-button ${groupingMode === "none" ? "active" : ""}`}
+                    onClick={() => setGroupingMode("none")}
+                    type="button"
+                  >
+                    <span className="left-rail-icon"><Icons.Stack /></span>
+                    <span className="left-rail-label">なし</span>
+                  </button>
+                  <button
+                    className={`left-rail-button ${groupingMode === "similar" ? "active" : ""}`}
+                    onClick={() => setGroupingMode("similar")}
+                    disabled={!isSimilarGroupingAvailable}
+                    title={isSimilarGroupingAvailable ? "隣接画像の類似度でまとめる" : "似た写真の準備が終わるまで使えません"}
+                    type="button"
+                  >
+                    <span className="left-rail-icon"><Icons.Sparkles /></span>
+                    <span className="left-rail-label">似た写真</span>
+                  </button>
+                  <button
+                    className={`left-rail-button ${groupingMode === "world" ? "active" : ""}`}
+                    onClick={() => setGroupingMode("world")}
+                    type="button"
+                  >
+                    <span className="left-rail-icon"><Icons.Globe /></span>
+                    <span className="left-rail-label">ワールド</span>
+                  </button>
+                </div>
+              </div>
+              <div className="left-rail-section left-rail-section-viewmode">
+                <div className="left-rail-section-title">表示形式</div>
+                <div className="left-rail-nav-group" role="group" aria-label="表示形式">
+                  <button
+                    className={`left-rail-button ${viewMode === "standard" ? "active" : ""}`}
+                    onClick={() => void handleViewModeChange("standard")}
+                    aria-label="グリッド"
+                    title="グリッド"
+                    type="button"
+                  >
+                    <span className="left-rail-icon"><Icons.Grid /></span>
+                    <span className="left-rail-label">グリッド</span>
+                  </button>
+                  <button
+                    className={`left-rail-button ${viewMode === "gallery" ? "active" : ""}`}
+                    onClick={() => void handleViewModeChange("gallery")}
+                    aria-label="ギャラリー"
+                    title="ギャラリー"
+                    type="button"
+                  >
+                    <span className="left-rail-icon"><Icons.Gallery /></span>
+                    <span className="left-rail-label">ギャラリー</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </aside>
 
           <div className="right-panel" ref={rightPanelRef}>
-            {quickActionHint && (
-              <div className="quick-action-tooltip" role="status" aria-live="polite">
-                {quickActionHint}
-              </div>
-            )}
             {(scanStatus !== "scanning" && !isLoading && filteredPhotos.length === 0) && (
               <EmptyState
                 isFiltering={
@@ -1160,50 +1258,82 @@ function App() {
               />
             )}
 
-            <div ref={gridWrapperRef} style={{ flex: 1, minHeight: 0 }}>
+            <div ref={gridWrapperRef} style={{ flex: 1, minHeight: 0, paddingBottom: selectedCount > 0 ? 92 : 0 }}>
               <PhotoGrid
                 photos={displayPhotoItems}
                 viewMode={viewMode}
-                quickActionMode={quickActionMode}
                 scrollTop={scrollTop}
                 columnCount={columnCount}
-                CARD_WIDTH={CARD_WIDTH}
+                columnWidth={standardColumnWidth}
                 totalRows={displayTotalRows}
                 ROW_HEIGHT={ROW_HEIGHT}
                 gridHeight={gridHeight}
                 panelWidth={panelWidth}
                 handleGridScroll={handleGridScroll}
                 handleGridWheel={handleGridWheel}
-                isDragging={isDragging}
-                thumbTop={thumbTop}
-                thumbHeight={thumbHeight}
-                handleTrackClick={handleTrackClick}
-                handleScrollbarMouseDown={handleScrollbarMouseDown}
                 totalHeight={totalHeight}
                 galleryLayout={galleryLayout}
                 cellProps={{ ...cellProps, data: displayPhotoItems }}
                 onGridRef={onGridRef}
               />
             </div>
+            {selectedCount > 0 && (
+              <div className="bulk-selection-bar" role="region" aria-label="複数選択アクション">
+                <div className="bulk-selection-count">{selectedCount}件選択中</div>
+                <div className="bulk-selection-actions">
+                  <button
+                    className={`bulk-selection-button ${bulkFavoriteWillEnable ? "primary" : ""}`}
+                    onClick={() => void handleBulkFavorite()}
+                    type="button"
+                  >
+                    {bulkFavoriteWillEnable ? "一括お気に入り" : "一括お気に入り解除"}
+                  </button>
+                  <button
+                    className="bulk-selection-button"
+                    onClick={openBulkTagModal}
+                    type="button"
+                  >
+                    一括タグ付け
+                  </button>
+                  <button
+                    className="bulk-selection-button"
+                    onClick={() => void handleBulkCopy()}
+                    type="button"
+                  >
+                    一括別フォルダコピー
+                  </button>
+                </div>
+                <button
+                  className="bulk-selection-dismiss"
+                  onClick={clearSelectedPhotos}
+                  aria-label="選択を解除"
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            )}
           </div>
 
-          {viewMode === "standard" && groupingMode === "none" && (
+          {groupingMode === "none" && (
             <MonthNav
               monthsByYear={monthsByYear}
               monthGroups={monthGroups}
               activeMonthIndex={activeMonthIndex}
-              handleJumpToMonth={(group) => handleJumpToRow(group.rowIndex)}
+              scrollTop={scrollTop}
+              maxScrollTop={maxScrollTop}
+              handleJumpToRatio={handleJumpToRatio}
             />
           )}
         </div>
       </main>
 
-      {pendingQuickTagModal && (
-        <div className="modal-overlay" onClick={() => setPendingQuickTagModal(false)}>
+      {isBulkTagModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsBulkTagModalOpen(false)}>
           <div className="modal-content quick-tag-modal" onClick={(event) => event.stopPropagation()}>
             <button
               className="modal-close"
-              onClick={() => setPendingQuickTagModal(false)}
+              onClick={() => setIsBulkTagModalOpen(false)}
               aria-label="閉じる"
             >
               ×
@@ -1211,18 +1341,18 @@ function App() {
             <div className="modal-body" style={{ gridTemplateColumns: "1fr" }}>
               <div className="modal-info">
                 <div className="info-header">
-                  <h2>クイックタグ付け</h2>
+                  <h2>一括タグ付け</h2>
                 </div>
                 <div className="quick-tag-modal-body">
-                  <p>写真クリック時に即時追加するタグを選択してください。</p>
-                  <label className="quick-tag-modal-label" htmlFor="quick-tag-select">既存タグ</label>
+                  <p>{selectedCount}件の写真へ追加するタグを選択してください。</p>
+                  <label className="quick-tag-modal-label" htmlFor="bulk-tag-select">既存タグ</label>
                   <div className="tag-select-wrap">
                     <select
-                      id="quick-tag-select"
+                      id="bulk-tag-select"
                       className="tag-select"
-                      value={quickTagSelection}
+                      value={bulkTagSelection}
                       disabled={!hasMasterTags}
-                      onChange={(event) => setQuickTagSelection(event.target.value)}
+                      onChange={(event) => setBulkTagSelection(event.target.value)}
                     >
                       <option value="">{hasMasterTags ? "タグを選択..." : "タグが登録されていません"}</option>
                       {tagOptions.map((tag) => (
@@ -1232,12 +1362,12 @@ function App() {
                       ))}
                     </select>
                   </div>
-                  <label className="quick-tag-modal-label" htmlFor="quick-tag-draft">新規タグ</label>
+                  <label className="quick-tag-modal-label" htmlFor="bulk-tag-draft">新規タグ</label>
                   <input
-                    id="quick-tag-draft"
+                    id="bulk-tag-draft"
                     className="quick-tag-input"
-                    value={quickTagDraft}
-                    onChange={(event) => setQuickTagDraft(event.target.value)}
+                    value={bulkTagDraft}
+                    onChange={(event) => setBulkTagDraft(event.target.value)}
                     placeholder="新しいタグを入力..."
                     />
                   {!hasMasterTags && (
@@ -1249,16 +1379,16 @@ function App() {
                 <div className="folder-change-actions">
                   <button
                     className="modal-secondary-button"
-                    onClick={() => setPendingQuickTagModal(false)}
+                    onClick={() => setIsBulkTagModalOpen(false)}
                     type="button"
                   >
                     キャンセル
                   </button>
                   <button
                     className="world-link-button"
-                    onClick={applyQuickTagMode}
+                    onClick={() => void applyBulkTag()}
                   >
-                    開始
+                    追加
                   </button>
                 </div>
               </div>
@@ -1309,37 +1439,51 @@ function App() {
           <div className="modal-content settings-panel tweet-template-panel" onClick={(event) => event.stopPropagation()}>
             <button
               className="modal-close"
-              onClick={() => setIsTweetTemplatePanelOpen(false)}
+              onClick={() => {
+                setIsTweetTemplatePanelOpen(false);
+                handleCancelTweetTemplateEdit();
+              }}
               aria-label="閉じる"
               type="button"
             >
               ×
             </button>
-            <div className="modal-body" style={{ gridTemplateColumns: "1fr" }}>
+            <div className="modal-body tweet-template-modal-body">
               <div className="modal-info">
                 <div className="info-header"><h2>投稿テンプレート</h2></div>
                 <div className="memo-section">
-                  <label>新規テンプレート</label>
+                  <label>{editingTweetTemplate ? "テンプレート編集" : "新規テンプレート"}</label>
                   <textarea
                     className="tweet-template-textarea"
                     value={tweetTemplateDraft}
                     onChange={(event) => setTweetTemplateDraft(event.target.value)}
-                    placeholder={`例:\n{world}\n{date}\n{tags}`}
+                    placeholder={`例:\nWorld: {world-name}\nAuthor:\n\n#VRChat_world紹介`}
                   />
                   <div className="tweet-template-help">
-                    使える置換: {"{world}"} {"{date}"} {"{file}"} {"{memo}"} {"{tags}"}
+                    使える置換: {"{world-name}"}
                   </div>
-                  <button
-                    className="save-button"
-                    onClick={() => {
-                      void handleAddTweetTemplate(tweetTemplateDraft);
-                      setTweetTemplateDraft("");
-                    }}
-                    type="button"
-                  >
-                    登録
-                  </button>
+                  <div className="tweet-template-editor-actions">
+                    {editingTweetTemplate && (
+                      <button
+                        className="modal-secondary-button"
+                        onClick={handleCancelTweetTemplateEdit}
+                        type="button"
+                      >
+                        キャンセル
+                      </button>
+                    )}
+                    <button
+                      className="save-button"
+                      onClick={() => void handleSaveTweetTemplate()}
+                      type="button"
+                    >
+                      {editingTweetTemplate ? "更新" : "登録"}
+                    </button>
+                  </div>
                 </div>
+              </div>
+              <div className="modal-info tweet-template-list-panel">
+                <div className="info-header"><h2>テンプレート一覧</h2></div>
                 <div className="memo-section">
                   <label>登録済みテンプレート</label>
                   <div className="tweet-template-list">
@@ -1358,13 +1502,22 @@ function App() {
                           </span>
                           <span className="tweet-template-item-body">{template}</span>
                         </button>
-                        <button
-                          className="tag-master-remove"
-                          onClick={() => void handleDeleteTweetTemplate(template)}
-                          type="button"
-                        >
-                          削除
-                        </button>
+                        <div className="tweet-template-item-actions">
+                          <button
+                            className="modal-secondary-button tweet-template-action-button"
+                            onClick={() => handleStartTweetTemplateEdit(template)}
+                            type="button"
+                          >
+                            編集
+                          </button>
+                          <button
+                            className="tag-master-remove"
+                            onClick={() => void handleDeleteTweetTemplate(template)}
+                            type="button"
+                          >
+                            削除
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

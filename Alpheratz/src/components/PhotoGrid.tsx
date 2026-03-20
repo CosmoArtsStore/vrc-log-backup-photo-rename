@@ -1,14 +1,16 @@
-import { UIEvent, MouseEvent, CSSProperties } from "react";
+import { UIEvent, CSSProperties } from "react";
 import { Grid as FixedSizeGrid } from "react-window";
 import { DisplayPhotoItem } from "../types";
 import { PhotoCard } from "./PhotoCard";
-import { CustomScrollbar } from "./CustomScrollbar";
 import { GalleryPhotoCard } from "./GalleryPhotoCard";
 import { GalleryLayoutResult } from "./galleryLayout";
 
 interface PhotoGridCellProps {
     data: DisplayPhotoItem[];
     onSelect: (item: DisplayPhotoItem) => void;
+    onToggleSelect: (item: DisplayPhotoItem, shiftKey: boolean) => void;
+    isSelected: (item: DisplayPhotoItem) => boolean;
+    showTags: boolean;
     columnCount: number;
 }
 
@@ -28,21 +30,15 @@ interface FixedSizeGridComponentProps {
 interface PhotoGridProps {
     photos: DisplayPhotoItem[];
     viewMode: "standard" | "gallery";
-    quickActionMode?: "idle" | "favorite" | "tag";
     scrollTop: number;
     columnCount: number;
-    CARD_WIDTH: number;
+    columnWidth: number;
     totalRows: number;
     ROW_HEIGHT: number;
     gridHeight: number;
     panelWidth: number;
     handleGridScroll: (e: UIEvent<HTMLDivElement>) => void;
     handleGridWheel: (e: React.WheelEvent<HTMLDivElement>) => void;
-    isDragging: boolean;
-    thumbTop: number;
-    thumbHeight: number;
-    handleTrackClick: (e: MouseEvent<HTMLDivElement>) => void;
-    handleScrollbarMouseDown: (e: MouseEvent) => void;
     totalHeight: number;
     galleryLayout?: GalleryLayoutResult | null;
     cellProps: PhotoGridCellProps;
@@ -54,28 +50,22 @@ const FixedSizeGridComponent = FixedSizeGrid as unknown as React.ComponentType<F
 export const PhotoGrid = ({
     photos,
     viewMode,
-    quickActionMode = "idle",
     scrollTop,
     columnCount,
-    CARD_WIDTH,
+    columnWidth,
     totalRows,
     ROW_HEIGHT,
     gridHeight,
     panelWidth,
     handleGridScroll,
     handleGridWheel,
-    isDragging,
-    thumbTop,
-    thumbHeight,
-    handleTrackClick,
-    handleScrollbarMouseDown,
     totalHeight,
     galleryLayout = null,
     cellProps,
     onGridRef,
 }: PhotoGridProps) => {
     if (viewMode === "gallery") {
-        const overscan = 240;
+        const overscan = 48;
         const visibleTop = Math.max(0, scrollTop - overscan);
         const visibleBottom = scrollTop + gridHeight + overscan;
         const visibleItems = (galleryLayout?.items ?? []).filter((item) => (
@@ -112,20 +102,12 @@ export const PhotoGrid = ({
                             <GalleryPhotoCard
                                 item={item}
                                 onSelect={cellProps.onSelect}
-                                showQuickFavoriteStar={quickActionMode === "favorite"}
+                                onToggleSelect={cellProps.onToggleSelect}
+                                selected={cellProps.isSelected(item)}
                             />
                         </div>
                     ))}
                 </div>
-                {totalHeight > gridHeight && (
-                    <CustomScrollbar
-                        isDragging={isDragging}
-                        thumbTop={thumbTop}
-                        thumbHeight={thumbHeight}
-                        handleTrackClick={handleTrackClick}
-                        handleScrollbarMouseDown={handleScrollbarMouseDown}
-                    />
-                )}
             </div>
         );
     }
@@ -136,7 +118,7 @@ export const PhotoGrid = ({
                 <>
                     <FixedSizeGridComponent
                         columnCount={columnCount}
-                        columnWidth={CARD_WIDTH}
+                        columnWidth={columnWidth}
                         rowCount={totalRows}
                         rowHeight={ROW_HEIGHT}
                         cellComponent={PhotoCard as any}
@@ -146,15 +128,6 @@ export const PhotoGrid = ({
                         style={{ height: gridHeight, width: panelWidth }}
                         className="photo-grid"
                     />
-                    {totalHeight > gridHeight && (
-                        <CustomScrollbar
-                            isDragging={isDragging}
-                            thumbTop={thumbTop}
-                            thumbHeight={thumbHeight}
-                            handleTrackClick={handleTrackClick}
-                            handleScrollbarMouseDown={handleScrollbarMouseDown}
-                        />
-                    )}
                 </>
             )}
         </div>

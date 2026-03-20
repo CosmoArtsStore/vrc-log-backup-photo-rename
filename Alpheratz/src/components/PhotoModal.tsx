@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type WheelEvent } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { Photo } from "../types";
 import { Icons } from "./Icons";
 import { AnimatedFavoriteStar } from "./AnimatedFavoriteStar";
+import { HoverTooltip } from "./HoverTooltip";
+import { useViewportPresence } from "../hooks/useViewportPresence";
 
 interface PhotoModalProps {
   photo: Photo;
@@ -39,36 +41,11 @@ const SimilarPhotoThumb = ({
   onSelect: (photo: Photo) => void;
 }) => {
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
-  const [shouldLoadThumb, setShouldLoadThumb] = useState(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    const node = buttonRef.current;
-    if (!node) {
-      return;
-    }
-
-    if (!("IntersectionObserver" in window)) {
-      setShouldLoadThumb(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const isNearViewport = entries.some((entry) => entry.isIntersecting);
-        setShouldLoadThumb(isNearViewport);
-      },
-      {
-        rootMargin: "80px 0px",
-        threshold: 0.01,
-      },
-    );
-
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-    };
-  }, [photo.photo_path]);
+  const shouldLoadThumb = useViewportPresence(buttonRef, photo.photo_path, {
+    rootMargin: "40px 0px",
+    releaseDelayMs: 180,
+  });
 
   useEffect(() => {
     if (!shouldLoadThumb) {
@@ -77,7 +54,7 @@ const SimilarPhotoThumb = ({
     }
 
     let isMounted = true;
-    invoke<string>("create_display_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
+    invoke<string>("create_grid_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
       .then((path) => {
         if (isMounted) {
           setThumbUrl(convertFileSrc(path));
@@ -133,7 +110,7 @@ export const PhotoModal = ({
   addToast,
 }: PhotoModalProps) => {
   const [selectedExistingTag, setSelectedExistingTag] = useState("");
-  const [isSimilarDrawerOpen, setIsSimilarDrawerOpen] = useState(false);
+  const similarStripRef = useRef<HTMLDivElement | null>(null);
 
   const availableTags = allTags.filter((tag) => !photo.tags.includes(tag));
   const hasAvailableTags = availableTags.length > 0;
@@ -158,8 +135,22 @@ export const PhotoModal = ({
 
   useEffect(() => {
     setSelectedExistingTag("");
-    setIsSimilarDrawerOpen(false);
   }, [photo.photo_path]);
+
+  const handleSimilarStripWheel = (event: WheelEvent<HTMLDivElement>) => {
+    const strip = similarStripRef.current;
+    if (!strip) {
+      return;
+    }
+
+    const delta = Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    if (delta === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    strip.scrollLeft += delta;
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -199,6 +190,27 @@ export const PhotoModal = ({
               </svg>
             </button>
             <img src={convertFileSrc(photo.photo_path)} alt="" />
+            {showSimilarPhotos && similarPhotos.length > 1 && onSelectSimilarPhoto && (
+              <div className="similar-photos-hover-zone">
+                <div className="similar-photos-hover-hint">
+                  類似写真 {similarPhotos.length}枚
+                </div>
+                <div
+                  ref={similarStripRef}
+                  className="similar-photos-hover-strip"
+                  onWheel={handleSimilarStripWheel}
+                >
+                  {similarPhotos.map((item) => (
+                    <SimilarPhotoThumb
+                      key={item.photo_path}
+                      photo={item}
+                      isActive={item.photo_path === photo.photo_path}
+                      onSelect={onSelectSimilarPhoto}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="photo-modal-filename">{photo.photo_filename}</div>
           </div>
 
@@ -269,79 +281,57 @@ export const PhotoModal = ({
               <button className="save-button" onClick={handleSaveMemo} disabled={isSavingMemo} type="button">
                 {isSavingMemo ? "保存中..." : "メモを保存"}
               </button>
-
-              {showSimilarPhotos && similarPhotos.length > 1 && onSelectSimilarPhoto && (
-                <div className={`similar-photos-drawer ${isSimilarDrawerOpen ? "open" : ""}`}>
-                  <button
-                    className="similar-photos-toggle"
-                    onClick={() => setIsSimilarDrawerOpen((prev) => !prev)}
-                    type="button"
-                  >
-                    <span className="similar-photos-toggle-icon">{isSimilarDrawerOpen ? "⌄" : "⌃"}</span>
-                    <span>似た写真 {similarPhotos.length}枚</span>
-                  </button>
-                  {isSimilarDrawerOpen && (
-                    <div className="similar-photos-section">
-                      <div className="similar-photos-strip">
-                        {similarPhotos.map((item) => (
-                          <SimilarPhotoThumb
-                            key={item.photo_path}
-                            photo={item}
-                            isActive={item.photo_path === photo.photo_path}
-                            onSelect={onSelectSimilarPhoto}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             <div className="photo-modal-bottom-actions photo-modal-bottom-actions-four">
-              <button
-                className={`photo-modal-bottom-action photo-modal-bottom-action-favorite ${photo.is_favorite ? "favorite-active" : ""}`}
-                onClick={onToggleFavorite}
-                aria-label={photo.is_favorite ? "お気に入りから解除" : "お気に入りに追加"}
-                type="button"
-              >
-                <AnimatedFavoriteStar liked={photo.is_favorite} className="favorite-star-modal" />
-              </button>
-              <button
-                className="photo-modal-bottom-action photo-modal-bottom-action-tweet"
-                onClick={onTweet}
-                aria-label="ツイート投稿画面を開く"
-                title="ツイート投稿画面を開く"
-                type="button"
-              >
-                <Icons.Quill />
-              </button>
-              <button
-                className="photo-modal-bottom-action photo-modal-bottom-action-world"
-                onClick={handleOpenWorld}
-                disabled={!photo.world_id}
-                aria-label="ワールドリンクを開く"
-                title={photo.world_id ? "ワールドリンクを開く" : "ワールドIDがありません"}
-                type="button"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M3 12h18" />
-                  <path d="M12 3a14 14 0 0 1 0 18" />
-                  <path d="M12 3a14 14 0 0 0 0 18" />
-                </svg>
-              </button>
-              <button
-                className="photo-modal-bottom-action photo-modal-bottom-action-explorer"
-                onClick={() => void handleShowInExplorer()}
-                aria-label="エクスプローラーで表示"
-                title="エクスプローラーで表示"
-                type="button"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l1.7 2H18.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
-                </svg>
-              </button>
+              <HoverTooltip label={photo.is_favorite ? "お気に入りから解除" : "お気に入りに追加"}>
+                <button
+                  className={`photo-modal-bottom-action photo-modal-bottom-action-favorite ${photo.is_favorite ? "favorite-active" : ""}`}
+                  onClick={onToggleFavorite}
+                  aria-label={photo.is_favorite ? "お気に入りから解除" : "お気に入りに追加"}
+                  type="button"
+                >
+                  <AnimatedFavoriteStar liked={photo.is_favorite} className="favorite-star-modal" />
+                </button>
+              </HoverTooltip>
+              <HoverTooltip label="ツイート投稿画面を開く">
+                <button
+                  className="photo-modal-bottom-action photo-modal-bottom-action-tweet"
+                  onClick={onTweet}
+                  aria-label="ツイート投稿画面を開く"
+                  type="button"
+                >
+                  <Icons.Quill />
+                </button>
+              </HoverTooltip>
+              <HoverTooltip label={photo.world_id ? "ワールドリンクを開く" : "ワールドIDがありません"}>
+                <button
+                  className="photo-modal-bottom-action photo-modal-bottom-action-world"
+                  onClick={handleOpenWorld}
+                  disabled={!photo.world_id}
+                  aria-label="ワールドリンクを開く"
+                  type="button"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M3 12h18" />
+                    <path d="M12 3a14 14 0 0 1 0 18" />
+                    <path d="M12 3a14 14 0 0 0 0 18" />
+                  </svg>
+                </button>
+              </HoverTooltip>
+              <HoverTooltip label="エクスプローラーで表示">
+                <button
+                  className="photo-modal-bottom-action photo-modal-bottom-action-explorer"
+                  onClick={() => void handleShowInExplorer()}
+                  aria-label="エクスプローラーで表示"
+                  type="button"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l1.7 2H18.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
+                  </svg>
+                </button>
+              </HoverTooltip>
             </div>
           </div>
         </div>

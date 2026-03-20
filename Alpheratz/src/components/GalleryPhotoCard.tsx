@@ -2,50 +2,28 @@ import { useEffect, useRef, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { DisplayPhotoItem } from "../types";
 import { AnimatedFavoriteStar } from "./AnimatedFavoriteStar";
+import { useViewportPresence } from "../hooks/useViewportPresence";
 
 interface GalleryPhotoCardProps {
     item: DisplayPhotoItem;
     onSelect: (item: DisplayPhotoItem) => void;
-    showQuickFavoriteStar?: boolean;
+    onToggleSelect: (item: DisplayPhotoItem, shiftKey: boolean) => void;
+    selected: boolean;
 }
 
 export const GalleryPhotoCard = ({
     item,
     onSelect,
-    showQuickFavoriteStar = false,
+    onToggleSelect,
+    selected,
 }: GalleryPhotoCardProps) => {
     const photo = item.photo;
     const [thumbUrl, setThumbUrl] = useState<string | null>(null);
-    const [shouldLoadThumb, setShouldLoadThumb] = useState(false);
-    const cardRef = useRef<HTMLButtonElement | null>(null);
-
-    useEffect(() => {
-        const node = cardRef.current;
-        if (!node) {
-            return;
-        }
-
-        if (!("IntersectionObserver" in window)) {
-            setShouldLoadThumb(true);
-            return;
-        }
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                const isNearViewport = entries.some((entry) => entry.isIntersecting);
-                setShouldLoadThumb(isNearViewport);
-            },
-            {
-                rootMargin: "120px 0px",
-                threshold: 0.01,
-            },
-        );
-
-        observer.observe(node);
-        return () => {
-            observer.disconnect();
-        };
-    }, [photo.photo_path]);
+    const cardRef = useRef<HTMLDivElement | null>(null);
+    const shouldLoadThumb = useViewportPresence(cardRef, photo.photo_path, {
+        rootMargin: "96px 0px",
+        releaseDelayMs: 180,
+    });
 
     useEffect(() => {
         if (!shouldLoadThumb) {
@@ -53,7 +31,7 @@ export const GalleryPhotoCard = ({
             return;
         }
         let isMounted = true;
-        invoke<string>("create_display_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
+        invoke<string>("create_grid_thumbnail", { path: photo.photo_path, sourceSlot: photo.source_slot ?? 1 })
             .then((path) => {
                 if (isMounted) {
                     setThumbUrl(convertFileSrc(path));
@@ -70,33 +48,32 @@ export const GalleryPhotoCard = ({
         };
     }, [shouldLoadThumb, photo.photo_path, photo.source_slot]);
 
-    const orientationClass = photo.orientation === "portrait"
-        ? "portrait"
-        : photo.orientation === "landscape"
-            ? "landscape"
-            : "unknown";
-
-    const frameRatio = (() => {
-        if (photo.orientation === "portrait") {
-            return "9 / 16";
-        }
-        if (photo.orientation === "landscape") {
-            return "16 / 9";
-        }
-        return "1 / 1";
-    })();
-
     return (
-        <button
+        <div
             ref={cardRef}
-            type="button"
-            className={`gallery-photo-card ${orientationClass}`}
+            className={`gallery-photo-card ${selected ? "selected" : ""}`}
             onClick={() => onSelect(item)}
+            onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect(item);
+                }
+            }}
+            role="button"
+            tabIndex={0}
         >
-            <div
-                className={`gallery-photo-thumb ${orientationClass}`}
-                style={{ aspectRatio: frameRatio }}
-            >
+            <div className="gallery-photo-thumb">
+                <button
+                    className={`photo-select-toggle ${selected ? "selected" : ""}`}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleSelect(item, event.shiftKey);
+                    }}
+                    aria-label={selected ? "選択解除" : "選択"}
+                    type="button"
+                >
+                    {selected ? "✓" : ""}
+                </button>
                 {thumbUrl ? (
                     <img
                         src={thumbUrl}
@@ -109,11 +86,9 @@ export const GalleryPhotoCard = ({
                 ) : (
                     <div className="photo-thumb-skeleton" />
                 )}
-                {showQuickFavoriteStar && (
-                    <div className={`gallery-quick-favorite-star ${photo.is_favorite ? "active" : ""}`} aria-hidden="true">
-                        <AnimatedFavoriteStar liked={photo.is_favorite} className="favorite-star-gallery" />
-                    </div>
-                )}
+                <div className={`gallery-quick-favorite-star ${photo.is_favorite ? "active" : ""}`} aria-hidden="true">
+                    <AnimatedFavoriteStar liked={photo.is_favorite} className="favorite-star-gallery" />
+                </div>
                 {!!item.groupCount && item.groupCount > 1 && (
                     <div className="gallery-group-count-badge" aria-hidden="true">{item.groupCount}枚</div>
                 )}
@@ -131,6 +106,6 @@ export const GalleryPhotoCard = ({
                     </div>
                 </div>
             </div>
-        </button>
+        </div>
     );
 };
