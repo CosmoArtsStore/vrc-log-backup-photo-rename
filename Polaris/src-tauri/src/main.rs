@@ -1,39 +1,50 @@
 #![windows_subsystem = "windows"]
 
-mod tray;
-mod utils;
+mod bootstrap;
 
 use std::fs;
-use std::thread;
+use std::path::Path;
 use std::time::Duration;
 
+use anyhow::{anyhow, bail, Context, Result};
+use log::{error, info};
 use sysinfo::{ProcessesToUpdate, System};
-use tray::TrayRuntime;
+use tempfile::NamedTempFile;
 use windows::core::PCWSTR;
-use windows::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE};
+use windows::Win32::Foundation::{
+    CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE, WAIT_FAILED,
+};
 use windows::Win32::System::Threading::{
     CreateMutexW, OpenProcess, WaitForSingleObject, INFINITE, PROCESS_SYNCHRONIZE,
 };
 
+use crate::bootstrap::{
+    build_runtime_paths, init_logger, install_panic_hook, read_install_dir_from_registry, RuntimePaths,
+};
+
 fn main() {
-    utils::install_panic_hook();
-
     let _single_instance_guard = create_single_instance_guard();
-
-    // 起動時は一度だけ VRChat の状態を見て、動いていなければすぐ差分バックアップする。
-    // 動いている場合は、そのセッションが終わるまで待ってから回収する。
-    run_initial_cycle();
-
-    let tray_runtime = match TrayRuntime::build() {
-        Ok(runtime) => runtime,
+    let install_dir = match read_install_dir_from_registry() {
+        Ok(path) => path,
         Err(err) => {
-            utils::log_err(&format!("tray init failed: {}", err));
+            eprintln!("{err}");
             return;
         }
     };
+    if !install_dir.is_dir() {
+        eprintln!("インストール先フォルダが見つかりません。再インストールしてください。");
+        return;
+    }
+    let runtime_paths = build_runtime_paths(install_dir);
 
-    start_monitor_thread();
-    tray_runtime.run_message_loop();
+    if let Err(err) = init_logger(&runtime_paths.log_path) {
+        eprintln!("ログ初期化に失敗しました: {err}");
+        return;
+    }
+    install_panic_hook();
+
+    run_initial_cycle(&runtime_paths);
+    run_monitor_loop(&runtime_paths);
 }
 
 fn create_single_instance_guard() -> Option<HANDLE> {
@@ -46,158 +57,91 @@ fn create_single_instance_guard() -> Option<HANDLE> {
     Some(mutex)
 }
 
-fn run_initial_cycle() {
+fn run_initial_cycle(runtime_paths: &RuntimePaths) {
     let mut system = System::new();
-    match find_vrchat_pid(&mut system) {
-        Some(pid) => {
-            if let Err(err) = wait_for_vrchat_exit(pid) {
-                utils::log_err(&format!("initial VRChat wait failed: {}", err));
-            } else {
-                backup_logs();
-            }
+    if let Some(pid) = find_vrchat_pid(&mut system) {
+        if let Err(err) = wait_for_vrchat_exit(pid) {
+            error!("起動直後のVRChat待機に失敗しました: {err}");
+        } else {
+            backup_logs(runtime_paths);
         }
-        None => backup_logs(),
+    } else {
+        backup_logs(runtime_paths);
     }
 }
 
-fn start_monitor_thread() {
-    thread::spawn(move || {
-        let mut system = System::new();
+fn run_monitor_loop(runtime_paths: &RuntimePaths) {
+    let mut system = System::new();
 
-        loop {
-            if let Some(pid) = find_vrchat_pid(&mut system) {
-                match wait_for_vrchat_exit(pid) {
-                    Ok(()) => backup_logs(),
-                    Err(err) => utils::log_err(&format!("VRChat wait failed: {}", err)),
-                }
+    loop {
+        if let Some(pid) = find_vrchat_pid(&mut system) {
+            match wait_for_vrchat_exit(pid) {
+                Ok(()) => backup_logs(runtime_paths),
+                Err(err) => error!("VRChatの終了待機に失敗しました: {err}"),
             }
-
-            // VRChat が見つからない間は 10 秒ごとに確認し続ける。
-            thread::sleep(Duration::from_secs(10));
         }
-    });
+
+        std::thread::sleep(Duration::from_secs(10));
+    }
 }
 
 fn find_vrchat_pid(system: &mut System) -> Option<u32> {
-    // プロセス一覧を最新化してから、VRChat 本体の PID を探す。
-    // PID は「いま動いている VRChat を待つための番号」だと考えれば十分。
     system.refresh_processes(ProcessesToUpdate::All, false);
     system
         .processes()
         .values()
-        .find(|process| {
-            let process_name = process.name().to_string_lossy();
-            process_name.eq_ignore_ascii_case("vrchat.exe")
-                || process_name.eq_ignore_ascii_case("vrchat")
+        .find(|process| match process.name().to_string_lossy() {
+            name if name.eq_ignore_ascii_case("vrchat.exe") => true,
+            name if name.eq_ignore_ascii_case("vrchat") => true,
+            _ => false,
         })
         .map(|process| process.pid().as_u32())
 }
 
-fn wait_for_vrchat_exit(pid: u32) -> Result<(), String> {
+fn wait_for_vrchat_exit(pid: u32) -> Result<()> {
     let process_handle = unsafe { OpenProcess(PROCESS_SYNCHRONIZE, false, pid) }
-        .map_err(|err| utils::platform_err("OpenProcess failed while watching VRChat", err))?;
+        .context("VRChat監視用のプロセスを開けませんでした")?;
 
+    let wait_result = unsafe { WaitForSingleObject(process_handle, INFINITE) };
     unsafe {
-        // ここでやっているのは「VRChat が閉じられるまで待つ」だけ。
-        // 終了後にログファイルの内容が固まるので、その直後にバックアップする。
-        WaitForSingleObject(process_handle, INFINITE);
         if let Err(err) = CloseHandle(process_handle) {
-            utils::log_warn(&format!(
-                "CloseHandle failed after VRChat exit wait: {}",
-                err
-            ));
+            error!("VRChat待機後のハンドル解放に失敗しました: {err}");
         }
+    }
+    if wait_result == WAIT_FAILED {
+        bail!("VRChatの終了待機に失敗しました。");
     }
 
     Ok(())
 }
 
-fn backup_logs() {
-    // 常駐アプリなので、一部ファイルの失敗で全体停止しない。
-    // 取れたファイルだけを退避し、失敗はログに残して次へ進む。
-    let destination_dir = match utils::archive_dir() {
-        Some(path) => path,
-        None => {
-            utils::log_err("install directory for Polaris was not found");
-            return;
-        }
-    };
-
-    if let Err(err) = fs::create_dir_all(&destination_dir) {
-        utils::log_err(&format!(
-            "archive directory could not be created [{}]: {}",
-            destination_dir.display(),
-            err
-        ));
+fn backup_logs(runtime_paths: &RuntimePaths) {
+    let destination_dir = &runtime_paths.archive_dir;
+    if let Err(err) = fs::create_dir_all(destination_dir) {
+        error!("archiveフォルダを作成できませんでした [{}]: {err}", destination_dir.display());
         return;
     }
 
-    let source_dir = match vrchat_log_dir() {
-        Some(path) => path,
-        None => {
-            utils::log_err("VRChat log directory could not be resolved");
-            return;
-        }
-    };
-
-    let entries = match fs::read_dir(&source_dir) {
+    let source_dir = &runtime_paths.vrchat_log_dir;
+    let entries = match fs::read_dir(source_dir) {
         Ok(entries) => entries,
         Err(err) => {
-            utils::log_err(&format!(
-                "VRChat log directory could not be read [{}]: {}",
-                source_dir.display(),
-                err
-            ));
+            error!("VRChatのログフォルダを開けませんでした [{}]: {err}", source_dir.display());
             return;
         }
     };
 
+    let mut copied_count = 0;
     for entry in entries {
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(err) => {
-                utils::log_warn(&format!("directory entry read failed: {}", err));
-                continue;
-            }
-        };
-
-        let source_path = entry.path();
-        let Some(file_name) = source_path.file_name().and_then(|name| name.to_str()) else {
-            utils::log_warn("log file name could not be decoded as text");
-            continue;
-        };
-
-        if !is_backup_target(file_name) {
-            continue;
+        match backup_log_entry(entry, destination_dir) {
+            Ok(true) => copied_count += 1,
+            Ok(false) => {}
+            Err(err) => error!("{err}"),
         }
+    }
 
-        let source_size = match fs::metadata(&source_path) {
-            Ok(metadata) => metadata.len(),
-            Err(err) => {
-                utils::log_warn(&format!(
-                    "source metadata read failed [{}]: {}",
-                    file_name, err
-                ));
-                continue;
-            }
-        };
-
-        let destination_path = destination_dir.join(file_name);
-        let destination_size = fs::metadata(&destination_path)
-            .map(|metadata| metadata.len())
-            .unwrap_or(0);
-
-        // バックアップ対象は文書どおりに限定する。
-        // 1. output_log_*.txt である
-        // 2. コピー先にまだ無い
-        // 3. 既存より大きい
-        if destination_size != 0 && source_size <= destination_size {
-            continue;
-        }
-
-        if let Err(copy_err) = copy_log_file(&source_path, &destination_path) {
-            utils::log_err(&format!("log copy failed [{}]: {}", file_name, copy_err));
-        }
+    if copied_count > 0 {
+        info!("ログを{}件バックアップしました。", copied_count);
     }
 }
 
@@ -205,44 +149,62 @@ fn is_backup_target(file_name: &str) -> bool {
     file_name.starts_with("output_log_") && file_name.ends_with(".txt")
 }
 
-fn vrchat_log_dir() -> Option<std::path::PathBuf> {
-    // VRChat のログは Windows のユーザーデータ配下にある固定フォルダへ出る。
-    let local_dir = dirs::data_local_dir()?;
-    let appdata_dir = local_dir.parent()?;
-    Some(appdata_dir.join("LocalLow").join("VRChat").join("VRChat"))
+fn backup_log_entry(entry: std::io::Result<fs::DirEntry>, destination_dir: &Path) -> Result<bool> {
+    let entry = entry.context("ログフォルダ内の項目を読めませんでした")?;
+    let source_path = entry.path();
+    let file_name = source_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .context("ログファイル名を文字列として解釈できませんでした")?;
+    if !is_backup_target(file_name) {
+        return Ok(false);
+    }
+
+    let source_size = fs::metadata(&source_path)
+        .with_context(|| format!("元ログのメタデータを読めませんでした [{}]", file_name))?
+        .len();
+    let destination_path = destination_dir.join(file_name);
+    let destination_size = fs::metadata(&destination_path)
+        .map(|metadata| metadata.len())
+        .unwrap_or(0);
+    if destination_size != 0 && source_size <= destination_size {
+        return Ok(false);
+    }
+
+    copy_log_file(&source_path, &destination_path)
+        .with_context(|| format!("ログのコピーに失敗しました [{}]", file_name))?;
+    Ok(true)
 }
 
-fn copy_log_file(
-    source_path: &std::path::Path,
-    destination_path: &std::path::Path,
-) -> Result<(), String> {
-    #[cfg(windows)]
-    {
-        use std::io::copy;
-        use std::os::windows::fs::OpenOptionsExt;
-        use windows::Win32::Storage::FileSystem::{
-            FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
-        };
+fn copy_log_file(source_path: &Path, destination_path: &Path) -> Result<()> {
+    use std::io::{copy, ErrorKind};
+    use std::os::windows::fs::OpenOptionsExt;
+    use windows::Win32::Storage::FileSystem::{FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE};
 
-        // 読み取り専用で開きつつ、VRChat 側には読み書き削除を許可したままにする。
-        // つまり Polaris は邪魔せず、相手のファイル利用をブロックしない。
-        let mut source_file = fs::OpenOptions::new()
-            .read(true)
-            .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0 | FILE_SHARE_DELETE.0)
-            .open(source_path)
-            .map_err(|err| utils::platform_err("source open failed", err))?;
-        let mut destination_file = fs::File::create(destination_path)
-            .map_err(|err| utils::platform_err("destination create failed", err))?;
+    let destination_dir = destination_path
+        .parent()
+        .context("コピー先フォルダを取得できませんでした")?;
+    let mut source_file = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(FILE_SHARE_READ.0 | FILE_SHARE_WRITE.0 | FILE_SHARE_DELETE.0)
+        .open(source_path)
+        .context("コピー元ログを開けませんでした")?;
+    let mut temp_file = NamedTempFile::new_in(destination_dir)
+        .context("一時ファイルを作成できませんでした")?;
 
-        copy(&mut source_file, &mut destination_file)
-            .map_err(|err| utils::platform_err("file copy failed", err))?;
-        Ok(())
+    copy(&mut source_file, &mut temp_file).context("ログファイルのコピーに失敗しました")?;
+    temp_file
+        .as_file()
+        .sync_all()
+        .context("一時ファイルを保存できませんでした")?;
+    if let Err(err) = fs::remove_file(destination_path) {
+        if err.kind() != ErrorKind::NotFound {
+            return Err(err).context("既存バックアップを置き換えられませんでした");
+        }
     }
+    temp_file
+        .persist(destination_path)
+        .map_err(|err| anyhow!("バックアップを確定できませんでした: {}", err.error))?;
 
-    #[cfg(not(windows))]
-    {
-        fs::copy(source_path, destination_path)
-            .map(|_| ())
-            .map_err(|err| utils::platform_err("file copy failed", err))
-    }
+    Ok(())
 }
